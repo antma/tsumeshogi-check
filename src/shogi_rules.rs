@@ -18,12 +18,12 @@ pub mod piece {
   pub const PROMOTED_SILVER: i8 = SILVER + PROMOTED;
   pub const PROMOTED_BISHOP: i8 = BISHOP + PROMOTED;
   pub const PROMOTED_ROOK: i8 = ROOK + PROMOTED;
-  pub const KNIGHT_MOVES: [(isize, isize); 2] = [(-2, -1), (-2, 1)];
-  pub const SILVER_MOVES: [(isize, isize); 5] = [(-1, -1), (-1, 0), (-1, 1), (1, -1), (1, 1)];
-  pub const GOLD_MOVES: [(isize, isize); 6] = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, 0)];
-  pub const ROOK_MOVES: [(isize, isize); 4] = [(-1, 0), (0, -1), (0, 1), (1, 0)];
-  pub const BISHOP_MOVES: [(isize, isize); 4] = [(-1, -1), (-1, 1), (1, -1), (1, 1)];
-  pub const KING_MOVES: [(isize, isize); 8] = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)];
+  pub const KNIGHT_MOVES: [Dir; 2] = [(-2, -1), (-2, 1)];
+  pub const SILVER_MOVES: [Dir; 5] = [(-1, -1), (-1, 0), (-1, 1), (1, -1), (1, 1)];
+  pub const GOLD_MOVES: [Dir; 6] = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, 0)];
+  pub const ROOK_MOVES: [Dir; 4] = [(-1, 0), (0, -1), (0, 1), (1, 0)];
+  pub const BISHOP_MOVES: [Dir; 4] = [(-1, -1), (-1, 1), (1, -1), (1, 1)];
+  pub const KING_MOVES: [Dir; 8] = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)];
   //flags: +1 - bishop
   //flags: +2 - rook
   //flags: +4 - general (forward)
@@ -136,6 +136,12 @@ pub struct Move {
 pub struct Checks {
   pub attacking_pieces: Vec<usize>,
   pub blocking_cells: u128,
+}
+
+impl Checks {
+  fn blocking_cell(&self, cell: usize) -> bool {
+    (self.blocking_cells & (1u128 << cell)) != 0
+  }
 }
 
 #[derive(Debug)]
@@ -256,8 +262,8 @@ impl Position {
     })
   }
   //true -> stop, false -> continue
-  fn enumerate_piece_move<F: Fn(&Position, Move) -> bool>
-    (&self, f: &F, pos: usize, piece: i8, delta_row: isize, delta_col: isize, sliding: bool) -> bool {
+  fn enumerate_piece_move<F: FnMut(Move) -> bool>
+    (&self, f: &mut F, pos: usize, piece: i8, delta_row: isize, delta_col: isize, sliding: bool) -> bool {
     let mut row = pos / 9;
     let mut col = pos % 9;
     let p = promotion_zone(pos, self.side);
@@ -278,7 +284,7 @@ impl Position {
           from_piece: piece,
           to_piece: piece,
         };
-        if f(&self, m) { return true; }
+        if f(m) { return true; }
       }
       if piece::could_promoted(piece) && (p || promotion_zone(k, self.side)) {
         let m = Move {
@@ -287,70 +293,70 @@ impl Position {
           from_piece: piece,
           to_piece: piece + piece.signum() * piece::PROMOTED,
         };
-        if f(&self, m) { return true; }
+        if f(m) { return true; }
       }
       if t != 0 || !sliding { break; }
     }
     false
   }
-  fn enumerate_simple_moves<F: Fn(&Position, Move) -> bool>(&self, f: &F) -> bool {
+  fn enumerate_simple_moves<F: FnMut(Move) -> bool>(&self, mut f: F) -> bool {
     for (pos, &v) in self.board.iter().enumerate() {
       if self.side * v <= 0 { continue; }
       let w = piece::unpromote(v);
       if v == piece::PAWN {
-        if self.enumerate_piece_move(f, pos, v, -1, 0, false) { return true; }
+        if self.enumerate_piece_move(&mut f, pos, v, -1, 0, false) { return true; }
       } else if v == -piece::PAWN {
-        if self.enumerate_piece_move(f, pos, v, 1, 0, false) { return true; }
+        if self.enumerate_piece_move(&mut f, pos, v, 1, 0, false) { return true; }
       } else if v == piece::LANCE {
-        if self.enumerate_piece_move(f, pos, v, -1, 0, true) { return true; }
+        if self.enumerate_piece_move(&mut f, pos, v, -1, 0, true) { return true; }
       } else if v == -piece::LANCE {
-        if self.enumerate_piece_move(f, pos, v, 1, 0, true) { return true; }
+        if self.enumerate_piece_move(&mut f, pos, v, 1, 0, true) { return true; }
       } else if v == piece::KNIGHT {
-        if self.enumerate_piece_move(f, pos, v, -2, -1, false) { return true; }
-        if self.enumerate_piece_move(f, pos, v, -2, 1, false) { return true; }
+        if self.enumerate_piece_move(&mut f, pos, v, -2, -1, false) { return true; }
+        if self.enumerate_piece_move(&mut f, pos, v, -2, 1, false) { return true; }
       } else if v == -piece::KNIGHT {
-        if self.enumerate_piece_move(f, pos, v, 2, -1, false) { return true; }
-        if self.enumerate_piece_move(f, pos, v, 2, 1, false) { return true; }
+        if self.enumerate_piece_move(&mut f, pos, v, 2, -1, false) { return true; }
+        if self.enumerate_piece_move(&mut f, pos, v, 2, 1, false) { return true; }
       } else if v == piece::SILVER {
         for t in piece::SILVER_MOVES.iter() {
-          if self.enumerate_piece_move(f, pos, v, t.0, t.1, false) { return true; }
+          if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false) { return true; }
         }
       } else if v == -piece::SILVER {
         for t in piece::SILVER_MOVES.iter() {
-          if self.enumerate_piece_move(f, pos, v, -t.0, -t.1, false) { return true; }
+          if self.enumerate_piece_move(&mut f, pos, v, -t.0, -t.1, false) { return true; }
         }
       } else if v == piece::GOLD || v == piece::PROMOTED_PAWN || v == piece::PROMOTED_LANCE ||
                 v == piece::PROMOTED_KNIGHT || v == piece::PROMOTED_SILVER {
         for t in piece::GOLD_MOVES.iter() {
-          if self.enumerate_piece_move(f, pos, v, t.0, t.1, false) { return true; }
+          if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false) { return true; }
         }
       } else if v == -piece::GOLD || v == -piece::PROMOTED_PAWN || v == -piece::PROMOTED_LANCE ||
                 v == -piece::PROMOTED_KNIGHT || v == -piece::PROMOTED_SILVER {
         for t in piece::GOLD_MOVES.iter() {
-          if self.enumerate_piece_move(f, pos, v, -t.0, -t.1, false) { return true; }
+          if self.enumerate_piece_move(&mut f, pos, v, -t.0, -t.1, false) { return true; }
         }
       } else if w == piece::BISHOP || w == -piece::BISHOP {
         for t in piece::BISHOP_MOVES.iter() {
-          if self.enumerate_piece_move(f, pos, v, t.0, t.1, true) { return true; }
+          if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, true) { return true; }
         }
       } else if w == piece::ROOK || w == -piece::ROOK {
         for t in piece::ROOK_MOVES.iter() {
-          if self.enumerate_piece_move(f, pos, v, t.0, t.1, true) { return true; }
+          if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, true) { return true; }
         }
       } else if v == piece::KING || v == -piece::KING {
         for t in piece::KING_MOVES.iter() {
-          if self.enumerate_piece_move(f, pos, v, t.0, t.1, false) { return true; }
+          if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false) { return true; }
         }
       }
       //promoted
       if v != w {
         if w == piece::BISHOP || w == -piece::BISHOP {
           for t in piece::ROOK_MOVES.iter() {
-            if self.enumerate_piece_move(f, pos, v, t.0, t.1, false) { return true; }
+            if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false) { return true; }
           }
         } else if w == piece::ROOK || w == -piece::ROOK {
           for t in piece::BISHOP_MOVES.iter() {
-            if self.enumerate_piece_move(f, pos, v, t.0, t.1, false) { return true; }
+            if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false) { return true; }
           }
         }
       }
@@ -459,8 +465,34 @@ impl Position {
   }
   pub fn is_legal(&self) -> bool { !self.compute_checks().attacking_pieces.is_empty() }
   pub fn is_check(&self) -> bool { !self.compute_checks().attacking_pieces.is_empty() }
-  fn enumerate_moves(&self) -> Vec<Move> {
-    Vec::new()
+  pub fn enumerate_moves(&self) -> Vec<Move> {
+    let mut r = Vec::new();
+    let c = self.find_checks(self.side);
+    let l = c.attacking_pieces.len();
+    //TODO: enumerate drops
+    if l == 0 {
+      //no check
+      self.enumerate_simple_moves(|m| {
+        r.push(m);
+        false
+      });
+    } else if l == 1 {
+      self.enumerate_simple_moves(|m| {
+        if m.from_piece.abs() == piece::KING || c.blocking_cell(m.to) {
+          r.push(m);
+        }
+        false
+      });
+    } else {
+      assert_eq!(l, 2);
+      self.enumerate_simple_moves(|m| {
+        if m.from_piece.abs() == piece::KING {
+          r.push(m);
+        }
+        false
+      });
+    }
+    r
   }
   pub fn do_move(&mut self, m: &Move) -> UndoMove {
     if m.from != 0xff {
