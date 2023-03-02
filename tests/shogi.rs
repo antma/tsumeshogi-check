@@ -8,3 +8,13 @@ fn double_check() {
   assert_eq!(c.blocking_cells, 0);
 }
 
+#[test]
+fn knight_check() {
+  let pos = Position::parse_sfen("2n6/9/1K7/9/9/9/9/9/9 b - 1").unwrap();
+  let c = pos.find_checks();
+  assert_eq!(c.attacking_pieces, vec![6]);
+  let pos = Position::parse_sfen("n8/9/1K7/9/9/9/9/9/9 b - 1").unwrap();
+  let c = pos.find_checks();
+  assert_eq!(c.attacking_pieces, vec![8]);
+}
+

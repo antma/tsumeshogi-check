@@ -182,9 +182,9 @@ impl Position {
           }
           let p = piece::from_char(c);
           if p == piece::NONE {
-            return Err(ParseSFENError::new(sfen, format!("invalid piece in cell {}", cell::to_string(row, col))));
+            return Err(ParseSFENError::new(sfen, format!("invalid piece in cell {}", cell::to_string(row, 8-col))));
           }
-          board[9 * row + col] = p;
+          board[9 * row + (8 - col)] = p;
           col += 1;
         }
       }
@@ -403,9 +403,9 @@ impl Position {
     }
     //knight checks
     for t in piece::KNIGHT_MOVES.iter() {
-      let r = (king_row as isize) - t.0 * (s as isize);
+      let r = (king_row as isize) + t.0 * (s as isize);
       if r < 0 || r >= 9 { continue; }
-      let c = (king_col as isize) - t.1 * (s as isize);
+      let c = (king_col as isize) + t.1 * (s as isize);
       if c < 0 || c >= 9 { continue; }
       let k = r as usize * 9 + c as usize;
       let piece = self.board[k];
