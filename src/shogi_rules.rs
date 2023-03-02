@@ -75,7 +75,6 @@ pub mod piece {
       KNIGHT => false,
       _ => {
         panic!("piece::is_near_dir() unhandled piece {}", abs_piece);
-        false
       }
     }
   }
@@ -126,7 +125,7 @@ fn promotion_zone(cell: usize, side: i8) -> bool {
   }
 }
 
-struct Move {
+pub struct Move {
   from: usize,
   to: usize,
   from_piece: i8,
@@ -154,10 +153,9 @@ impl ParseSFENError {
   }
 }
 
-pub UndoMove {
+pub struct UndoMove {
   taken_piece: i8,
 }
-
 
 impl Position {
   pub fn parse_sfen(sfen: &str) -> Result<Self, ParseSFENError> {
@@ -449,14 +447,18 @@ impl Position {
     let king = piece::KING * s;
     self.board.iter().enumerate().find_map(|(i, v)| if *v == king { Some(i) } else { None })
   }
-  pub fn find_checks(&self) -> Checks {
-    let king_pos = self.find_king(self.side);
+  fn find_checks(&self, s: i8) -> Checks {
+    let king_pos = self.find_king(s);
     match king_pos {
-      Some(king_pos) => self.checks(king_pos, self.side),
+      Some(king_pos) => self.checks(king_pos, s),
       None => Checks::default(),
     }
   }
-  pub fn is_check(&self) -> bool { !self.find_checks().attacking_pieces.is_empty() }
+  pub fn compute_checks(&self) -> Checks {
+    self.find_checks(self.side)
+  }
+  pub fn is_legal(&self) -> bool { !self.compute_checks().attacking_pieces.is_empty() }
+  pub fn is_check(&self) -> bool { !self.compute_checks().attacking_pieces.is_empty() }
   fn enumerate_moves(&self) -> Vec<Move> {
     Vec::new()
   }
