@@ -205,6 +205,15 @@ impl Position {
         }
       }
     }
+    //checking nifu
+    for col in 0 .. 9 {
+      if board.iter().skip(col).step_by(9).filter(|&&q| q == piece::PAWN).count() >= 2 {
+        return Err(ParseSFENError::new(sfen, format!("more than one black pawn in column {}", col)));
+      }
+      if board.iter().skip(col).step_by(9).filter(|&&q| q == -piece::PAWN).count() >= 2 {
+        return Err(ParseSFENError::new(sfen, format!("more than one white pawn in column {}", col)));
+      }
+    }
     let side =
       if a[1] == "w" { -1 }
       else if a[1] == "b" { 1 }
