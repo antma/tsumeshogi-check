@@ -135,12 +135,13 @@ struct Move {
 }
 
 #[derive(Default)]
-struct Checks {
-  attacking_pieces: Vec<usize>,
-  blocking_cells: u128,
+pub struct Checks {
+  pub attacking_pieces: Vec<usize>,
+  pub blocking_cells: u128,
 }
 
-struct ParseSFENError {
+#[derive(Debug)]
+pub struct ParseSFENError {
   sfen: String,
   message: String,
 }
@@ -156,7 +157,7 @@ impl ParseSFENError {
 
 
 impl Position {
-  fn parse_sfen(sfen: &str) -> Result<Self, ParseSFENError> {
+  pub fn parse_sfen(sfen: &str) -> Result<Self, ParseSFENError> {
     //k8/p1K6/1N7/9/9/9/9/9/9 w P2r2b4g4s3n4l16p 1
     let a: Vec<_> = sfen.split(' ').collect();
     if a.len() != 4 {
@@ -422,7 +423,7 @@ impl Position {
     let king = piece::KING * s;
     self.board.iter().enumerate().find_map(|(i, v)| if *v == king { Some(i) } else { None })
   }
-  fn find_checks(&self) {
+  pub fn find_checks(&self) -> Checks {
     let king_pos = self.find_king(self.side);
     match king_pos {
       Some(king_pos) => self.checks(king_pos, self.side),
