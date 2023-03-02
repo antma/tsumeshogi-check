@@ -79,7 +79,6 @@ pub mod piece {
       }
     }
   }
-   //k8/p1K6/1N7/9/9/9/9/9/9 w P2r2b4g4s3n4l16p 1
   pub fn from_char(c: char) -> i8 {
     let s =
       if c.is_uppercase() { 1 }
@@ -106,7 +105,6 @@ pub struct Position {
   white_pockets: [u8; 8],
   side: i8,
   move_no: u32,
-  //checks: Option<Box<Checks>>,
 }
 
 pub mod cell {
@@ -156,10 +154,13 @@ impl ParseSFENError {
   }
 }
 
+pub UndoMove {
+  taken_piece: i8,
+}
+
 
 impl Position {
   pub fn parse_sfen(sfen: &str) -> Result<Self, ParseSFENError> {
-    //k8/p1K6/1N7/9/9/9/9/9/9 w P2r2b4g4s3n4l16p 1
     let a: Vec<_> = sfen.split(' ').collect();
     if a.len() != 4 {
       return Err(ParseSFENError::new(sfen, format!("invalid number of tokens ({}), expected <position> <color> <pocket> <move>", a.len())));
@@ -458,5 +459,23 @@ impl Position {
   pub fn is_check(&self) -> bool { !self.find_checks().attacking_pieces.is_empty() }
   fn enumerate_moves(&self) -> Vec<Move> {
     Vec::new()
+  }
+  pub fn do_move(&mut self, m: &Move) -> UndoMove {
+    if m.from != 0xff {
+      self.board[m.from] = piece::NONE;
+    }
+    let taken_piece = self.board[m.to];
+    self.board[m.to] = m.to_piece;
+    self.move_no += 1;
+    UndoMove {
+      taken_piece,
+    }
+  }
+  pub fn undo_move(&mut self, m: &Move, u: &UndoMove) {
+    self.board[m.to] = u.taken_piece;
+    if m.from != 0xff {
+      self.board[m.from] = m.from_piece;
+    }
+    self.move_no -= 1;
   }
 }
