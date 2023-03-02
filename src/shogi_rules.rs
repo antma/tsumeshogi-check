@@ -72,8 +72,9 @@ pub mod piece {
       ROOK => (flags & 2) != 0,
       SILVER => (flags & 5) != 0,
       PROMOTED_PAWN | PROMOTED_LANCE | PROMOTED_KNIGHT | PROMOTED_SILVER | GOLD => (flags & 6) != 0,
+      KNIGHT => false,
       _ => {
-        assert!(false);
+        panic!("piece::is_near_dir() unhandled piece {}", abs_piece);
         false
       }
     }
@@ -170,12 +171,18 @@ impl Position {
     let mut board: [i8; 81] = [piece::NONE; 81];
     for (row, s) in b.iter().enumerate() {
       let mut col = 0;
+      let mut promoted = 0;
       for c in s.chars() {
         if c.is_digit(10) {
           col += c.to_digit(10).unwrap() as usize;
           if col > 9 {
             return Err(ParseSFENError::new(sfen, format!("invalid number of columns in row {}", row + 1)));
           }
+        } else if c == '+' {
+          if promoted != 0 {
+            return Err(ParseSFENError::new(sfen, format!("double promotion in cell {}", cell::to_string(row, 8-col))));
+          }
+          promoted = piece::PROMOTED;
         } else {
           if col > 9 {
             return Err(ParseSFENError::new(sfen, format!("invalid number of columns in row {}", row + 1)));
@@ -184,7 +191,16 @@ impl Position {
           if p == piece::NONE {
             return Err(ParseSFENError::new(sfen, format!("invalid piece in cell {}", cell::to_string(row, 8-col))));
           }
-          board[9 * row + (8 - col)] = p;
+          if promoted != 0 {
+            if p == piece::KING {
+              return Err(ParseSFENError::new(sfen, format!("promoted king in cell {}", cell::to_string(row, 8-col))));
+            }
+            if p == piece::GOLD {
+              return Err(ParseSFENError::new(sfen, format!("promoted gold general in cell {}", cell::to_string(row, 8-col))));
+            }
+          }
+          board[9 * row + (8 - col)] = p + promoted * p.signum();
+          promoted = 0;
           col += 1;
         }
       }
@@ -362,7 +378,7 @@ impl Position {
     let king_col = king_pos % 9;
     let mut attacking_pieces = Vec::new();
     let mut blocking_cells = 0u128;
-    for t in if s > 0 { piece::WHITE_DIRECTIONS.iter() } else { piece::BLACK_DIRECTIONS.iter() } {
+    for t in if s > 0 { piece::BLACK_DIRECTIONS.iter() } else { piece::WHITE_DIRECTIONS.iter() } {
       let mut row = king_row;
       let mut col = king_col;
       let mut cells = 0;
@@ -430,6 +446,7 @@ impl Position {
       None => Checks::default(),
     }
   }
+  pub fn is_check(&self) -> bool { !self.find_checks().attacking_pieces.is_empty() }
   fn enumerate_moves(&self) -> Vec<Move> {
     Vec::new()
   }
