@@ -30,6 +30,17 @@ pub struct Checks {
 }
 
 impl Checks {
+  pub fn is_check(&self) -> bool {
+    !self.attacking_pieces.is_empty()
+  }
+  pub fn is_double_check(&self) -> bool {
+    if self.attacking_pieces.len() >= 2 {
+      assert_eq!(self.blocking_cells, 0);
+      true
+    } else {
+      false
+    }
+  }
   fn blocking_cell(&self, cell: usize) -> bool {
     (self.blocking_cells & (1u128 << cell)) != 0
   }
@@ -527,7 +538,10 @@ impl Position {
     self.find_checks(-self.side).attacking_pieces.is_empty()
   }
   pub fn is_check(&self) -> bool {
-    !self.compute_checks().attacking_pieces.is_empty()
+    self.compute_checks().is_check()
+  }
+  pub fn is_double_check(&self) -> bool {
+    self.compute_checks().is_double_check()
   }
   pub fn enumerate_moves(&self) -> Vec<Move> {
     let mut r = Vec::new();
