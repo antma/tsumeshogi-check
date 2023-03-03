@@ -477,8 +477,9 @@ impl Position {
         false
       });
     } else if l == 1 {
+      let p = c.attacking_pieces[0];
       self.enumerate_simple_moves(|m| {
-        if m.from_piece.abs() == piece::KING || c.blocking_cell(m.to) {
+        if m.from_piece.abs() == piece::KING || c.blocking_cell(m.to) || m.to == p {
           r.push(m);
         }
         false
