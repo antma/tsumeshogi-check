@@ -110,19 +110,18 @@ pub mod cell {
   pub fn to_string(row: usize, col: usize) -> String {
     format!("{}{}", col + 1, row + 1)
   }
+  pub fn promotion_zone(cell: usize, side: i8) -> bool {
+    if side == 1 {
+      cell < 27
+    } else {
+      assert_eq!(side, -1);
+      cell >= 54
+    }
+  }
 }
 
 fn cell(row: usize, col: usize) -> usize {
   row * 9 + col
-}
-
-fn promotion_zone(cell: usize, side: i8) -> bool {
-  if side == 1 {
-    cell < 27
-  } else {
-    assert_eq!(side, -1);
-    cell >= 54
-  }
 }
 
 pub struct Move {
@@ -134,8 +133,9 @@ pub struct Move {
 
 #[derive(Default)]
 pub struct Checks {
-  pub attacking_pieces: Vec<usize>,
   pub blocking_cells: u128,
+  pub attacking_pieces: Vec<usize>,
+  king_pos: usize,
 }
 
 impl Checks {
@@ -253,20 +253,25 @@ impl Position {
       return Err(ParseSFENError::new(sfen, String::from("invalid move number")));
     }
     let move_no = move_no.unwrap();
-    Ok(Position {
+    let pos = Position {
       board,
       black_pockets,
       white_pockets,
       side,
       move_no,
-    })
+    };
+    if pos.is_legal() {
+      Ok(pos)
+    } else {
+      Err(ParseSFENError::new(sfen, String::from("king under check")))
+    }
   }
   //true -> stop, false -> continue
   fn enumerate_piece_move<F: FnMut(Move) -> bool>
     (&self, f: &mut F, pos: usize, piece: i8, delta_row: isize, delta_col: isize, sliding: bool) -> bool {
     let mut row = pos / 9;
     let mut col = pos % 9;
-    let p = promotion_zone(pos, self.side);
+    let p = cell::promotion_zone(pos, self.side);
     loop {
       let r = (row as isize) + delta_row;
       if r < 0 || r >= 9 { break; }
@@ -286,7 +291,7 @@ impl Position {
         };
         if f(m) { return true; }
       }
-      if piece::could_promoted(piece) && (p || promotion_zone(k, self.side)) {
+      if piece::could_promoted(piece) && (p || cell::promotion_zone(k, self.side)) {
         let m = Move {
           from: pos,
           to: k,
@@ -446,7 +451,7 @@ impl Position {
     //double checks can't be blocked
     if attacking_pieces.len() > 1 { blocking_cells = 0; }
     Checks {
-      attacking_pieces, blocking_cells,
+      attacking_pieces, blocking_cells, king_pos,
     }
   }
   fn find_king(&self, s: i8) -> Option<usize> {
@@ -463,7 +468,7 @@ impl Position {
   pub fn compute_checks(&self) -> Checks {
     self.find_checks(self.side)
   }
-  pub fn is_legal(&self) -> bool { !self.compute_checks().attacking_pieces.is_empty() }
+  pub fn is_legal(&self) -> bool { self.find_checks(-self.side).attacking_pieces.is_empty() }
   pub fn is_check(&self) -> bool { !self.compute_checks().attacking_pieces.is_empty() }
   pub fn enumerate_moves(&self) -> Vec<Move> {
     let mut r = Vec::new();
@@ -478,8 +483,8 @@ impl Position {
       });
     } else if l == 1 {
       let p = c.attacking_pieces[0];
-      let b = c.blocking_cell(m.to);
       self.enumerate_simple_moves(|m| {
+        let b = c.blocking_cell(m.to);
         if (m.from_piece.abs() == piece::KING && !b) || b || m.to == p {
           r.push(m);
         }
