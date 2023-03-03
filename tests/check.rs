@@ -37,7 +37,7 @@ fn lance_check() {
 fn tokin_check() {
   let pos = Position::parse_sfen("9/9/1K7/1+p7/9/9/9/9/9 b - 1").unwrap();
   let c = pos.compute_checks();
-  assert_eq!(c.attacking_pieces, vec![3*9+7]);
+  assert_eq!(c.attacking_pieces, vec![3 * 9 + 7]);
   let pos = Position::parse_sfen("9/9/1K7/2+p6/9/9/9/9/9 b - 1").unwrap();
   assert_eq!(pos.is_check(), false);
 }

@@ -1,0 +1,137 @@
+type Dir = (isize, isize);
+pub const NONE: i8 = 0;
+pub const PAWN: i8 = 1;
+pub const LANCE: i8 = 2;
+pub const KNIGHT: i8 = 3;
+pub const SILVER: i8 = 4;
+pub const GOLD: i8 = 5;
+pub const BISHOP: i8 = 6;
+pub const ROOK: i8 = 7;
+pub const KING: i8 = 8;
+pub const PROMOTED: i8 = 16;
+pub const PROMOTED_PAWN: i8 = PAWN + PROMOTED;
+pub const PROMOTED_LANCE: i8 = LANCE + PROMOTED;
+pub const PROMOTED_KNIGHT: i8 = KNIGHT + PROMOTED;
+pub const PROMOTED_SILVER: i8 = SILVER + PROMOTED;
+pub const PROMOTED_BISHOP: i8 = BISHOP + PROMOTED;
+pub const PROMOTED_ROOK: i8 = ROOK + PROMOTED;
+pub const KNIGHT_MOVES: [Dir; 2] = [(-2, -1), (-2, 1)];
+pub const SILVER_MOVES: [Dir; 5] = [(-1, -1), (-1, 0), (-1, 1), (1, -1), (1, 1)];
+pub const GOLD_MOVES: [Dir; 6] = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, 0)];
+pub const ROOK_MOVES: [Dir; 4] = [(-1, 0), (0, -1), (0, 1), (1, 0)];
+pub const BISHOP_MOVES: [Dir; 4] = [(-1, -1), (-1, 1), (1, -1), (1, 1)];
+pub const KING_MOVES: [Dir; 8] = [
+  (-1, -1),
+  (-1, 0),
+  (-1, 1),
+  (0, -1),
+  (0, 1),
+  (1, -1),
+  (1, 0),
+  (1, 1),
+];
+//flags: +1 - bishop
+//flags: +2 - rook
+//flags: +4 - general (forward)
+pub const BLACK_DIRECTIONS: [(isize, isize, u8); 8] = [
+  (-1, -1, 1 + 4),
+  (-1, 0, 2 + 4),
+  (-1, 1, 1 + 4),
+  (0, -1, 2),
+  (0, 1, 2),
+  (1, -1, 1),
+  (1, 0, 2),
+  (1, 1, 1),
+];
+pub const WHITE_DIRECTIONS: [(isize, isize, u8); 8] = [
+  (1, -1, 1 + 4),
+  (1, 0, 2 + 4),
+  (1, 1, 1 + 4),
+  (0, -1, 2),
+  (0, 1, 2),
+  (-1, -1, 1),
+  (-1, 0, 2),
+  (-1, 1, 1),
+];
+pub fn unpromote(v: i8) -> i8 {
+  if v >= PROMOTED {
+    v - PROMOTED
+  } else if v <= -PROMOTED {
+    v + PROMOTED
+  } else {
+    v
+  }
+}
+pub fn could_unpromoted(piece: i8, cell: usize) -> bool {
+  if piece.abs() >= PROMOTED {
+    return false;
+  }
+  if piece == PAWN || piece == LANCE {
+    cell < 9
+  } else if piece == -PAWN || piece == -LANCE {
+    cell >= 72
+  } else if piece == KNIGHT {
+    cell < 18
+  } else if piece == -KNIGHT {
+    cell >= 63
+  } else {
+    false
+  }
+}
+pub fn could_promoted(piece: i8) -> bool {
+  let p = piece.abs();
+  p < KING && p != GOLD
+}
+pub fn is_sliding_dir(abs_piece: i8, flags: u8) -> bool {
+  assert!(abs_piece > 0);
+  match abs_piece {
+    LANCE => (flags & 6) == 6,
+    ROOK | PROMOTED_ROOK => (flags & 2) != 0,
+    BISHOP | PROMOTED_BISHOP => (flags & 1) != 0,
+    _ => false,
+  }
+}
+pub fn is_near_dir(abs_piece: i8, flags: u8) -> bool {
+  assert!(abs_piece > 0);
+  match abs_piece {
+    PROMOTED_ROOK | PROMOTED_BISHOP | KING => true,
+    PAWN | LANCE => (flags & 6) == 6,
+    BISHOP => (flags & 1) != 0,
+    ROOK => (flags & 2) != 0,
+    SILVER => (flags & 5) != 0,
+    PROMOTED_PAWN | PROMOTED_LANCE | PROMOTED_KNIGHT | PROMOTED_SILVER | GOLD => (flags & 6) != 0,
+    KNIGHT => false,
+    _ => {
+      panic!("piece::is_near_dir() unhandled piece {}", abs_piece);
+    }
+  }
+}
+pub fn from_char(c: char) -> i8 {
+  let s = if c.is_uppercase() {
+    1
+  } else if c.is_lowercase() {
+    -1
+  } else {
+    0
+  };
+  if s == 0 {
+    return NONE;
+  }
+  match c.to_ascii_lowercase() {
+    'p' => s * PAWN,
+    'l' => s * LANCE,
+    'n' => s * KNIGHT,
+    's' => s * SILVER,
+    'g' => s * GOLD,
+    'b' => s * BISHOP,
+    'r' => s * ROOK,
+    'k' => s * KING,
+    _ => NONE,
+  }
+}
+pub fn sliding(piece: i8) -> bool {
+  match piece.abs() {
+    LANCE | BISHOP | ROOK | PROMOTED_BISHOP | PROMOTED_ROOK => true,
+    _ => false,
+  }
+}
