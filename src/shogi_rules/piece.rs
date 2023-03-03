@@ -1,4 +1,4 @@
-type Dir = (isize, isize);
+use super::cell::Direction;
 pub const NONE: i8 = 0;
 pub const PAWN: i8 = 1;
 pub const LANCE: i8 = 2;
@@ -15,12 +15,12 @@ pub const PROMOTED_KNIGHT: i8 = KNIGHT + PROMOTED;
 pub const PROMOTED_SILVER: i8 = SILVER + PROMOTED;
 pub const PROMOTED_BISHOP: i8 = BISHOP + PROMOTED;
 pub const PROMOTED_ROOK: i8 = ROOK + PROMOTED;
-pub const KNIGHT_MOVES: [Dir; 2] = [(-2, -1), (-2, 1)];
-pub const SILVER_MOVES: [Dir; 5] = [(-1, -1), (-1, 0), (-1, 1), (1, -1), (1, 1)];
-pub const GOLD_MOVES: [Dir; 6] = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, 0)];
-pub const ROOK_MOVES: [Dir; 4] = [(-1, 0), (0, -1), (0, 1), (1, 0)];
-pub const BISHOP_MOVES: [Dir; 4] = [(-1, -1), (-1, 1), (1, -1), (1, 1)];
-pub const KING_MOVES: [Dir; 8] = [
+pub const KNIGHT_MOVES: [Direction; 2] = [(-2, -1), (-2, 1)];
+pub const SILVER_MOVES: [Direction; 5] = [(-1, -1), (-1, 0), (-1, 1), (1, -1), (1, 1)];
+pub const GOLD_MOVES: [Direction; 6] = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, 0)];
+pub const ROOK_MOVES: [Direction; 4] = [(-1, 0), (0, -1), (0, 1), (1, 0)];
+pub const BISHOP_MOVES: [Direction; 4] = [(-1, -1), (-1, 1), (1, -1), (1, 1)];
+pub const KING_MOVES: [Direction; 8] = [
   (-1, -1),
   (-1, 0),
   (-1, 1),

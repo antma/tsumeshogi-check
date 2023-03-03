@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+mod cell;
 mod piece;
 
 pub struct Position {
@@ -8,20 +9,6 @@ pub struct Position {
   white_pockets: [u8; 8],
   side: i8,
   move_no: u32,
-}
-
-pub mod cell {
-  pub fn to_string(row: usize, col: usize) -> String {
-    format!("{}{}", col + 1, row + 1)
-  }
-  pub fn promotion_zone(cell: usize, side: i8) -> bool {
-    if side == 1 {
-      cell < 27
-    } else {
-      assert_eq!(side, -1);
-      cell >= 54
-    }
-  }
 }
 
 fn cell(row: usize, col: usize) -> usize {
@@ -244,8 +231,7 @@ impl Position {
     delta_col: isize,
     sliding: bool,
   ) -> bool {
-    let mut row = pos / 9;
-    let mut col = pos % 9;
+    let (mut row, mut col) = cell::unpack(pos);
     let p = cell::promotion_zone(pos, self.side);
     loop {
       let r = (row as isize) + delta_row;
@@ -439,8 +425,7 @@ impl Position {
     false
   }
   fn checks(&self, king_pos: usize, s: i8) -> Checks {
-    let king_row = king_pos / 9;
-    let king_col = king_pos % 9;
+    let (king_row, king_col) = cell::unpack(king_pos);
     let mut attacking_pieces = Vec::new();
     let mut blocking_cells = 0u128;
     for t in if s > 0 {
@@ -542,6 +527,35 @@ impl Position {
   }
   pub fn is_check(&self) -> bool {
     !self.compute_checks().attacking_pieces.is_empty()
+  }
+  //helper method for unavoidable mate detection
+  pub fn is_unblockable_check(&self, checks: &Checks) -> bool {
+    let l = checks.attacking_pieces.len();
+    if l != 1 {
+      false
+    } else {
+      let a = checks.attacking_pieces[0];
+      let p = self.board[a];
+      if !piece::sliding(p) {
+        false
+      } else {
+        let (delta_row, delta_col) = cell::delta_direction(checks.king_pos, a);
+        let delta = 9 * delta_row + delta_col;
+        let mut cell = checks.king_pos;
+        for k in 0.. {
+          cell = ((cell as isize) + delta) as usize;
+          if cell == a {
+            break;
+          }
+          assert!(checks.blocking_cell(cell));
+          let d = if k == 0 { 2 } else { 1 };
+          if self.checks(cell, -self.side).attacking_pieces.len() >= d {
+            return false;
+          }
+        }
+        true
+      }
+    }
   }
   pub fn enumerate_moves(&self) -> Vec<Move> {
     let mut r = Vec::new();
