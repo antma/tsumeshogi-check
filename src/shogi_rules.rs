@@ -160,6 +160,7 @@ impl Position {
         ));
       }
     }
+    //TODO: check pawns and knights in promotion zone
     let side = if a[1] == "w" {
       -1
     } else if a[1] == "b" {
@@ -528,35 +529,6 @@ impl Position {
   pub fn is_check(&self) -> bool {
     !self.compute_checks().attacking_pieces.is_empty()
   }
-  //helper method for unavoidable mate detection
-  pub fn is_unblockable_check(&self, checks: &Checks) -> bool {
-    let l = checks.attacking_pieces.len();
-    if l != 1 {
-      false
-    } else {
-      let a = checks.attacking_pieces[0];
-      let p = self.board[a];
-      if !piece::sliding(p) {
-        false
-      } else {
-        let (delta_row, delta_col) = cell::delta_direction(checks.king_pos, a);
-        let delta = 9 * delta_row + delta_col;
-        let mut cell = checks.king_pos;
-        for k in 0.. {
-          cell = ((cell as isize) + delta) as usize;
-          if cell == a {
-            break;
-          }
-          assert!(checks.blocking_cell(cell));
-          let d = if k == 0 { 2 } else { 1 };
-          if self.checks(cell, -self.side).attacking_pieces.len() >= d {
-            return false;
-          }
-        }
-        true
-      }
-    }
-  }
   pub fn enumerate_moves(&self) -> Vec<Move> {
     let mut r = Vec::new();
     let c = self.find_checks(self.side);
@@ -603,5 +575,65 @@ impl Position {
       self.board[m.from] = m.from_piece;
     }
     self.move_no -= 1;
+  }
+}
+
+#[test]
+fn test_position_is_unblockable_check_false() {
+  for sfen in vec![
+    "8k/9/9/9/9/9/9/9/8L w - 1",
+    "8k/r8/7K1/9/9/9/9/9/8L w - 1",
+    "8k/9/7K1/9/9/9/9/+r8/8L w - 1",
+  ] {
+    let pos = Position::parse_sfen(&sfen).unwrap();
+    let c = pos.compute_checks();
+    assert_eq!(pos.is_unblockable_check(&c), false);
+  }
+}
+
+#[test]
+fn test_position_is_unblockable_check_true() {
+  for sfen in vec![
+    "8k/9/7K1/9/9/9/9/9/8L w - 1",
+    "8k/9/7N1/9/9/9/9/+r8/8L w - 1",
+  ] {
+    let pos = Position::parse_sfen(&sfen).unwrap();
+    let c = pos.compute_checks();
+    assert_eq!(pos.is_unblockable_check(&c), true);
+  }
+}
+
+impl Position {
+  //helper method for unavoidable mate detection
+  fn is_unblockable_check(&self, checks: &Checks) -> bool {
+    let l = checks.attacking_pieces.len();
+    if l != 1 {
+      l == 2
+    } else {
+      let a = checks.attacking_pieces[0];
+      let p = self.board[a];
+      if !piece::sliding(p) {
+        false
+      } else {
+        let (delta_row, delta_col) = cell::delta_direction(a, checks.king_pos);
+        let delta = 9 * delta_row + delta_col;
+        let mut cell = checks.king_pos;
+        for k in 0.. {
+          cell = ((cell as isize) + delta) as usize;
+          if cell == a {
+            break;
+          }
+          assert!(checks.blocking_cell(cell));
+          let d = if k == 0 { 2 } else { 1 };
+          if self.checks(cell, -self.side).attacking_pieces.len() >= d {
+            return false;
+          }
+          if k == 0 && self.checks(cell, self.side).attacking_pieces.len() < 2 {
+            return false;
+          }
+        }
+        true
+      }
+    }
   }
 }
