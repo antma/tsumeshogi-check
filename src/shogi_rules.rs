@@ -12,10 +12,7 @@ pub struct Position {
   move_no: u32,
 }
 
-fn cell(row: usize, col: usize) -> usize {
-  row * 9 + col
-}
-
+#[derive(Clone)]
 pub struct Move {
   from: usize,
   to: usize,
@@ -243,7 +240,7 @@ impl Position {
       }
       row = r as usize;
       col = c as usize;
-      let k = row * 9 + col;
+      let k = 9 * row + col;
       let t = piece * self.board[k].signum();
       if t > 0 {
         break;
@@ -442,7 +439,7 @@ impl Position {
         }
         row = r as usize;
         col = c as usize;
-        let k = row * 9 + col;
+        let k = 9 * row + col;
         let piece = self.board[k];
         let t = s * piece;
         if t < 0 {
@@ -634,7 +631,7 @@ fn test_position_is_unblockable_check_true() {
 
 impl Position {
   //helper method for unavoidable mate detection
-  fn is_unblockable_check(&self, checks: &Checks) -> bool {
+  pub fn is_unblockable_check(&self, checks: &Checks) -> bool {
     let l = checks.attacking_pieces.len();
     if l != 1 {
       l == 2
