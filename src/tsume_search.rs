@@ -1,12 +1,20 @@
 use crate::shogi_rules;
-use shogi_rules::Position;
+use shogi_rules::{Checks, Move, Position};
 
 pub struct Search {
-  cur_line: Vec<shogi_rules::Move>,
-  checks: Vec<shogi_rules::Checks>,
+  cur_line: Vec<Move>,
+  checks: Vec<Checks>,
+  max_depth: usize,
 }
 
 impl Search {
+  fn new(max_depth: usize) -> Self {
+    Self {
+      cur_line: vec![Move::default(); max_depth],
+      checks: vec![Checks::default(); max_depth + 1],
+      max_depth,
+    }
+  }
   //maximize
   fn gote_search(&mut self, pos: &mut Position, cur_depth: usize) -> i32 {
     let moves = pos.compute_moves(&self.checks[cur_depth]);
@@ -73,4 +81,19 @@ impl Search {
     }
     best
   }
+  fn search(&mut self, pos: &mut Position) -> i32 {
+    self.checks[0] = pos.compute_checks();
+    self.sente_search(pos, 0)
+  }
+}
+
+pub fn search(mut pos: Position, max_depth: usize) -> Option<i32> {
+  for depth in (1..=max_depth).step_by(2) {
+    let mut s = Search::new(depth);
+    let ev = s.search(&mut pos);
+    if ev == (depth as i32) {
+      return Some(ev);
+    }
+  }
+  None
 }

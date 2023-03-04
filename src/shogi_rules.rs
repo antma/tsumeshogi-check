@@ -12,7 +12,7 @@ pub struct Position {
   move_no: u32,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Move {
   from: usize,
   to: usize,
@@ -20,11 +20,21 @@ pub struct Move {
   to_piece: i8,
 }
 
-#[derive(Default)]
+#[derive(Clone)]
 pub struct Checks {
   pub blocking_cells: u128,
   pub attacking_pieces: Vec<usize>,
-  king_pos: usize,
+  king_pos: Option<usize>,
+}
+
+impl Default for Checks {
+  fn default() -> Self {
+    Checks {
+      blocking_cells: 0,
+      attacking_pieces: Vec::new(),
+      king_pos: None,
+    }
+  }
 }
 
 impl Checks {
@@ -493,7 +503,7 @@ impl Position {
     Checks {
       attacking_pieces,
       blocking_cells,
-      king_pos,
+      king_pos: Some(king_pos),
     }
   }
   fn find_king(&self, s: i8) -> Option<usize> {
@@ -553,9 +563,15 @@ impl Position {
     }
     r
   }
+  fn validate_checks(&self, checks: &Checks) -> bool {
+    match checks.king_pos {
+      Some(king_pos) => self.board[king_pos] == piece::KING * self.side,
+      None => true,
+    }
+  }
   pub fn compute_moves(&self, checks: &Checks) -> Vec<Move> {
     let mut r = Vec::new();
-    assert_eq!(self.board[checks.king_pos], piece::KING * self.side);
+    assert!(self.validate_checks(checks));
     match checks.attacking_pieces.len() {
       0 => {
         //no check
@@ -632,6 +648,11 @@ fn test_position_is_unblockable_check_true() {
 impl Position {
   //helper method for unavoidable mate detection
   pub fn is_unblockable_check(&self, checks: &Checks) -> bool {
+    if checks.king_pos.is_none() {
+      return false;
+    }
+    assert!(self.validate_checks(checks));
+    let king_pos = checks.king_pos.unwrap();
     let l = checks.attacking_pieces.len();
     if l != 1 {
       l == 2
@@ -641,9 +662,9 @@ impl Position {
       if !piece::sliding(p) {
         false
       } else {
-        let (delta_row, delta_col) = cell::delta_direction(a, checks.king_pos);
+        let (delta_row, delta_col) = cell::delta_direction(a, king_pos);
         let delta = 9 * delta_row + delta_col;
-        let mut cell = checks.king_pos;
+        let mut cell = king_pos;
         for k in 0.. {
           cell = ((cell as isize) + delta) as usize;
           if cell == a {
