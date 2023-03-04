@@ -74,6 +74,50 @@ pub struct UndoMove {
 }
 
 impl Position {
+  pub fn move_to_string(&self, m: &Move, moves: &Vec<Move>) -> String {
+    let mut s = String::new();
+    let p = m.from_piece;
+    if p != piece::NONE {
+      s.push_str(&piece::to_string(p, true));
+      let f = moves
+        .iter()
+        .find(|q| m.from_piece == q.from_piece && m.to == q.to && m.from != q.from);
+      match f {
+        Some(n) => {
+          let (row1, col1) = cell::unpack(m.from);
+          let (row2, col2) = cell::unpack(n.from);
+          if col1 != col2 {
+            s.push(('0' as u8 + col2 as u8) as char);
+          } else {
+            assert_ne!(row1, row2);
+            s.push(('a' as u8 + row2 as u8) as char);
+          }
+        }
+        _ => (),
+      }
+      if self.board[m.to] != piece::NONE {
+        s.push('x');
+      }
+    } else {
+      s.push_str(&piece::to_string(m.to_piece, true));
+      s.push('\'');
+    }
+    s.push_str(&cell::to_string(m.to));
+    if p != piece::NONE {
+      if p != m.to_piece {
+        s.push('+');
+      } else {
+        let a = p.abs();
+        if a != piece::KING && a != piece::GOLD {
+          let side = p.signum();
+          if cell::promotion_zone(m.from, side) || cell::promotion_zone(m.to, side) {
+            s.push('=');
+          }
+        }
+      }
+    }
+    s
+  }
   pub fn parse_sfen(sfen: &str) -> Result<Self, ParseSFENError> {
     let a: Vec<_> = sfen.split(' ').collect();
     if a.len() != 4 {
@@ -109,7 +153,10 @@ impl Position {
           if promoted != 0 {
             return Err(ParseSFENError::new(
               sfen,
-              format!("double promotion in cell {}", cell::to_string(row, 8 - col)),
+              format!(
+                "double promotion in cell {}",
+                cell::to_string(9 * row + 8 - col)
+              ),
             ));
           }
           promoted = piece::PROMOTED;
@@ -124,14 +171,20 @@ impl Position {
           if p == piece::NONE {
             return Err(ParseSFENError::new(
               sfen,
-              format!("invalid piece in cell {}", cell::to_string(row, 8 - col)),
+              format!(
+                "invalid piece in cell {}",
+                cell::to_string(9 * row + 8 - col)
+              ),
             ));
           }
           if promoted != 0 {
             if p == piece::KING {
               return Err(ParseSFENError::new(
                 sfen,
-                format!("promoted king in cell {}", cell::to_string(row, 8 - col)),
+                format!(
+                  "promoted king in cell {}",
+                  cell::to_string(9 * row + 8 - col)
+                ),
               ));
             }
             if p == piece::GOLD {
@@ -139,7 +192,7 @@ impl Position {
                 sfen,
                 format!(
                   "promoted gold general in cell {}",
-                  cell::to_string(row, 8 - col)
+                  cell::to_string(9 * row + 8 - col)
                 ),
               ));
             }

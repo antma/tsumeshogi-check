@@ -135,3 +135,30 @@ pub fn sliding(piece: i8) -> bool {
     _ => false,
   }
 }
+
+fn is_promoted(piece: i8) -> bool {
+  piece.abs() >= PROMOTED
+}
+
+pub fn to_string(piece: i8, plus_in_prefix: bool) -> String {
+  let mut s = String::new();
+  if plus_in_prefix && is_promoted(piece) {
+    s.push('+');
+  }
+  let c = match unpromote(piece.abs()) {
+    PAWN => 'P',
+    LANCE => 'L',
+    KNIGHT => 'N',
+    SILVER => 'S',
+    GOLD => 'G',
+    BISHOP => 'B',
+    ROOK => 'R',
+    KING => 'K',
+    _ => panic!("unhandled piece {} in match expression", piece),
+  };
+  s.push(c);
+  if !plus_in_prefix && is_promoted(piece) {
+    s.push('+');
+  }
+  s
+}

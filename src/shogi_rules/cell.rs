@@ -1,8 +1,5 @@
 pub type Direction = (isize, isize);
 
-pub fn to_string(row: usize, col: usize) -> String {
-  format!("{}{}", col + 1, row + 1)
-}
 pub fn promotion_zone(cell: usize, side: i8) -> bool {
   if side == 1 {
     cell < 27
@@ -14,6 +11,12 @@ pub fn promotion_zone(cell: usize, side: i8) -> bool {
 pub fn unpack(cell: usize) -> (usize, usize) {
   (cell / 9, cell % 9)
 }
+
+pub fn to_string(cell: usize) -> String {
+  let (row, col) = unpack(cell);
+  format!("{}{}", col + 1, (row as u8 + 'a' as u8) as char)
+}
+
 fn delta(cell1: usize, cell2: usize) -> Direction {
   let (row1, col1) = unpack(cell1);
   let (row2, col2) = unpack(cell2);
