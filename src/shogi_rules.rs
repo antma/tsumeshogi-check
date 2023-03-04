@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+mod board;
 mod cell;
 mod piece;
 
@@ -144,27 +145,13 @@ impl Position {
     }
     //checking nifu
     for col in 0..9 {
-      if board
-        .iter()
-        .skip(col)
-        .step_by(9)
-        .filter(|&&q| q == piece::PAWN)
-        .count()
-        >= 2
-      {
+      if board::does_column_contain_at_least_two_pieces(&board, col, piece::PAWN) {
         return Err(ParseSFENError::new(
           sfen,
           format!("more than one black pawn in column {}", col),
         ));
       }
-      if board
-        .iter()
-        .skip(col)
-        .step_by(9)
-        .filter(|&&q| q == -piece::PAWN)
-        .count()
-        >= 2
-      {
+      if board::does_column_contain_at_least_two_pieces(&board, col, -piece::PAWN) {
         return Err(ParseSFENError::new(
           sfen,
           format!("more than one white pawn in column {}", col),
@@ -397,11 +384,7 @@ impl Position {
     }
     false
   }
-  fn enumerate_drops<F: Fn(&Position, Move) -> bool, G: Fn(usize) -> bool>(
-    &self,
-    f: &F,
-    g: &G,
-  ) -> bool {
+  fn enumerate_drops<F: FnMut(Move) -> bool, G: Fn(usize) -> bool>(&self, mut f: F, g: G) -> bool {
     let pawn = piece::PAWN * self.side;
     let q = if self.side > 0 {
       &self.black_pockets
@@ -412,24 +395,24 @@ impl Position {
       .filter(|&i| q[i as usize] > 0)
       .collect();
     for col in 0..9 {
-      let allow_pawn_drop =
-        q[piece::PAWN as usize] > 0 && !(0..9).any(|r| self.board[9 * r + col] == pawn);
+      let allow_pawn_drop = !board::does_column_contain_piece(&self.board, col, pawn);
       for row in 0..9 {
-        let k = row * 9 + col;
-        if self.board[k] == piece::NONE && g(k) {
-          for &p in &v {
-            if p == piece::PAWN && !allow_pawn_drop {
-              continue;
-            }
-            let m = Move {
-              from: 0xff,
-              to: k,
-              from_piece: piece::NONE,
-              to_piece: p * self.side,
-            };
-            if f(&self, m) {
-              return true;
-            }
+        let k = 9 * row + col;
+        if self.board[k] != piece::NONE || !g(k) {
+          continue;
+        }
+        for &p in &v {
+          if p == piece::PAWN && !allow_pawn_drop {
+            continue;
+          }
+          let m = Move {
+            from: 0xff,
+            to: k,
+            from_piece: piece::NONE,
+            to_piece: p * self.side,
+          };
+          if f(m) {
+            return true;
           }
         }
       }
@@ -543,34 +526,66 @@ impl Position {
   pub fn is_double_check(&self) -> bool {
     self.compute_checks().is_double_check()
   }
-  pub fn enumerate_moves(&self) -> Vec<Move> {
+  pub fn compute_drops(&self, checks: &Checks) -> Vec<Move> {
     let mut r = Vec::new();
-    let c = self.find_checks(self.side);
-    let l = c.attacking_pieces.len();
-    //TODO: enumerate drops
-    if l == 0 {
-      //no check
-      self.enumerate_simple_moves(|m| {
-        r.push(m);
-        false
-      });
-    } else if l == 1 {
-      let p = c.attacking_pieces[0];
-      self.enumerate_simple_moves(|m| {
-        let b = c.blocking_cell(m.to);
-        if (m.from_piece.abs() == piece::KING && !b) || b || m.to == p {
-          r.push(m);
+    match checks.attacking_pieces.len() {
+      0 => {
+        self.enumerate_drops(
+          |m| {
+            r.push(m);
+            false
+          },
+          |_| true,
+        );
+      }
+      1 => {
+        if checks.blocking_cells != 0 {
+          self.enumerate_drops(
+            |m| {
+              r.push(m);
+              false
+            },
+            |c| checks.blocking_cell(c),
+          );
         }
-        false
-      });
-    } else {
-      assert_eq!(l, 2);
-      self.enumerate_simple_moves(|m| {
-        if m.from_piece.abs() == piece::KING {
+      }
+      2 => {
+        //drops are impossible
+      }
+      _ => panic!("too many attacking pieces"),
+    }
+    r
+  }
+  pub fn compute_moves(&self, checks: &Checks) -> Vec<Move> {
+    let mut r = Vec::new();
+    assert_eq!(self.board[checks.king_pos], piece::KING * self.side);
+    match checks.attacking_pieces.len() {
+      0 => {
+        //no check
+        self.enumerate_simple_moves(|m| {
           r.push(m);
-        }
-        false
-      });
+          false
+        });
+      }
+      1 => {
+        let p = checks.attacking_pieces[0];
+        self.enumerate_simple_moves(|m| {
+          let b = checks.blocking_cell(m.to);
+          if (m.from_piece.abs() == piece::KING && !b) || b || m.to == p {
+            r.push(m);
+          }
+          false
+        });
+      }
+      2 => {
+        self.enumerate_simple_moves(|m| {
+          if m.from_piece.abs() == piece::KING {
+            r.push(m);
+          }
+          false
+        });
+      }
+      _ => panic!("too many attacking pieces"),
     }
     r
   }
