@@ -673,6 +673,14 @@ impl Position {
       }
     }
     let taken_piece = self.board[m.to];
+    if taken_piece != piece::NONE {
+      let p = piece::unpromote(taken_piece);
+      if p > 0 {
+        self.white_pockets[p as usize] += 1;
+      } else {
+        self.black_pockets[(-p) as usize] += 1;
+      }
+    }
     self.board[m.to] = m.to_piece;
     self.move_no += 1;
     self.side *= -1;
@@ -687,6 +695,14 @@ impl Position {
         self.black_pockets[m.to_piece as usize] += 1;
       } else {
         self.white_pockets[(-m.to_piece) as usize] += 1;
+      }
+    }
+    if u.taken_piece != piece::NONE {
+      let p = piece::unpromote(u.taken_piece);
+      if p > 0 {
+        self.white_pockets[p as usize] -= 1;
+      } else {
+        self.black_pockets[(-p) as usize] -= 1;
       }
     }
     self.move_no -= 1;
