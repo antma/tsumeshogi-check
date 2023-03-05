@@ -10,7 +10,7 @@ pub struct Search {
 impl Search {
   fn new(max_depth: usize) -> Self {
     Self {
-      cur_line: vec![Move::default(); max_depth],
+      cur_line: vec![Move::default(); max_depth + 1],
       checks: vec![Checks::default(); max_depth + 1],
       max_depth,
     }
@@ -24,8 +24,9 @@ impl Search {
       let u = pos.do_move(&m);
       if pos.is_legal() {
         self.cur_line[cur_depth] = m.clone();
-        if cur_depth + 1 >= self.checks.len() {
+        if cur_depth >= self.max_depth {
           //no mate
+          pos.undo_move(&m, &u);
           return i32::MAX;
         }
         self.checks[cur_depth + 1] = pos.compute_checks();
@@ -46,8 +47,9 @@ impl Search {
       let u = pos.do_move(&m);
       if pos.is_legal() {
         self.cur_line[cur_depth] = m.clone();
-        if cur_depth + 1 >= self.checks.len() {
+        if cur_depth >= self.max_depth {
           //no mate
+          pos.undo_move(&m, &u);
           return i32::MAX;
         }
         self.checks[cur_depth + 1] = pos.compute_checks();

@@ -45,3 +45,29 @@ fn sfen_nifu() {
   let pos = Position::parse_sfen("k8/p8/p8/9/9/9/9/9/L8 w - 1");
   assert_eq!(pos.is_ok(), false);
 }
+
+#[test]
+fn test_position_is_unblockable_check_false() {
+  for sfen in vec![
+    "8k/9/9/9/9/9/9/9/8L w - 1",
+    "8k/r8/7K1/9/9/9/9/9/8L w - 1",
+    "8k/9/7K1/9/9/9/9/+r8/8L w - 1",
+  ] {
+    let pos = Position::parse_sfen(&sfen).unwrap();
+    let c = pos.compute_checks();
+    assert_eq!(pos.is_unblockable_check(&c), false);
+  }
+}
+
+#[test]
+fn test_position_is_unblockable_check_true() {
+  for sfen in vec![
+    "8k/9/7K1/9/9/9/9/9/8L w - 1",
+    "8k/9/7N1/9/9/9/9/+r8/8L w - 1",
+    "k8/+P8/9/9/9/9/9/9/9 w 2r2b4g4s4n4l17p 1",
+  ] {
+    let pos = Position::parse_sfen(&sfen).unwrap();
+    let c = pos.compute_checks();
+    assert_eq!(pos.is_unblockable_check(&c), true);
+  }
+}

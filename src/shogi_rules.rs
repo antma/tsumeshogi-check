@@ -1,3 +1,4 @@
+use std::fmt;
 use std::str::FromStr;
 
 mod board;
@@ -290,7 +291,6 @@ impl Position {
     delta_col: isize,
     sliding: bool,
   ) -> bool {
-    //println!("enumerate_piece_move {} {} ({}, {}), sliding: {}", cell::to_string(pos), piece, delta_row, delta_col, sliding);
     let (mut row, mut col) = cell::unpack(pos);
     let p = cell::promotion_zone(pos, self.side);
     loop {
@@ -674,30 +674,23 @@ impl Position {
     self.move_no -= 1;
     self.side *= -1;
   }
-}
-
-#[test]
-fn test_position_is_unblockable_check_false() {
-  for sfen in vec![
-    "8k/9/9/9/9/9/9/9/8L w - 1",
-    "8k/r8/7K1/9/9/9/9/9/8L w - 1",
-    "8k/9/7K1/9/9/9/9/+r8/8L w - 1",
-  ] {
-    let pos = Position::parse_sfen(&sfen).unwrap();
-    let c = pos.compute_checks();
-    assert_eq!(pos.is_unblockable_check(&c), false);
-  }
-}
-
-#[test]
-fn test_position_is_unblockable_check_true() {
-  for sfen in vec![
-    "8k/9/7K1/9/9/9/9/9/8L w - 1",
-    "8k/9/7N1/9/9/9/9/+r8/8L w - 1",
-  ] {
-    let pos = Position::parse_sfen(&sfen).unwrap();
-    let c = pos.compute_checks();
-    assert_eq!(pos.is_unblockable_check(&c), true);
+  pub fn do_san_move(&mut self, san: &str) -> bool {
+    let checks = self.compute_checks();
+    let moves = self.compute_moves(&checks);
+    for m in &moves {
+      if san == self.move_to_string(&m, &moves) {
+        self.do_move(m);
+        return true;
+      }
+    }
+    let moves = self.compute_drops(&checks);
+    for m in &moves {
+      if san == self.move_to_string(&m, &moves) {
+        self.do_move(m);
+        return true;
+      }
+    }
+    false
   }
 }
 
@@ -716,7 +709,7 @@ impl Position {
       let a = checks.attacking_pieces[0];
       let p = self.board[a];
       if !piece::sliding(p) {
-        false
+        true
       } else {
         let (delta_row, delta_col) = cell::delta_direction(a, king_pos);
         let delta = 9 * delta_row + delta_col;
@@ -738,5 +731,33 @@ impl Position {
         true
       }
     }
+  }
+}
+
+impl fmt::Display for Position {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    for row in 0..9 {
+      if row > 0 {
+        write!(f, "/")?;
+      }
+      let mut cnt = 0;
+      for c in self.board.iter().skip(9 * row).take(9).rev() {
+        if *c == piece::NONE {
+          cnt += 1;
+        } else {
+          if cnt > 0 {
+            write!(f, "{}", cnt)?;
+            cnt = 0;
+          }
+          write!(f, "{}", piece::to_string(*c, true))?;
+        }
+      }
+      if cnt > 0 {
+        write!(f, "{}", cnt)?;
+      }
+    }
+    write!(f, " {}", if self.side > 0 { 'b' } else { 'w' })?;
+    //TODO: pockets
+    write!(f, " {}", self.move_no)
   }
 }
