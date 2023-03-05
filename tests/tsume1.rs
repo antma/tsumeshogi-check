@@ -12,6 +12,7 @@ fn tsume1() {
     "4k4/9/4P4/9/9/9/9/9/9 b G2r2b3g4s4n4l17p 1",
     "4k4/9/4S4/9/9/9/9/9/9 b S2r2b4g2s4n4l18p 1",
     "kn7/ps7/9/9/N8/9/9/9/8B b 2r2b4g2s4n4l18p 1",
+    "9/2B6/3G2r2/3pkL1R1/3gsg3/3S2B2/3g5/4N4/4L4 b 2s3n2l17p 1",
   ]
   .into_iter()
   .enumerate()
