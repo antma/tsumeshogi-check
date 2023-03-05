@@ -695,6 +695,10 @@ impl Position {
 }
 
 impl Position {
+  fn has_pieces_to_drop(&self) -> bool {
+    let r = if self.side > 0 { &self.black_pockets } else { &self.white_pockets };
+    r.iter().skip(1).any(|p| *p > 0)
+  }
   //helper method for unavoidable mate detection
   pub fn is_unblockable_check(&self, checks: &Checks) -> bool {
     if checks.king_pos.is_none() {
@@ -708,7 +712,7 @@ impl Position {
     } else {
       let a = checks.attacking_pieces[0];
       let p = self.board[a];
-      if !piece::sliding(p) {
+      if !piece::sliding(p) || !self.has_pieces_to_drop() {
         true
       } else {
         let (delta_row, delta_col) = cell::delta_direction(a, king_pos);

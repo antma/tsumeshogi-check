@@ -59,6 +59,11 @@ impl Search {
         }
       }
       pos.undo_move(&m, &u);
+      legal_moves += 1;
+    }
+    if legal_moves == 0 {
+      //mate
+      return cur_depth as i32;
     }
     best
   }
