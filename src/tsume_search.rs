@@ -2,6 +2,8 @@ use crate::shogi_rules;
 use shogi_rules::{Checks, Move, Position};
 use std::fmt;
 
+use log::{debug};
+
 struct MovesLine {
   a: Vec<String>,
 }
@@ -64,7 +66,7 @@ impl Search {
         }
         self.checks[cur_depth + 1] = pos.compute_checks();
         let ev = self.sente_search(pos, cur_depth + 1);
-        println!("{}, ev = {}", self.line, ev);
+        debug!("{}, ev = {}", self.line, ev);
         if best < ev {
           best = ev;
         }
@@ -91,7 +93,7 @@ impl Search {
         }
         self.checks[cur_depth + 1] = pos.compute_checks();
         let ev = self.sente_search(pos, cur_depth + 1);
-        println!("{}, ev = {}", self.line, ev);
+        debug!("{}, ev = {}", self.line, ev);
         if best < ev {
           best = ev;
         }
@@ -119,7 +121,7 @@ impl Search {
         self.checks[cur_depth + 1] = pos.compute_checks();
         if self.checks[cur_depth + 1].is_check() {
           let ev = self.gote_search(pos, cur_depth + 1);
-          println!("{}, ev = {}", self.line, ev);
+          debug!("{}, ev = {}", self.line, ev);
           if !(ev == cur_depth as i32 + 1 && m.is_pawn_drop()) && best > ev {
             best = ev;
           }
@@ -139,7 +141,7 @@ impl Search {
 pub fn search(mut pos: Position, max_depth: usize) -> Option<i32> {
   let fen = pos.to_string();
   for depth in (1..=max_depth).step_by(2) {
-    println!("depth = {}", depth);
+    debug!("depth = {}", depth);
     let mut s = Search::new(depth);
     let ev = s.search(&mut pos);
     assert_eq!(fen, pos.to_string());

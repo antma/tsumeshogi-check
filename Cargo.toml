@@ -6,3 +6,5 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+log = { version = "0.4.17", features = ["std"] }
+env_logger = { version = "0.10.0" }
