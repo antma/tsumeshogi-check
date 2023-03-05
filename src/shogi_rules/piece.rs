@@ -75,7 +75,7 @@ pub fn could_unpromoted(piece: i8, cell: usize) -> bool {
   } else if piece == -KNIGHT {
     cell < 63
   } else {
-    false
+    true
   }
 }
 pub fn could_promoted(piece: i8) -> bool {

@@ -290,6 +290,7 @@ impl Position {
     delta_col: isize,
     sliding: bool,
   ) -> bool {
+    //println!("enumerate_piece_move {} {} ({}, {}), sliding: {}", cell::to_string(pos), piece, delta_row, delta_col, sliding);
     let (mut row, mut col) = cell::unpack(pos);
     let p = cell::promotion_zone(pos, self.side);
     loop {
