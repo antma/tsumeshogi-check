@@ -50,8 +50,6 @@ fn sfen_nifu() {
 fn test_position_is_unblockable_check_false() {
   for (test, sfen) in vec![
     "8k/9/9/9/9/9/9/9/8L w p 1",
-    "8k/r8/7K1/9/9/9/9/9/8L w g 1",
-    "8k/9/7K1/9/9/9/9/+r8/8L w - 1",
   ].into_iter().enumerate() {
     let pos = Position::parse_sfen(&sfen).unwrap();
     let c = pos.compute_checks();

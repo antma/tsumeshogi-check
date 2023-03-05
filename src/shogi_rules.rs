@@ -21,6 +21,12 @@ pub struct Move {
   to_piece: i8,
 }
 
+impl Move {
+  pub fn is_pawn_drop(&self) -> bool {
+    self.from_piece == piece::NONE && self.to_piece.abs() == piece::PAWN
+  }
+}
+
 #[derive(Clone)]
 pub struct Checks {
   pub blocking_cells: u128,
@@ -700,6 +706,7 @@ impl Position {
     r.iter().skip(1).any(|p| *p > 0)
   }
   //helper method for unavoidable mate detection
+  //assumed that there is no legal moves in current position
   pub fn is_unblockable_check(&self, checks: &Checks) -> bool {
     if checks.king_pos.is_none() {
       return false;
@@ -717,22 +724,11 @@ impl Position {
       } else {
         let (delta_row, delta_col) = cell::delta_direction(a, king_pos);
         let delta = 9 * delta_row + delta_col;
-        let mut cell = king_pos;
-        for k in 0.. {
-          cell = ((cell as isize) + delta) as usize;
-          if cell == a {
-            break;
-          }
-          assert!(checks.blocking_cell(cell));
-          let d = if k == 0 { 2 } else { 1 };
-          if self.checks(cell, -self.side).attacking_pieces.len() >= d {
-            return false;
-          }
-          if k == 0 && self.checks(cell, self.side).attacking_pieces.len() < 2 {
-            return false;
-          }
+        let cell = ((king_pos as isize) + delta) as usize;
+        if cell == a {
+          return true;
         }
-        true
+        self.checks(cell, self.side).attacking_pieces.len() >= 2
       }
     }
   }

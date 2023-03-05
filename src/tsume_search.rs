@@ -79,7 +79,7 @@ impl Search {
         self.checks[cur_depth + 1] = pos.compute_checks();
         if self.checks[cur_depth + 1].is_check() {
           let ev = self.gote_search(pos, cur_depth + 1);
-          if best > ev {
+          if !(ev == cur_depth as i32 + 1 && m.is_pawn_drop()) && best > ev {
             best = ev;
           }
         }
