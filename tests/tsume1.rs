@@ -12,17 +12,44 @@ fn tsume1() {
     "4k4/9/4P4/9/9/9/9/9/9 b G2r2b3g4s4n4l17p 1",
     "4k4/9/4S4/9/9/9/9/9/9 b S2r2b4g2s4n4l18p 1",
     "kn7/ps7/9/9/N8/9/9/9/8B b 2r2b4g2s4n4l18p 1",
-  ].into_iter().enumerate() {
+  ]
+  .into_iter()
+  .enumerate()
+  {
     let pos = Position::parse_sfen(&sfen).unwrap();
-    assert_eq!(search(pos, 1), Some(1), "test #{}, sfen: {}", test + 1, sfen);
+    assert_eq!(
+      search(pos, 1),
+      Some(1),
+      "test #{}, sfen: {}",
+      test + 1,
+      sfen
+    );
+  }
+}
+
+#[test]
+fn tsume1_futile_drops() {
+  for (test, sfen) in vec!["6Snl/5+Rg1k/6ppp/9/9/9/9/9/9 b r2b3g3s3n3l15p 5"]
+    .into_iter()
+    .enumerate()
+  {
+    let pos = Position::parse_sfen(&sfen).unwrap();
+    assert_eq!(
+      search(pos, 1),
+      Some(1),
+      "test #{}, sfen: {}",
+      test + 1,
+      sfen
+    );
   }
 }
 
 #[test]
 fn pawn_drop_no_mate() {
-  for (test, sfen) in vec![
-    "kn7/1s7/9/1N7/9/9/9/9/9 b P2r2b4g3s2n4l17p 1",
-  ].into_iter().enumerate() {
+  for (test, sfen) in vec!["kn7/1s7/9/1N7/9/9/9/9/9 b P2r2b4g3s2n4l17p 1"]
+    .into_iter()
+    .enumerate()
+  {
     let pos = Position::parse_sfen(&sfen).unwrap();
     assert_eq!(search(pos, 1), None, "test #{}, sfen: {}", test + 1, sfen);
   }

@@ -1,4 +1,5 @@
 use super::cell::Direction;
+pub const PIECE_TO_CHAR: &str = "plnsgbrk";
 pub const NONE: i8 = 0;
 pub const PAWN: i8 = 1;
 pub const LANCE: i8 = 2;
@@ -136,7 +137,7 @@ pub fn sliding(piece: i8) -> bool {
   }
 }
 
-fn is_promoted(piece: i8) -> bool {
+pub fn is_promoted(piece: i8) -> bool {
   piece.abs() >= PROMOTED
 }
 

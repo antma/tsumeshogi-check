@@ -41,6 +41,12 @@ fn tokin_check() {
 }
 
 #[test]
+fn dragon_check() {
+  let pos = Position::parse_sfen("6Snl/6+R1k/6ppp/9/9/9/9/9/9 w Gr2b3g3s3n3l15p 6").unwrap();
+  assert!(pos.is_check());
+}
+
+#[test]
 fn sfen_nifu() {
   let pos = Position::parse_sfen("k8/p8/p8/9/9/9/9/9/L8 w - 1");
   assert_eq!(pos.is_ok(), false);
@@ -48,12 +54,16 @@ fn sfen_nifu() {
 
 #[test]
 fn test_position_is_unblockable_check_false() {
-  for (test, sfen) in vec![
-    "8k/9/9/9/9/9/9/9/8L w p 1",
-  ].into_iter().enumerate() {
+  for (test, sfen) in vec!["8k/9/9/9/9/9/9/9/8L w p 1"].into_iter().enumerate() {
     let pos = Position::parse_sfen(&sfen).unwrap();
     let c = pos.compute_checks();
-    assert_eq!(pos.is_unblockable_check(&c), false, "test #{}, sfen: {}", test + 1, sfen);
+    assert_eq!(
+      pos.is_unblockable_check(&c),
+      false,
+      "test #{}, sfen: {}",
+      test + 1,
+      sfen
+    );
   }
 }
 

@@ -315,7 +315,7 @@ impl Position {
       if t > 0 {
         break;
       }
-      if piece::could_unpromoted(piece, k) {
+      if piece::is_promoted(piece) || piece::could_unpromoted(piece, k) {
         let m = Move {
           from: pos,
           to: k,
@@ -714,7 +714,11 @@ impl Position {
 
 impl Position {
   fn has_pieces_to_drop(&self) -> bool {
-    let r = if self.side > 0 { &self.black_pockets } else { &self.white_pockets };
+    let r = if self.side > 0 {
+      &self.black_pockets
+    } else {
+      &self.white_pockets
+    };
     r.iter().skip(1).any(|p| *p > 0)
   }
   //helper method for unavoidable mate detection
@@ -768,8 +772,29 @@ impl fmt::Display for Position {
         write!(f, "{}", cnt)?;
       }
     }
-    write!(f, " {}", if self.side > 0 { 'b' } else { 'w' })?;
-    //TODO: pockets
+    write!(f, " {} ", if self.side > 0 { 'b' } else { 'w' })?;
+    let mut t = 0u32;
+    for (&k, c) in self.black_pockets[piece::PAWN as usize..piece::KING as usize]
+      .iter()
+      .zip(piece::PIECE_TO_CHAR.chars())
+    {
+      if k > 0 {
+        write!(f, "{}", c.to_ascii_uppercase())?;
+        t += k as u32;
+      }
+    }
+    for (&k, c) in self.white_pockets[piece::PAWN as usize..piece::KING as usize]
+      .iter()
+      .zip(piece::PIECE_TO_CHAR.chars())
+    {
+      if k > 0 {
+        write!(f, "{}", c)?;
+        t += k as u32;
+      }
+    }
+    if t == 0 {
+      write!(f, "-")?;
+    }
     write!(f, " {}", self.move_no)
   }
 }

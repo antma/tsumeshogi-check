@@ -1,10 +1,37 @@
 use crate::shogi_rules;
 use shogi_rules::{Checks, Move, Position};
+use std::fmt;
+
+struct MovesLine {
+  a: Vec<String>,
+}
+
+impl MovesLine {
+  fn push(&mut self, s: String) {
+    self.a.push(s);
+  }
+  fn pop(&mut self) {
+    self.a.pop();
+  }
+}
+
+impl fmt::Display for MovesLine {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    for (i, s) in self.a.iter().enumerate() {
+      if i > 0 {
+        write!(f, " ")?;
+      }
+      write!(f, "{}. {}", i + 1, s)?;
+    }
+    Ok(())
+  }
+}
 
 pub struct Search {
   cur_line: Vec<Move>,
   checks: Vec<Checks>,
   max_depth: usize,
+  line: MovesLine,
 }
 
 impl Search {
@@ -13,6 +40,9 @@ impl Search {
       cur_line: vec![Move::default(); max_depth + 1],
       checks: vec![Checks::default(); max_depth + 1],
       max_depth,
+      line: MovesLine {
+        a: Vec::with_capacity(max_depth + 1),
+      },
     }
   }
   //maximize
@@ -20,45 +50,54 @@ impl Search {
     let moves = pos.compute_moves(&self.checks[cur_depth]);
     let mut legal_moves = 0;
     let mut best = i32::MIN;
-    for m in moves {
+    for m in &moves {
+      //println!("m = {:?}", m);
+      self.line.push(pos.move_to_string(&m, &moves));
       let u = pos.do_move(&m);
       if pos.is_legal() {
         self.cur_line[cur_depth] = m.clone();
         if cur_depth >= self.max_depth {
           //no mate
           pos.undo_move(&m, &u);
+          self.line.pop();
           return i32::MAX;
         }
         self.checks[cur_depth + 1] = pos.compute_checks();
         let ev = self.sente_search(pos, cur_depth + 1);
+        println!("{}, ev = {}", self.line, ev);
         if best < ev {
           best = ev;
         }
         legal_moves += 1;
       }
       pos.undo_move(&m, &u);
+      self.line.pop();
     }
     if legal_moves == 0 && pos.is_unblockable_check(&self.checks[cur_depth]) {
       //mate
       return cur_depth as i32;
     }
     let drops = pos.compute_drops(&self.checks[cur_depth]);
-    for m in drops {
+    for m in &drops {
+      self.line.push(pos.move_to_string(m, &moves));
       let u = pos.do_move(&m);
       if pos.is_legal() {
         self.cur_line[cur_depth] = m.clone();
         if cur_depth >= self.max_depth {
           //no mate
           pos.undo_move(&m, &u);
+          self.line.pop();
           return i32::MAX;
         }
         self.checks[cur_depth + 1] = pos.compute_checks();
         let ev = self.sente_search(pos, cur_depth + 1);
+        println!("{}, ev = {}", self.line, ev);
         if best < ev {
           best = ev;
         }
       }
       pos.undo_move(&m, &u);
+      self.line.pop();
       legal_moves += 1;
     }
     if legal_moves == 0 {
@@ -72,19 +111,22 @@ impl Search {
     let drops = pos.compute_drops(&self.checks[cur_depth]);
     let moves = pos.compute_moves(&self.checks[cur_depth]);
     let mut best = i32::MAX;
-    for m in drops.into_iter().chain(moves.into_iter()) {
+    for m in drops.iter().chain(moves.iter()) {
+      self.line.push(pos.move_to_string(m, &moves));
       let u = pos.do_move(&m);
       if pos.is_legal() {
         self.cur_line[cur_depth] = m.clone();
         self.checks[cur_depth + 1] = pos.compute_checks();
         if self.checks[cur_depth + 1].is_check() {
           let ev = self.gote_search(pos, cur_depth + 1);
+          println!("{}, ev = {}", self.line, ev);
           if !(ev == cur_depth as i32 + 1 && m.is_pawn_drop()) && best > ev {
             best = ev;
           }
         }
       }
       pos.undo_move(&m, &u);
+      self.line.pop();
     }
     best
   }
@@ -95,9 +137,12 @@ impl Search {
 }
 
 pub fn search(mut pos: Position, max_depth: usize) -> Option<i32> {
+  let fen = pos.to_string();
   for depth in (1..=max_depth).step_by(2) {
+    println!("depth = {}", depth);
     let mut s = Search::new(depth);
     let ev = s.search(&mut pos);
+    assert_eq!(fen, pos.to_string());
     if ev == (depth as i32) {
       return Some(ev);
     }
