@@ -12,7 +12,7 @@ pub struct Position {
   move_no: u32,
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct Move {
   from: usize,
   to: usize,
@@ -662,6 +662,7 @@ impl Position {
     let taken_piece = self.board[m.to];
     self.board[m.to] = m.to_piece;
     self.move_no += 1;
+    self.side *= -1;
     UndoMove { taken_piece }
   }
   pub fn undo_move(&mut self, m: &Move, u: &UndoMove) {
@@ -670,6 +671,7 @@ impl Position {
       self.board[m.from] = m.from_piece;
     }
     self.move_no -= 1;
+    self.side *= -1;
   }
 }
 

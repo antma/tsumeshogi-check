@@ -67,13 +67,13 @@ pub fn could_unpromoted(piece: i8, cell: usize) -> bool {
     return false;
   }
   if piece == PAWN || piece == LANCE {
-    cell < 9
+    cell >= 9
   } else if piece == -PAWN || piece == -LANCE {
-    cell >= 72
+    cell < 72
   } else if piece == KNIGHT {
-    cell < 18
+    cell >= 18
   } else if piece == -KNIGHT {
-    cell >= 63
+    cell < 63
   } else {
     false
   }
