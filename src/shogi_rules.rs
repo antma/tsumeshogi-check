@@ -665,6 +665,12 @@ impl Position {
   pub fn do_move(&mut self, m: &Move) -> UndoMove {
     if m.from != 0xff {
       self.board[m.from] = piece::NONE;
+    } else {
+      if m.to_piece > 0 {
+        self.black_pockets[m.to_piece as usize] -= 1;
+      } else {
+        self.white_pockets[(-m.to_piece) as usize] -= 1;
+      }
     }
     let taken_piece = self.board[m.to];
     self.board[m.to] = m.to_piece;
@@ -676,6 +682,12 @@ impl Position {
     self.board[m.to] = u.taken_piece;
     if m.from != 0xff {
       self.board[m.from] = m.from_piece;
+    } else {
+      if m.to_piece > 0 {
+        self.black_pockets[m.to_piece as usize] += 1;
+      } else {
+        self.white_pockets[(-m.to_piece) as usize] += 1;
+      }
     }
     self.move_no -= 1;
     self.side *= -1;
