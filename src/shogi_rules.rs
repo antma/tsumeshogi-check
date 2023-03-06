@@ -472,11 +472,15 @@ impl Position {
           if p == piece::PAWN && !allow_pawn_drop {
             continue;
           }
+          let to_piece = p * self.side;
+          if !piece::could_unpromoted(to_piece, k) {
+            continue;
+          }
           let m = Move {
             from: 0xff,
             to: k,
             from_piece: piece::NONE,
-            to_piece: p * self.side,
+            to_piece,
           };
           if f(m) {
             return true;
