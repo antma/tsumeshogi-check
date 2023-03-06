@@ -58,9 +58,10 @@ impl Search {
   //maximize
   fn gote_search(&mut self, pos: &mut Position, cur_depth: usize, alpha: i32, beta: i32) -> i32 {
     let moves = pos.compute_moves(&self.checks[cur_depth]);
+    let (takes, king_escapes): (Vec<_>, Vec<_>) = moves.iter().partition(|m| pos.is_take(*m));
     let mut legal_moves = 0;
     let mut alpha = alpha;
-    for m in &moves {
+    for m in takes.into_iter().chain(king_escapes.into_iter()) {
       //println!("m = {:?}", m);
       if self.debug_log {
         self.line.push(pos.move_to_string(&m, &moves));
