@@ -23,7 +23,7 @@ fn process_file(filename: &str, depth: usize) -> std::io::Result<()> {
       continue;
     }
     let pos = pos.unwrap();
-    match search_ext(pos, depth, true, false) {
+    match search_ext(pos, depth, true) {
       Some(res) => {
         if res < depth as i32 {
           warn!(
