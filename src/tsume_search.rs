@@ -56,10 +56,10 @@ impl Search {
     }
   }
   //maximize
-  fn gote_search(&mut self, pos: &mut Position, cur_depth: usize) -> i32 {
+  fn gote_search(&mut self, pos: &mut Position, cur_depth: usize, alpha: i32, beta: i32) -> i32 {
     let moves = pos.compute_moves(&self.checks[cur_depth]);
     let mut legal_moves = 0;
-    let mut best = i32::MIN;
+    let mut alpha = alpha;
     for m in &moves {
       //println!("m = {:?}", m);
       if self.debug_log {
@@ -77,12 +77,12 @@ impl Search {
           return i32::MAX;
         }
         self.checks[cur_depth + 1] = pos.compute_checks();
-        let ev = self.sente_search(pos, cur_depth + 1);
+        let ev = self.sente_search(pos, cur_depth + 1, alpha, beta);
         if self.debug_log {
           debug!("{}, ev = {}", self.line, ev);
         }
-        if best < ev {
-          best = ev;
+        if alpha < ev {
+          alpha = ev;
         }
         legal_moves += 1;
       }
@@ -90,6 +90,7 @@ impl Search {
       if self.debug_log {
         self.line.pop();
       }
+      if beta < alpha { return alpha; }
     }
     if legal_moves == 0
       && !self.allow_futile_drops
@@ -115,12 +116,12 @@ impl Search {
           return i32::MAX;
         }
         self.checks[cur_depth + 1] = pos.compute_checks();
-        let ev = self.sente_search(pos, cur_depth + 1);
+        let ev = self.sente_search(pos, cur_depth + 1, alpha, beta);
         if self.debug_log {
           debug!("{}, ev = {}", self.line, ev);
         }
-        if best < ev {
-          best = ev;
+        if alpha < ev {
+          alpha = ev;
         }
       }
       pos.undo_move(&m, &u);
@@ -128,18 +129,19 @@ impl Search {
         self.line.pop();
       }
       legal_moves += 1;
+      if beta < alpha { return alpha; }
     }
     if legal_moves == 0 {
       //mate
       return cur_depth as i32;
     }
-    best
+    alpha
   }
   //minimize
-  fn sente_search(&mut self, pos: &mut Position, cur_depth: usize) -> i32 {
+  fn sente_search(&mut self, pos: &mut Position, cur_depth: usize, alpha: i32, beta: i32) -> i32 {
     let drops = pos.compute_drops(&self.checks[cur_depth]);
     let moves = pos.compute_moves(&self.checks[cur_depth]);
-    let mut best = i32::MAX;
+    let mut beta = beta;
     for m in drops.iter().chain(moves.iter()) {
       if self.debug_log {
         self.line.push(pos.move_to_string(m, &moves));
@@ -149,12 +151,12 @@ impl Search {
         self.cur_line[cur_depth] = m.clone();
         self.checks[cur_depth + 1] = pos.compute_checks();
         if self.checks[cur_depth + 1].is_check() {
-          let ev = self.gote_search(pos, cur_depth + 1);
+          let ev = self.gote_search(pos, cur_depth + 1, alpha, beta);
           if self.debug_log {
             debug!("{}, ev = {}", self.line, ev);
           }
-          if !(ev == cur_depth as i32 + 1 && m.is_pawn_drop()) && best > ev {
-            best = ev;
+          if !(ev == cur_depth as i32 + 1 && m.is_pawn_drop()) && beta > ev {
+            beta = ev;
           }
         }
       }
@@ -162,12 +164,13 @@ impl Search {
       if self.debug_log {
         self.line.pop();
       }
+      if beta < alpha { return beta; }
     }
-    best
+    beta
   }
   fn search(&mut self, pos: &mut Position) -> i32 {
     self.checks[0] = pos.compute_checks();
-    self.sente_search(pos, 0)
+    self.sente_search(pos, 0, i32::MIN, i32::MAX)
   }
 }
 
