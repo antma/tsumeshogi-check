@@ -622,6 +622,9 @@ impl Position {
   pub fn is_double_check(&self) -> bool {
     self.compute_checks().is_double_check()
   }
+  pub fn is_take(&self, m: &Move) -> bool {
+    self.board[m.to] != piece::NONE
+  }
   pub fn compute_drops(&self, checks: &Checks) -> Vec<Move> {
     let mut r = Vec::new();
     match checks.attacking_pieces.len() {
