@@ -231,7 +231,26 @@ impl Position {
         ));
       }
     }
-    //TODO: check pawns and knights in promotion zone
+    //check pawns and knights in promotion zone
+    for row in (0..3).chain(6..9) {
+      for (c, p) in board.iter().enumerate().skip(9 * row).take(9) {
+        if !piece::is_promoted(*p) && !piece::could_unpromoted(*p, c) {
+          return Err(ParseSFENError::new(
+            sfen,
+            format!(
+              "unpromoted {} on the {} row at cell {}",
+              if p.abs() == piece::PAWN {
+                "pawn"
+              } else {
+                "knight"
+              },
+              row + 1,
+              cell::to_string(c)
+            ),
+          ));
+        }
+      }
+    }
     let side = if a[1] == "w" {
       -1
     } else if a[1] == "b" {

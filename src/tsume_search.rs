@@ -171,15 +171,15 @@ impl Search {
   }
 }
 
-pub fn search_ext(
-  mut pos: Position,
-  max_depth: usize,
-  allow_futile_drops: bool
-) -> Option<i32> {
+pub fn search_ext(mut pos: Position, max_depth: usize, allow_futile_drops: bool) -> Option<i32> {
   let fen = pos.to_string();
   for depth in (1..=max_depth).step_by(2) {
     debug!("depth = {}", depth);
-    let mut s = Search::new(depth, allow_futile_drops, log::log_enabled!(log::Level::Debug));
+    let mut s = Search::new(
+      depth,
+      allow_futile_drops,
+      log::log_enabled!(log::Level::Debug),
+    );
     let ev = s.search(&mut pos);
     assert_eq!(fen, pos.to_string());
     if ev == (depth as i32) {
