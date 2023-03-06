@@ -15,7 +15,11 @@ fn process_file(filename: &str, depth: usize) -> std::io::Result<()> {
     let line = line?;
     let pos = Position::parse_sfen(&line);
     if pos.is_err() {
-      error!("Test #{}: fail to parse SFEN. {}", test + 1, pos.err().unwrap());
+      error!(
+        "Test #{}: fail to parse SFEN. {}",
+        test + 1,
+        pos.err().unwrap()
+      );
       continue;
     }
     let pos = pos.unwrap();
