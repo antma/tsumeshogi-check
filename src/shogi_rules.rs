@@ -67,6 +67,12 @@ pub struct ParseSFENError {
   message: String,
 }
 
+impl fmt::Display for ParseSFENError {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    write!(f, "{}, SFEN: \"{}\"", self.message, self.sfen)
+  }
+}
+
 impl ParseSFENError {
   fn new(sfen: &str, message: String) -> Self {
     ParseSFENError {

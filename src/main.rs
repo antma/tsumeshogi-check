@@ -13,7 +13,12 @@ fn process_file(filename: &str, depth: usize) -> std::io::Result<()> {
   let reader = BufReader::new(file);
   for (test, line) in reader.lines().enumerate() {
     let line = line?;
-    let pos = Position::parse_sfen(&line).unwrap();
+    let pos = Position::parse_sfen(&line);
+    if pos.is_err() {
+      error!("Test #{}: fail to parse SFEN. {}", test + 1, pos.err().unwrap());
+      continue;
+    }
+    let pos = pos.unwrap();
     match search_ext(pos, depth, true, false) {
       Some(res) => {
         if res < depth as i32 {
@@ -35,8 +40,8 @@ fn process_file(filename: &str, depth: usize) -> std::io::Result<()> {
         panic!("");
       }
     }
-    if test % 1000 == 0 {
-      info!("{} positions were processed.", test);
+    if (test + 1) % 1000 == 0 {
+      info!("{} positions were processed.", test + 1);
     }
   }
   Ok(())
