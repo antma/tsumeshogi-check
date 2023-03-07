@@ -163,3 +163,11 @@ pub fn to_string(piece: i8, plus_in_prefix: bool) -> String {
   }
   s
 }
+
+pub fn color(piece: i8) -> &'static str {
+  if piece > 0 {
+    "black"
+  } else {
+    "white"
+  }
+}

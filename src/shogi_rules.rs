@@ -1,7 +1,6 @@
 use std::fmt;
 use std::str::FromStr;
 
-mod board;
 mod cell;
 mod piece;
 
@@ -9,8 +8,9 @@ pub struct Position {
   board: [i8; 81],
   black_pockets: [u8; 8],
   white_pockets: [u8; 8],
-  side: i8,
+  nifu_masks: u32,
   move_no: u32,
+  side: i8,
 }
 
 #[derive(Clone, Default, Debug)]
@@ -150,6 +150,7 @@ impl Position {
       ));
     }
     let mut board: [i8; 81] = [piece::NONE; 81];
+    let mut nifu_masks = 0u32;
     for (row, s) in b.iter().enumerate() {
       let mut col = 0;
       let mut promoted = 0;
@@ -209,26 +210,24 @@ impl Position {
                 ),
               ));
             }
+          } else if p.abs() == piece::PAWN {
+            let bit = 1u32 << (((p.signum() as i32 + 1) << 3) + (8 - col as i32));
+            if (nifu_masks & bit) != 0 {
+              return Err(ParseSFENError::new(
+                sfen,
+                format!(
+                  "more than one {} pawn in column {}",
+                  piece::color(p),
+                  9 - col
+                ),
+              ));
+            }
+            nifu_masks |= bit;
           }
           board[9 * row + (8 - col)] = p + promoted * p.signum();
           promoted = 0;
           col += 1;
         }
-      }
-    }
-    //checking nifu
-    for col in 0..9 {
-      if board::does_column_contain_at_least_two_pieces(&board, col, piece::PAWN) {
-        return Err(ParseSFENError::new(
-          sfen,
-          format!("more than one black pawn in column {}", col),
-        ));
-      }
-      if board::does_column_contain_at_least_two_pieces(&board, col, -piece::PAWN) {
-        return Err(ParseSFENError::new(
-          sfen,
-          format!("more than one white pawn in column {}", col),
-        ));
       }
     }
     //check pawns and knights in promotion zone
@@ -303,6 +302,7 @@ impl Position {
       board,
       black_pockets,
       white_pockets,
+      nifu_masks,
       side,
       move_no,
     };
@@ -478,7 +478,6 @@ impl Position {
   }
   //TODO: enumerate_check_drops
   fn enumerate_drops<F: FnMut(Move) -> bool, G: Fn(usize) -> bool>(&self, mut f: F, g: G) -> bool {
-    let pawn = piece::PAWN * self.side;
     let q = if self.side > 0 {
       &self.black_pockets
     } else {
@@ -488,7 +487,8 @@ impl Position {
       .filter(|&i| q[i as usize] > 0)
       .collect();
     for col in 0..9 {
-      let allow_pawn_drop = !board::does_column_contain_piece(&self.board, col, pawn);
+      let bit = 1u32 << (((self.side as i32 + 1) << 3) + col as i32);
+      let allow_pawn_drop = (self.nifu_masks & bit) == 0;
       for row in 0..9 {
         let k = 9 * row + col;
         if self.board[k] != piece::NONE || !g(k) {
@@ -705,8 +705,16 @@ impl Position {
         self.white_pockets[(-m.to_piece) as usize] -= 1;
       }
     }
+    if m.from_piece != m.to_piece {
+      if m.from_piece.abs() == piece::PAWN || m.to_piece.abs() == piece::PAWN {
+        self.nifu_masks ^= 1u32 << (((1 + self.side as i32) << 3) + (m.to % 9) as i32);
+      }
+    }
     let taken_piece = self.board[m.to];
     if taken_piece != piece::NONE {
+      if taken_piece.abs() == piece::PAWN {
+        self.nifu_masks ^= 1u32 << (((1 - self.side as i32) << 3) + (m.to % 9) as i32);
+      }
       let p = piece::unpromote(taken_piece);
       if p > 0 {
         self.white_pockets[p as usize] += 1;
@@ -719,6 +727,7 @@ impl Position {
     self.side *= -1;
     UndoMove { taken_piece }
   }
+  //TODO: nifu_masks
   pub fn undo_move(&mut self, m: &Move, u: &UndoMove) {
     self.board[m.to] = u.taken_piece;
     if m.from != 0xff {
@@ -730,7 +739,15 @@ impl Position {
         self.white_pockets[(-m.to_piece) as usize] += 1;
       }
     }
+    if m.from_piece != m.to_piece {
+      if m.from_piece.abs() == piece::PAWN || m.to_piece.abs() == piece::PAWN {
+        self.nifu_masks ^= 1u32 << (((1 - self.side as i32) << 3) + (m.to % 9) as i32);
+      }
+    }
     if u.taken_piece != piece::NONE {
+      if u.taken_piece.abs() == piece::PAWN {
+        self.nifu_masks ^= 1u32 << (((1 + self.side as i32) << 3) + (m.to % 9) as i32);
+      }
       let p = piece::unpromote(u.taken_piece);
       if p > 0 {
         self.white_pockets[p as usize] -= 1;
@@ -750,10 +767,10 @@ impl Position {
         return true;
       }
     }
-    let moves = self.compute_drops(&checks);
-    for m in &moves {
+    let drops = self.compute_drops(&checks);
+    for m in drops {
       if san == self.move_to_string(&m, &moves) {
-        self.do_move(m);
+        self.do_move(&m);
         return true;
       }
     }
