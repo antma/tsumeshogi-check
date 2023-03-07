@@ -79,10 +79,22 @@ pub fn could_unpromoted(piece: i8, cell: usize) -> bool {
     true
   }
 }
+
 pub fn could_promoted(piece: i8) -> bool {
   let p = piece.abs();
   p < KING && p != GOLD
 }
+
+pub fn sliding_dir_to_mask(flags: u8) -> u32 {
+  match flags {
+    1 => 1u32 << BISHOP,
+    2 => 1u32 << ROOK,
+    5 => 1u32 << BISHOP,
+    6 => (1u32 << ROOK) | (1u32 << LANCE),
+    _ => panic!("unhandled flags {}", flags),
+  }
+}
+
 pub fn is_sliding_dir(abs_piece: i8, flags: u8) -> bool {
   assert!(abs_piece > 0);
   match abs_piece {
@@ -92,6 +104,17 @@ pub fn is_sliding_dir(abs_piece: i8, flags: u8) -> bool {
     _ => false,
   }
 }
+
+pub fn near_dir_to_mask(flags: u8) -> u32 {
+  match flags {
+    1 => (1u32 << BISHOP) | (1u32 << SILVER),
+    2 => (1u32 << ROOK) | (1u32 << GOLD),
+    5 => (1u32 << BISHOP) | (1u32 << SILVER) | (1u32 << GOLD),
+    6 => (1u32 << ROOK) | (1u32 << SILVER) | (1u32 << GOLD) | (1u32 << PAWN) | (1u32 << LANCE),
+    _ => panic!("unhandled flags {}", flags),
+  }
+}
+
 pub fn is_near_dir(abs_piece: i8, flags: u8) -> bool {
   assert!(abs_piece > 0);
   match abs_piece {

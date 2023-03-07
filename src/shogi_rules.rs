@@ -1,6 +1,8 @@
 use std::fmt;
 use std::str::FromStr;
 
+use crate::bits;
+
 mod cell;
 mod piece;
 
@@ -24,6 +26,38 @@ pub struct Move {
 impl Move {
   pub fn is_pawn_drop(&self) -> bool {
     self.from_piece == piece::NONE && self.to_piece.abs() == piece::PAWN
+  }
+}
+
+struct SlidingIterator {
+  delta: isize,
+  last: usize,
+  end: usize,
+  drops_mask: u32,
+}
+
+impl Iterator for SlidingIterator {
+  type Item = (usize, u32);
+  fn next(&mut self) -> Option<Self::Item> {
+    let a = (self.last as isize + self.delta) as usize;
+    if a == self.end {
+      None
+    } else {
+      self.last = a;
+      Some((a, self.drops_mask))
+    }
+  }
+}
+
+impl SlidingIterator {
+  fn new(attacking_piece: usize, king_pos: usize, drops_mask: u32) -> Self {
+    let (delta_row, delta_col) = cell::delta_direction(attacking_piece, king_pos);
+    SlidingIterator {
+      delta: 9 * delta_row + delta_col,
+      last: king_pos,
+      end: attacking_piece,
+      drops_mask,
+    }
   }
 }
 
@@ -58,6 +92,28 @@ impl Checks {
   }
   fn blocking_cell(&self, cell: usize) -> bool {
     (self.blocking_cells & (1u128 << cell)) != 0
+  }
+}
+
+struct PotentialDropsMap(Vec<(usize, u32)>);
+
+impl Default for PotentialDropsMap {
+  fn default() -> Self {
+    Self(Vec::new())
+  }
+}
+
+impl PotentialDropsMap {
+  fn insert(&mut self, cell: usize, mask: u32) {
+    self.0.push((cell, mask));
+  }
+}
+
+impl IntoIterator for PotentialDropsMap {
+  type Item = (usize, u32);
+  type IntoIter = std::vec::IntoIter<Self::Item>;
+  fn into_iter(self) -> Self::IntoIter {
+    self.0.into_iter()
   }
 }
 
@@ -476,41 +532,76 @@ impl Position {
     }
     false
   }
-  //TODO: enumerate_check_drops
-  fn enumerate_drops<F: FnMut(Move) -> bool, G: Fn(usize) -> bool>(&self, mut f: F, g: G) -> bool {
+  fn empty_cells_with_drop_mask(&self, drop_mask: u32) -> Vec<(usize, u32)> {
+    self
+      .board
+      .iter()
+      .enumerate()
+      .filter_map(|(i, p)| {
+        if *p == piece::NONE {
+          Some((i, drop_mask))
+        } else {
+          None
+        }
+      })
+      .collect()
+  }
+  fn compute_drops_mask(&self) -> u32 {
     let q = if self.side > 0 {
       &self.black_pockets
     } else {
       &self.white_pockets
     };
-    let v: Vec<i8> = (piece::PAWN..=piece::ROOK)
-      .filter(|&i| q[i as usize] > 0)
-      .collect();
-    for col in 0..9 {
-      let bit = 1u32 << (((self.side as i32 + 1) << 3) + col as i32);
-      let allow_pawn_drop = (self.nifu_masks & bit) == 0;
-      for row in 0..9 {
-        let k = 9 * row + col;
-        if self.board[k] != piece::NONE || !g(k) {
+    q.iter()
+      .enumerate()
+      .skip(1)
+      .filter(|&(_, c)| *c > 0)
+      .fold(0, |acc, (i, _)| acc + (1 << i))
+  }
+  pub fn compute_drops_with_check(&self) -> Vec<Move> {
+    let drops_mask = self.compute_drops_mask();
+    let mut r = Vec::new();
+    self.enumerate_drops(
+      |m| {
+        r.push(m);
+        false
+      },
+      self.compute_potential_drops_map(drops_mask).into_iter(),
+    );
+    r
+  }
+  fn enumerate_drops<F: FnMut(Move) -> bool, I: Iterator<Item = (usize, u32)>>(
+    &self,
+    mut f: F,
+    drop_masks_iterator: I,
+  ) -> bool {
+    let drops_mask = self.compute_drops_mask();
+    for (k, mask) in drop_masks_iterator {
+      let mask = mask & drops_mask;
+      if mask == 0 {
+        continue;
+      }
+      for p in bits::Bits(mask) {
+        let p = p as i8;
+        if p == piece::PAWN {
+          let col = k % 9;
+          let bit = 1u32 << (((1 + self.side as i32) << 3) + col as i32);
+          if (self.nifu_masks & bit) != 0 {
+            continue;
+          }
+        }
+        let to_piece = p * self.side;
+        if !piece::could_unpromoted(to_piece, k) {
           continue;
         }
-        for &p in &v {
-          if p == piece::PAWN && !allow_pawn_drop {
-            continue;
-          }
-          let to_piece = p * self.side;
-          if !piece::could_unpromoted(to_piece, k) {
-            continue;
-          }
-          let m = Move {
-            from: 0xff,
-            to: k,
-            from_piece: piece::NONE,
-            to_piece,
-          };
-          if f(m) {
-            return true;
-          }
+        let m = Move {
+          from: 0xff,
+          to: k,
+          from_piece: piece::NONE,
+          to_piece,
+        };
+        if f(m) {
+          return true;
         }
       }
     }
@@ -576,7 +667,7 @@ impl Position {
       if c < 0 || c >= 9 {
         continue;
       }
-      let k = r as usize * 9 + c as usize;
+      let k = 9 * r as usize + c as usize;
       let piece = self.board[k];
       if s * piece >= 0 {
         continue;
@@ -611,6 +702,71 @@ impl Position {
       None => Checks::default(),
     }
   }
+  fn compute_potential_drops_map(&self, drops_mask: u32) -> PotentialDropsMap {
+    let mut m = PotentialDropsMap::default();
+    let king_pos = self.find_king(-self.side);
+    if king_pos.is_none() {
+      return m;
+    }
+    let king_pos = king_pos.unwrap();
+    let (king_row, king_col) = cell::unpack(king_pos);
+    for t in if self.side < 0 {
+      piece::BLACK_DIRECTIONS.iter()
+    } else {
+      piece::WHITE_DIRECTIONS.iter()
+    } {
+      let mut row = king_row;
+      let mut col = king_col;
+      let mut mask = piece::near_dir_to_mask(t.2) & drops_mask;
+      if mask == 0 {
+        continue;
+      }
+      for steps in 0.. {
+        let r = (row as isize) + t.0;
+        if r < 0 || r >= 9 {
+          break;
+        }
+        let c = (col as isize) + t.1;
+        if c < 0 || c >= 9 {
+          break;
+        }
+        if steps == 1 {
+          mask = piece::sliding_dir_to_mask(t.2) & drops_mask;
+          if mask == 0 {
+            break;
+          }
+        }
+        row = r as usize;
+        col = c as usize;
+        let k = 9 * row + col;
+        if self.board[k] != piece::NONE {
+          break;
+        }
+        m.insert(k, mask);
+      }
+    }
+    //knight checks
+    let knight_bit = 1u32 << piece::KNIGHT;
+    if (drops_mask & knight_bit) == 0 {
+      return m;
+    }
+    for t in piece::KNIGHT_MOVES.iter() {
+      let r = (king_row as isize) - t.0 * (self.side as isize);
+      if r < 0 || r >= 9 {
+        continue;
+      }
+      let c = (king_col as isize) - t.1 * (self.side as isize);
+      if c < 0 || c >= 9 {
+        continue;
+      }
+      let k = 9 * r as usize + c as usize;
+      if self.board[k] != piece::NONE {
+        continue;
+      }
+      m.insert(k, knight_bit);
+    }
+    m
+  }
   pub fn compute_checks(&self) -> Checks {
     self.find_checks(self.side)
   }
@@ -635,7 +791,7 @@ impl Position {
             r.push(m);
             false
           },
-          |_| true,
+          self.empty_cells_with_drop_mask(0x7fff_ffff).into_iter(),
         );
       }
       1 => {
@@ -645,7 +801,11 @@ impl Position {
               r.push(m);
               false
             },
-            |c| checks.blocking_cell(c),
+            SlidingIterator::new(
+              checks.attacking_pieces[0],
+              checks.king_pos.unwrap(),
+              0x7fff_ffff,
+            ),
           );
         }
       }
@@ -727,7 +887,6 @@ impl Position {
     self.side *= -1;
     UndoMove { taken_piece }
   }
-  //TODO: nifu_masks
   pub fn undo_move(&mut self, m: &Move, u: &UndoMove) {
     self.board[m.to] = u.taken_piece;
     if m.from != 0xff {
