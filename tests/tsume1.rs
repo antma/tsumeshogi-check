@@ -19,6 +19,11 @@ fn tsume1() {
 }
 
 #[test]
+fn tsume1_nifu() {
+  common::tsume_batch_test(vec!["k8/2K6/9/7BB/7LL/7LL/8R/p2NNSSGG/P2NNSSGG b 16p 1"], 1);
+}
+
+#[test]
 fn tsume1_drop_white_knight_on_first_rank_is_illegal() {
   common::tsume_batch_test(
     vec!["l1+L6/9/p1pL3Gp/2s+Bp1pp1/2Np3P1/P1P6/1PKP1SB1P/2Gg+nr3/L4k3 b RG2SN5Pn 179"],
