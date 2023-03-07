@@ -1,6 +1,3 @@
-use tsumeshogi_check::shogi_rules::Position;
-use tsumeshogi_check::tsume_search::search;
-
 mod common;
 
 #[test]
@@ -36,11 +33,5 @@ fn tsume1_futile_drops() {
 
 #[test]
 fn pawn_drop_no_mate() {
-  for (test, sfen) in vec!["kn7/1s7/9/1N7/9/9/9/9/9 b P2r2b4g3s2n4l17p 1"]
-    .into_iter()
-    .enumerate()
-  {
-    let pos = Position::parse_sfen(&sfen).unwrap();
-    assert_eq!(search(pos, 1), None, "test #{}, sfen: {}", test + 1, sfen);
-  }
+  common::no_tsume_batch_test(vec!["kn7/1s7/9/1N7/9/9/9/9/9 b P2r2b4g3s2n4l17p 1"], 1);
 }

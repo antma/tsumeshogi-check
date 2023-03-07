@@ -1,6 +1,3 @@
-use tsumeshogi_check::shogi_rules::Position;
-use tsumeshogi_check::tsume_search::search;
-
 mod common;
 
 #[test]
@@ -25,10 +22,9 @@ fn tsume3() {
 
 #[test]
 fn no_tsume3() {
-  for sfen in vec!["9/4k4/9/4P4/9/9/9/9/9 b G2r2b4s4n4l17p 1"] {
-    let pos = Position::parse_sfen(&sfen).unwrap();
-    assert_eq!(search(pos, 3), None);
-  }
+  common::no_tsume_batch_test(vec!["9/4k4/9/4P4/9/9/9/9/9 b G2r2b4s4n4l17p 1",
+    "k8/9/9/1+R7/9/9/9/9/P8 b LPr2b4g4s4n3l16p 1",
+  ], 3); 
 }
 
 //futile drops
