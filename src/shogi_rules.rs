@@ -476,6 +476,7 @@ impl Position {
     }
     false
   }
+  //TODO: enumerate_check_drops
   fn enumerate_drops<F: FnMut(Move) -> bool, G: Fn(usize) -> bool>(&self, mut f: F, g: G) -> bool {
     let pawn = piece::PAWN * self.side;
     let q = if self.side > 0 {

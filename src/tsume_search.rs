@@ -57,6 +57,7 @@ impl Search {
   }
   //maximize
   fn gote_search(&mut self, pos: &mut Position, cur_depth: usize, alpha: i32, beta: i32) -> i32 {
+    if beta < cur_depth as i32 { return cur_depth as i32; }
     let moves = pos.compute_moves(&self.checks[cur_depth]);
     let (takes, king_escapes): (Vec<_>, Vec<_>) = moves.iter().partition(|m| pos.is_take(*m));
     let mut legal_moves = 0;
@@ -140,6 +141,8 @@ impl Search {
   }
   //minimize
   fn sente_search(&mut self, pos: &mut Position, cur_depth: usize, alpha: i32, beta: i32) -> i32 {
+    let eval_lowerbound = (cur_depth + 1) as i32;
+    if beta < eval_lowerbound { return eval_lowerbound; }
     let drops = pos.compute_drops(&self.checks[cur_depth]);
     let moves = pos.compute_moves(&self.checks[cur_depth]);
     let mut beta = beta;
