@@ -139,6 +139,7 @@ impl ParseSFENError {
 }
 
 pub struct UndoMove {
+  nifu_masks: u32,
   taken_piece: i8,
 }
 
@@ -857,6 +858,10 @@ impl Position {
   }
   //TODO: incremental drop_masks
   pub fn do_move(&mut self, m: &Move) -> UndoMove {
+    let u = UndoMove {
+      nifu_masks: self.nifu_masks,
+      taken_piece: self.board[m.to],
+    };
     if m.from != 0xff {
       self.board[m.from] = piece::NONE;
     } else {
@@ -871,12 +876,11 @@ impl Position {
         self.nifu_masks ^= 1u32 << (((1 + self.side as i32) << 3) + (m.to % 9) as i32);
       }
     }
-    let taken_piece = self.board[m.to];
-    if taken_piece != piece::NONE {
-      if taken_piece.abs() == piece::PAWN {
+    if u.taken_piece != piece::NONE {
+      if u.taken_piece.abs() == piece::PAWN {
         self.nifu_masks ^= 1u32 << (((1 - self.side as i32) << 3) + (m.to % 9) as i32);
       }
-      let p = piece::unpromote(taken_piece);
+      let p = piece::unpromote(u.taken_piece);
       if p > 0 {
         self.white_pockets[p as usize] += 1;
       } else {
@@ -886,9 +890,10 @@ impl Position {
     self.board[m.to] = m.to_piece;
     self.move_no += 1;
     self.side *= -1;
-    UndoMove { taken_piece }
+    u
   }
   pub fn undo_move(&mut self, m: &Move, u: &UndoMove) {
+    self.nifu_masks = u.nifu_masks;
     self.board[m.to] = u.taken_piece;
     if m.from != 0xff {
       self.board[m.from] = m.from_piece;
@@ -899,15 +904,7 @@ impl Position {
         self.white_pockets[(-m.to_piece) as usize] += 1;
       }
     }
-    if m.from_piece != m.to_piece {
-      if m.from_piece.abs() == piece::PAWN || m.to_piece.abs() == piece::PAWN {
-        self.nifu_masks ^= 1u32 << (((1 - self.side as i32) << 3) + (m.to % 9) as i32);
-      }
-    }
     if u.taken_piece != piece::NONE {
-      if u.taken_piece.abs() == piece::PAWN {
-        self.nifu_masks ^= 1u32 << (((1 + self.side as i32) << 3) + (m.to % 9) as i32);
-      }
       let p = piece::unpromote(u.taken_piece);
       if p > 0 {
         self.white_pockets[p as usize] -= 1;
