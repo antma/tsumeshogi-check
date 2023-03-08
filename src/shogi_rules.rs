@@ -855,6 +855,7 @@ impl Position {
     }
     r
   }
+  //TODO: incremental drop_masks
   pub fn do_move(&mut self, m: &Move) -> UndoMove {
     if m.from != 0xff {
       self.board[m.from] = piece::NONE;
@@ -935,43 +936,33 @@ impl Position {
     }
     false
   }
-}
-
-impl Position {
-  fn has_pieces_to_drop(&self) -> bool {
-    let r = if self.side > 0 {
-      &self.black_pockets
-    } else {
-      &self.white_pockets
+  pub fn is_futile_drop(&mut self, checks: &Checks, drop: &Move) -> bool {
+    let attacking_piece = checks.attacking_pieces[0];
+    let mut res = true;
+    //let u1 = self.do_move(&drop);
+    let p = self.board[attacking_piece];
+    let take_move = Move {
+      from: attacking_piece,
+      to: drop.to,
+      from_piece: p,
+      to_piece: p,
     };
-    r.iter().skip(1).any(|p| *p > 0)
-  }
-  //helper method for unavoidable mate detection
-  //assumed that there is no legal moves in current position
-  pub fn is_unblockable_check(&self, checks: &Checks) -> bool {
-    if checks.king_pos.is_none() {
-      return false;
-    }
-    assert!(self.validate_checks(checks));
-    let king_pos = checks.king_pos.unwrap();
-    let l = checks.attacking_pieces.len();
-    if l != 1 {
-      l == 2
-    } else {
-      let a = checks.attacking_pieces[0];
-      let p = self.board[a];
-      if !piece::sliding(p) || !self.has_pieces_to_drop() {
-        true
-      } else {
-        let (delta_row, delta_col) = cell::delta_direction(a, king_pos);
-        let delta = 9 * delta_row + delta_col;
-        let cell = ((king_pos as isize) + delta) as usize;
-        if cell == a {
-          return true;
-        }
-        self.checks(cell, self.side).attacking_pieces.len() >= 2
+    let u2 = self.do_move(&take_move);
+    assert!(self.is_legal(), "SFEN: {}", self);
+    let moves = self.compute_moves(&self.compute_checks());
+    for m in moves {
+      let u3 = self.do_move(&m);
+      if self.is_legal() {
+        //no mate
+        res = false;
+        self.undo_move(&m, &u3);
+        break;
       }
+      self.undo_move(&m, &u3);
     }
+    self.undo_move(&take_move, &u2);
+    //self.undo_move(&drop, &u1);
+    res
   }
 }
 

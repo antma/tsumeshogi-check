@@ -98,13 +98,6 @@ impl Search {
         return alpha;
       }
     }
-    if legal_moves == 0
-      && !self.allow_futile_drops
-      && pos.is_unblockable_check(&self.checks[cur_depth])
-    {
-      //mate
-      return cur_depth as i32;
-    }
     let drops = pos.compute_drops(&self.checks[cur_depth]);
     for m in &drops {
       if self.debug_log {
@@ -113,6 +106,17 @@ impl Search {
       let u = pos.do_move(&m);
       if pos.is_legal() {
         self.cur_line[cur_depth] = m.clone();
+        if legal_moves == 0
+          && !self.allow_futile_drops
+          && pos.is_futile_drop(&self.checks[cur_depth], &m)
+        {
+          //mate
+          pos.undo_move(&m, &u);
+          if self.debug_log {
+            self.line.pop();
+          }
+          return cur_depth as i32;
+        }
         if cur_depth >= self.max_depth {
           //no mate
           pos.undo_move(&m, &u);
@@ -129,12 +133,12 @@ impl Search {
         if alpha < ev {
           alpha = ev;
         }
+        legal_moves += 1;
       }
       pos.undo_move(&m, &u);
       if self.debug_log {
         self.line.pop();
       }
-      legal_moves += 1;
       if beta < alpha {
         return alpha;
       }

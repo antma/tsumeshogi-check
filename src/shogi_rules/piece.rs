@@ -153,6 +153,7 @@ pub fn from_char(c: char) -> i8 {
     _ => NONE,
   }
 }
+
 pub fn sliding(piece: i8) -> bool {
   match piece.abs() {
     LANCE | BISHOP | ROOK | PROMOTED_BISHOP | PROMOTED_ROOK => true,
