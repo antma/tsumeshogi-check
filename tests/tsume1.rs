@@ -37,6 +37,11 @@ fn tsume1_futile_drops() {
 }
 
 #[test]
+fn no_tsume1() {
+  common::no_tsume_batch_test(vec!["9/6sG1/8k/5B2p/7L1/9/9/9/9 b 2rb3g3s4n3l17p 1"], 1);
+}
+
+#[test]
 fn pawn_drop_no_mate() {
   common::no_tsume_batch_test(vec!["kn7/1s7/9/1N7/9/9/9/9/9 b P2r2b4g3s2n4l17p 1"], 1);
 }
