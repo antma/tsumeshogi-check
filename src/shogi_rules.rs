@@ -10,6 +10,7 @@ pub struct Position {
   board: [i8; 81],
   black_pockets: [u8; 8],
   white_pockets: [u8; 8],
+  drop_masks: u32,
   nifu_masks: u32,
   move_no: u32,
   side: i8,
@@ -139,8 +140,27 @@ impl ParseSFENError {
 }
 
 pub struct UndoMove {
+  drop_masks: u32,
   nifu_masks: u32,
   taken_piece: i8,
+}
+
+fn compute_drops_mask(q: &[u8]) -> u32 {
+  q.iter()
+    .enumerate()
+    .skip(1)
+    .filter(|&(_, c)| *c > 0)
+    .fold(0, |acc, (i, _)| acc + (1 << i))
+}
+
+fn decrement_pocket(q: &mut u8) -> bool {
+  *q -= 1;
+  *q == 0
+}
+
+fn increment_pocket(q: &mut u8) -> bool {
+  *q += 1;
+  *q == 1
 }
 
 impl Position {
@@ -359,6 +379,7 @@ impl Position {
       board,
       black_pockets,
       white_pockets,
+      drop_masks: compute_drops_mask(&black_pockets) | (compute_drops_mask(&white_pockets) << 16),
       nifu_masks,
       side,
       move_no,
@@ -548,16 +569,11 @@ impl Position {
       .collect()
   }
   fn compute_drops_mask(&self) -> u32 {
-    let q = if self.side > 0 {
-      &self.black_pockets
+    if self.side > 0 {
+      self.drop_masks & 0xffff
     } else {
-      &self.white_pockets
-    };
-    q.iter()
-      .enumerate()
-      .skip(1)
-      .filter(|&(_, c)| *c > 0)
-      .fold(0, |acc, (i, _)| acc + (1 << i))
+      self.drop_masks >> 16
+    }
   }
   pub fn compute_drops_with_check(&self) -> Vec<Move> {
     let drops_mask = self.compute_drops_mask();
@@ -859,6 +875,7 @@ impl Position {
   //TODO: incremental drop_masks
   pub fn do_move(&mut self, m: &Move) -> UndoMove {
     let u = UndoMove {
+      drop_masks: self.drop_masks,
       nifu_masks: self.nifu_masks,
       taken_piece: self.board[m.to],
     };
@@ -866,9 +883,13 @@ impl Position {
       self.board[m.from] = piece::NONE;
     } else {
       if m.to_piece > 0 {
-        self.black_pockets[m.to_piece as usize] -= 1;
+        if decrement_pocket(&mut self.black_pockets[m.to_piece as usize]) {
+          self.drop_masks ^= 1u32 << m.to_piece;
+        }
       } else {
-        self.white_pockets[(-m.to_piece) as usize] -= 1;
+        if decrement_pocket(&mut self.white_pockets[(-m.to_piece) as usize]) {
+          self.drop_masks ^= 1u32 << (16 - m.to_piece);
+        }
       }
     }
     if m.from_piece != m.to_piece {
@@ -882,9 +903,13 @@ impl Position {
       }
       let p = piece::unpromote(u.taken_piece);
       if p > 0 {
-        self.white_pockets[p as usize] += 1;
+        if increment_pocket(&mut self.white_pockets[p as usize]) {
+          self.drop_masks ^= 1u32 << (16 + p);
+        }
       } else {
-        self.black_pockets[(-p) as usize] += 1;
+        if increment_pocket(&mut self.black_pockets[(-p) as usize]) {
+          self.drop_masks ^= 1u32 << (-p);
+        }
       }
     }
     self.board[m.to] = m.to_piece;
@@ -893,6 +918,7 @@ impl Position {
     u
   }
   pub fn undo_move(&mut self, m: &Move, u: &UndoMove) {
+    self.drop_masks = u.drop_masks;
     self.nifu_masks = u.nifu_masks;
     self.board[m.to] = u.taken_piece;
     if m.from != 0xff {
