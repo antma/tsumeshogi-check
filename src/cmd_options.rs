@@ -19,6 +19,45 @@ fn try_parse_option<R: FromStr<Err = impl std::fmt::Display>, I: Iterator<Item =
             Err(err) => panic!("can't parse command line argument {}, {}", s, err),
           }
         }
+        let w = u.trim();
+        if w.is_empty() {
+          let s = s.clone();
+          it.next();
+          match it.next() {
+            Some(w) => {
+              match R::from_str(&w) {
+                Ok(res) => return Some(res),
+                Err(err) => panic!("can't parse command line argument {} {}, {}", s, w, err)
+              }
+            }
+            None => panic!("empty argument for command line option {}", s),
+          }
+        }
+      }
+    }
+    if let Some(t) = s.strip_prefix("-") {
+      if let Some(u) = t.strip_prefix(short) {
+        let w = u.trim();
+        if w.is_empty() {
+          let s = s.clone();
+          it.next();
+          match it.next() {
+            Some(w) => {
+              match R::from_str(&w) {
+                Ok(res) => return Some(res),
+                Err(err) => panic!("can't parse command line argument {} {}, {}", s, w, err)
+              }
+            }
+            None => panic!("empty argument for command line option {}", s),
+          }
+        }
+        match R::from_str(w) {
+          Ok(res) => {
+            it.next();
+            return Some(res);
+          }
+          Err(err) => panic!("can't parse command line argument {}, {}", s, err),
+        }
       }
     }
   }
