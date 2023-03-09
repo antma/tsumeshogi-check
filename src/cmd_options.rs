@@ -1,7 +1,37 @@
 use std::iter::{Iterator, Peekable};
 use std::str::FromStr;
 
-fn try_parse_option<R: FromStr<Err = impl std::fmt::Display>, I: Iterator<Item = String>>(
+use log::LevelFilter;
+
+fn try_parse_option<I: Iterator<Item = String>>(
+  it: &mut Peekable<I>,
+  short: &str,
+  long: &str,
+) -> bool {
+  if let Some(s) = it.peek() {
+    if let Some(t) = s.strip_prefix("--") {
+      if t == long {
+        it.next();
+        return true;
+      }
+    }
+  }
+  if short.is_empty() {
+    return false;
+  }
+  assert_eq!(short.len(), 1, "short option {} is too long", short);
+  if let Some(s) = it.peek() {
+    if let Some(t) = s.strip_prefix("-") {
+      if t == short {
+        it.next();
+        return true;
+      }
+    }
+  }
+  false
+}
+
+fn try_parse_arg_option<R: FromStr<Err = impl std::fmt::Display>, I: Iterator<Item = String>>(
   it: &mut Peekable<I>,
   short: &str,
   long: &str,
@@ -24,17 +54,19 @@ fn try_parse_option<R: FromStr<Err = impl std::fmt::Display>, I: Iterator<Item =
           let s = s.clone();
           it.next();
           match it.next() {
-            Some(w) => {
-              match R::from_str(&w) {
-                Ok(res) => return Some(res),
-                Err(err) => panic!("can't parse command line argument {} {}, {}", s, w, err)
-              }
-            }
+            Some(w) => match R::from_str(&w) {
+              Ok(res) => return Some(res),
+              Err(err) => panic!("can't parse command line argument {} {}, {}", s, w, err),
+            },
             None => panic!("empty argument for command line option {}", s),
           }
         }
       }
     }
+    if short.is_empty() {
+      return None;
+    }
+    assert_eq!(short.len(), 1);
     if let Some(t) = s.strip_prefix("-") {
       if let Some(u) = t.strip_prefix(short) {
         let w = u.trim();
@@ -42,12 +74,10 @@ fn try_parse_option<R: FromStr<Err = impl std::fmt::Display>, I: Iterator<Item =
           let s = s.clone();
           it.next();
           match it.next() {
-            Some(w) => {
-              match R::from_str(&w) {
-                Ok(res) => return Some(res),
-                Err(err) => panic!("can't parse command line argument {} {}, {}", s, w, err)
-              }
-            }
+            Some(w) => match R::from_str(&w) {
+              Ok(res) => return Some(res),
+              Err(err) => panic!("can't parse command line argument {} {}, {}", s, w, err),
+            },
             None => panic!("empty argument for command line option {}", s),
           }
         }
@@ -64,21 +94,40 @@ fn try_parse_option<R: FromStr<Err = impl std::fmt::Display>, I: Iterator<Item =
   None
 }
 
+#[derive(Debug)]
 pub struct CMDOptions {
-  depth: usize,
+  pub depth: usize,
+  pub format_target: bool,
+  pub level_filter: LevelFilter,
+  pub args: Vec<String>,
 }
 
 impl CMDOptions {
   pub fn new<I: Iterator<Item = String>>(it: I) -> Self {
     let mut depth = 0;
     let mut p = it.peekable();
+    let mut format_target = false;
+    let mut level_filter = LevelFilter::Error;
     loop {
-      if let Some(d) = try_parse_option::<usize, _>(&mut p, "d", "depth") {
+      if let Some(d) = try_parse_arg_option::<usize, _>(&mut p, "d", "depth") {
         depth = d;
+        continue;
+      }
+      if try_parse_option(&mut p, "w", "warn") {
+        level_filter = LevelFilter::Warn;
+        continue;
+      }
+      if try_parse_option(&mut p, "t", "format-target") {
+        format_target = true;
         continue;
       }
       break;
     }
-    CMDOptions { depth }
+    CMDOptions {
+      depth,
+      format_target,
+      level_filter,
+      args: p.collect(),
+    }
   }
 }
