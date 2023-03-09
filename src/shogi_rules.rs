@@ -3,6 +3,7 @@ use std::str::FromStr;
 
 use crate::bits;
 
+mod board;
 mod cell;
 mod piece;
 
@@ -10,6 +11,8 @@ pub struct Position {
   board: [i8; 81],
   black_pockets: [u8; 8],
   white_pockets: [u8; 8],
+  black_king_position: Option<usize>,
+  white_king_position: Option<usize>,
   drop_masks: u32,
   nifu_masks: u32,
   move_no: u32,
@@ -379,6 +382,8 @@ impl Position {
       board,
       black_pockets,
       white_pockets,
+      black_king_position: board::find_king_position(&board, 1),
+      white_king_position: board::find_king_position(&board, -1),
       drop_masks: compute_drops_mask(&black_pockets) | (compute_drops_mask(&white_pockets) << 16),
       nifu_masks,
       side,
@@ -704,16 +709,11 @@ impl Position {
       king_pos: Some(king_pos),
     }
   }
-  fn find_king(&self, s: i8) -> Option<usize> {
-    let king = piece::KING * s;
-    self
-      .board
-      .iter()
-      .enumerate()
-      .find_map(|(i, v)| if *v == king { Some(i) } else { None })
+  fn find_king_position(&self, s: i8) -> Option<usize> {
+    if s > 0 { self.black_king_position } else { self.white_king_position }
   }
   fn find_checks(&self, s: i8) -> Checks {
-    let king_pos = self.find_king(s);
+    let king_pos = self.find_king_position(s);
     match king_pos {
       Some(king_pos) => self.checks(king_pos, s),
       None => Checks::default(),
@@ -721,7 +721,7 @@ impl Position {
   }
   fn compute_potential_drops_map(&self, drops_mask: u32) -> PotentialDropsMap {
     let mut m = PotentialDropsMap::default();
-    let king_pos = self.find_king(-self.side);
+    let king_pos = self.find_king_position(-self.side);
     if king_pos.is_none() {
       return m;
     }
@@ -881,6 +881,11 @@ impl Position {
     };
     if m.from != 0xff {
       self.board[m.from] = piece::NONE;
+      if m.to_piece == piece::KING {
+        self.black_king_position = Some(m.to);
+      } else if m.to_piece == -piece::KING {
+        self.white_king_position = Some(m.to);
+      }
     } else {
       if m.to_piece > 0 {
         if decrement_pocket(&mut self.black_pockets[m.to_piece as usize]) {
@@ -923,6 +928,11 @@ impl Position {
     self.board[m.to] = u.taken_piece;
     if m.from != 0xff {
       self.board[m.from] = m.from_piece;
+      if m.from_piece == piece::KING {
+        self.black_king_position = Some(m.from);
+      } else if m.from_piece == -piece::KING {
+        self.white_king_position = Some(m.from);
+      }
     } else {
       if m.to_piece > 0 {
         self.black_pockets[m.to_piece as usize] += 1;
@@ -986,6 +996,11 @@ impl Position {
     self.undo_move(&take_move, &u2);
     //self.undo_move(&drop, &u1);
     res
+  }
+  fn compute_discover_check_pieces(&self) -> u128 {
+    let mut r = 0u128;
+    //TODO:
+    r
   }
 }
 
