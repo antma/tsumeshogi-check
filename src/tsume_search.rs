@@ -155,8 +155,9 @@ impl Search {
     if beta < eval_lowerbound {
       return eval_lowerbound;
     }
-    let drops = pos.compute_drops_with_check();
+    let potential_drops_vec = pos.compute_potential_drops_vec();
     let moves = pos.compute_moves(&self.checks[cur_depth]);
+    let drops = pos.compute_drops_with_check(potential_drops_vec);
     let mut beta = beta;
     for m in drops.iter().chain(moves.iter()) {
       if self.debug_log {

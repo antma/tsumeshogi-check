@@ -130,6 +130,15 @@ pub fn is_near_dir(abs_piece: i8, flags: u8) -> bool {
     }
   }
 }
+
+pub fn role(abs_piece: i8) -> i8 {
+  assert!(abs_piece > 0);
+  match abs_piece {
+    PROMOTED_PAWN | PROMOTED_LANCE | PROMOTED_KNIGHT | PROMOTED_SILVER => GOLD,
+    i => i,
+  }
+}
+
 pub fn from_char(c: char) -> i8 {
   let s = if c.is_uppercase() {
     1

@@ -99,25 +99,39 @@ impl Checks {
   }
 }
 
-struct PotentialDropsMap(Vec<(usize, u32)>);
+pub struct PotentialDropsVec(pub Vec<(usize, u32)>);
 
-impl Default for PotentialDropsMap {
+impl Default for PotentialDropsVec {
   fn default() -> Self {
     Self(Vec::new())
   }
 }
 
-impl PotentialDropsMap {
+impl PotentialDropsVec {
   fn insert(&mut self, cell: usize, mask: u32) {
     self.0.push((cell, mask));
   }
 }
 
-impl IntoIterator for PotentialDropsMap {
+impl IntoIterator for PotentialDropsVec {
   type Item = (usize, u32);
   type IntoIter = std::vec::IntoIter<Self::Item>;
   fn into_iter(self) -> Self::IntoIter {
     self.0.into_iter()
+  }
+}
+
+struct PotentialDropsMap(std::collections::BTreeMap<usize, u32>);
+
+impl PotentialDropsMap {
+  fn new(pdv: &PotentialDropsVec) -> Self {
+    PotentialDropsMap(pdv.0.iter().cloned().collect())
+  }
+  fn is_check_move_candidate(&self, m: &Move) -> bool {
+    match self.0.get(&m.to) {
+      None => false,
+      Some(mask) => ((1u32 << piece::role(m.to_piece.abs())) & *mask) != 0,
+    }
   }
 }
 
@@ -580,15 +594,14 @@ impl Position {
       self.drop_masks >> 16
     }
   }
-  pub fn compute_drops_with_check(&self) -> Vec<Move> {
-    let drops_mask = self.compute_drops_mask();
+  pub fn compute_drops_with_check(&self, potential_drops_map: PotentialDropsVec) -> Vec<Move> {
     let mut r = Vec::new();
     self.enumerate_drops(
       |m| {
         r.push(m);
         false
       },
-      self.compute_potential_drops_map(drops_mask).into_iter(),
+      potential_drops_map.into_iter(),
     );
     r
   }
@@ -710,7 +723,11 @@ impl Position {
     }
   }
   fn find_king_position(&self, s: i8) -> Option<usize> {
-    if s > 0 { self.black_king_position } else { self.white_king_position }
+    if s > 0 {
+      self.black_king_position
+    } else {
+      self.white_king_position
+    }
   }
   fn find_checks(&self, s: i8) -> Checks {
     let king_pos = self.find_king_position(s);
@@ -719,8 +736,9 @@ impl Position {
       None => Checks::default(),
     }
   }
-  fn compute_potential_drops_map(&self, drops_mask: u32) -> PotentialDropsMap {
-    let mut m = PotentialDropsMap::default();
+  pub fn compute_potential_drops_vec(&self) -> PotentialDropsVec {
+    //let drops_mask = self.compute_drops_mask();
+    let mut m = PotentialDropsVec::default();
     let king_pos = self.find_king_position(-self.side);
     if king_pos.is_none() {
       return m;
@@ -734,7 +752,7 @@ impl Position {
     } {
       let mut row = king_row;
       let mut col = king_col;
-      let mut mask = piece::near_dir_to_mask(t.2) & drops_mask;
+      let mut mask = piece::near_dir_to_mask(t.2);
       if mask == 0 {
         continue;
       }
@@ -748,15 +766,19 @@ impl Position {
           break;
         }
         if steps == 1 {
+          /*
           mask = piece::sliding_dir_to_mask(t.2) & drops_mask;
           if mask == 0 {
             break;
           }
+          */
+          mask = piece::sliding_dir_to_mask(t.2);
         }
         row = r as usize;
         col = c as usize;
         let k = 9 * row + col;
-        if self.board[k] != piece::NONE {
+        //if self.board[k] != piece::NONE {
+        if self.side * self.board[k] < 0 {
           break;
         }
         m.insert(k, mask);
@@ -764,9 +786,11 @@ impl Position {
     }
     //knight checks
     let knight_bit = 1u32 << piece::KNIGHT;
+    /*
     if (drops_mask & knight_bit) == 0 {
       return m;
     }
+    */
     for t in piece::KNIGHT_MOVES.iter() {
       let r = (king_row as isize) - t.0 * (self.side as isize);
       if r < 0 || r >= 9 {
@@ -777,7 +801,8 @@ impl Position {
         continue;
       }
       let k = 9 * r as usize + c as usize;
-      if self.board[k] != piece::NONE {
+      //if self.board[k] != piece::NONE {
+      if self.side * self.board[k] < 0 {
         continue;
       }
       m.insert(k, knight_bit);
@@ -838,6 +863,50 @@ impl Position {
       Some(king_pos) => self.board[king_pos] == piece::KING * self.side,
       None => true,
     }
+  }
+  pub fn compute_moves_check_candidates(
+    &self,
+    checks: &Checks,
+    potential_drops_vec: &PotentialDropsVec,
+  ) -> Vec<Move> {
+    let mut r = Vec::new();
+    assert!(self.validate_checks(checks));
+    //let pdm: std::collections::BTreeMap<_,_> = potential_drops_map.iter().collect();
+    let pdm = PotentialDropsMap::new(potential_drops_vec);
+    let dcp = self.compute_discover_check_pieces();
+    match checks.attacking_pieces.len() {
+      0 => {
+        //no check
+        self.enumerate_simple_moves(|m| {
+          if (dcp & (1u128 << m.from)) != 0 || pdm.is_check_move_candidate(&m) {
+            r.push(m);
+          }
+          false
+        });
+      }
+      1 => {
+        let p = checks.attacking_pieces[0];
+        self.enumerate_simple_moves(|m| {
+          let b = checks.blocking_cell(m.to);
+          if ((dcp & (1u128 << m.from)) != 0 || pdm.is_check_move_candidate(&m))
+            && ((m.from_piece.abs() == piece::KING && !b) || b || m.to == p)
+          {
+            r.push(m);
+          }
+          false
+        });
+      }
+      2 => {
+        self.enumerate_simple_moves(|m| {
+          if (m.from_piece.abs() == piece::KING) && (dcp & (1u128 << m.from)) != 0 {
+            r.push(m);
+          }
+          false
+        });
+      }
+      _ => panic!("too many attacking pieces"),
+    }
+    r
   }
   pub fn compute_moves(&self, checks: &Checks) -> Vec<Move> {
     let mut r = Vec::new();
@@ -998,9 +1067,60 @@ impl Position {
     res
   }
   fn compute_discover_check_pieces(&self) -> u128 {
-    let mut r = 0u128;
-    //TODO:
-    r
+    let mut res = 0u128;
+    let king_pos = self.find_king_position(-self.side);
+    if king_pos.is_none() {
+      return 0;
+    }
+    let king_pos = king_pos.unwrap();
+    let (king_row, king_col) = cell::unpack(king_pos);
+    for t in if self.side < 0 {
+      piece::BLACK_DIRECTIONS.iter()
+    } else {
+      piece::WHITE_DIRECTIONS.iter()
+    } {
+      //scan for sliding piece, so color is important for lances
+      let mut row = king_row;
+      let mut col = king_col;
+      let mut o = None;
+      loop {
+        let r = (row as isize) + t.0;
+        if r < 0 || r >= 9 {
+          break;
+        }
+        let c = (col as isize) + t.1;
+        if c < 0 || c >= 9 {
+          break;
+        }
+        row = r as usize;
+        col = c as usize;
+        let k = 9 * row + col;
+        let piece = self.board[k];
+        if piece == 0 {
+          continue;
+        }
+        if self.side * piece < 0 {
+          break;
+        }
+        let p = piece.abs();
+        match o {
+          Some(i) => {
+            if piece::is_sliding_dir(p, t.2) {
+              res |= 1u128 << i;
+            }
+            break;
+          }
+          None => {
+            if piece::is_sliding_dir(p, t.2) {
+              break;
+            } else {
+              o = Some(k);
+            }
+          }
+        }
+      }
+    }
+    res
   }
 }
 
