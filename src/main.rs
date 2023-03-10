@@ -60,7 +60,7 @@ fn main() -> std::io::Result<()> {
     .init();
   debug!("{:?}", opts);
   if let Some(filename) = opts.args.into_iter().next() {
-    process_file(&filename, 3)?;
+    process_file(&filename, opts.depth)?;
   }
   Ok(())
 }
