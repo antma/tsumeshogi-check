@@ -57,7 +57,7 @@ impl Search {
   }
   //maximize
   fn gote_search(&mut self, pos: &mut Position, cur_depth: usize, alpha: i32, beta: i32) -> i32 {
-    if beta < cur_depth as i32 {
+    if beta <= cur_depth as i32 {
       return cur_depth as i32;
     }
     let moves = pos.compute_moves(&self.checks[cur_depth]);
@@ -94,7 +94,7 @@ impl Search {
       if self.debug_log {
         self.line.pop();
       }
-      if beta < alpha {
+      if beta <= alpha {
         return alpha;
       }
     }
@@ -139,7 +139,7 @@ impl Search {
       if self.debug_log {
         self.line.pop();
       }
-      if beta < alpha {
+      if beta <= alpha {
         return alpha;
       }
     }
@@ -152,7 +152,7 @@ impl Search {
   //minimize
   fn sente_search(&mut self, pos: &mut Position, cur_depth: usize, alpha: i32, beta: i32) -> i32 {
     let eval_lowerbound = (cur_depth + 1) as i32;
-    if beta < eval_lowerbound {
+    if beta <= eval_lowerbound {
       return eval_lowerbound;
     }
     let drops = pos.compute_drops_with_check();
@@ -180,7 +180,7 @@ impl Search {
       if self.debug_log {
         self.line.pop();
       }
-      if beta < alpha {
+      if beta <= alpha {
         return beta;
       }
     }
