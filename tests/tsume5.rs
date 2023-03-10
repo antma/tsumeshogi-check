@@ -19,6 +19,3 @@ fn tsume5() {
     5,
   );
 }
-
-//futile drops
-//4r2nk/6+Pbl/9/6L2/9/9/9/9/9 b B 1

@@ -1,7 +1,7 @@
 use tsumeshogi_check::shogi_rules::Position;
 use tsumeshogi_check::tsume_search::search_ext;
 
-fn tsume_batch_test_ext(v: Vec<&str>, depth: usize, ans: Option<i32>) {
+pub fn tsume_batch_test_ext(v: Vec<&str>, depth: usize, ans: Option<i32>, allow_futile_drops: bool) {
   let mut s = std::collections::BTreeSet::new();
   for (test, sfen) in v.into_iter().enumerate() {
     assert!(
@@ -22,9 +22,9 @@ fn tsume_batch_test_ext(v: Vec<&str>, depth: usize, ans: Option<i32>) {
 }
 
 pub fn tsume_batch_test(v: Vec<&str>, depth: usize) {
-  tsume_batch_test_ext(v, depth, Some(depth as i32));
+  tsume_batch_test_ext(v, depth, Some(depth as i32), false);
 }
 
 pub fn no_tsume_batch_test(v: Vec<&str>, depth: usize) {
-  tsume_batch_test_ext(v, depth, None);
+  tsume_batch_test_ext(v, depth, None, false);
 }
