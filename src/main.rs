@@ -6,7 +6,7 @@ use tsumeshogi_check::cmd_options::CMDOptions;
 use tsumeshogi_check::shogi_rules::Position;
 use tsumeshogi_check::tsume_search::search_ext;
 
-use log::{error, info, warn, debug};
+use log::{debug, error, info, warn};
 //use log::{debug, info};
 
 fn process_file(filename: &str, depth: usize) -> std::io::Result<()> {

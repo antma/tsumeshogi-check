@@ -19,7 +19,7 @@ pub struct Position {
   side: i8,
 }
 
-#[derive(Clone, Default, Debug)]
+#[derive(Clone, Default, Debug, PartialEq, Eq, Hash)]
 pub struct Move {
   from: usize,
   to: usize,
@@ -710,7 +710,11 @@ impl Position {
     }
   }
   fn find_king_position(&self, s: i8) -> Option<usize> {
-    if s > 0 { self.black_king_position } else { self.white_king_position }
+    if s > 0 {
+      self.black_king_position
+    } else {
+      self.white_king_position
+    }
   }
   fn find_checks(&self, s: i8) -> Checks {
     let king_pos = self.find_king_position(s);
@@ -996,11 +1000,6 @@ impl Position {
     self.undo_move(&take_move, &u2);
     //self.undo_move(&drop, &u1);
     res
-  }
-  fn compute_discover_check_pieces(&self) -> u128 {
-    let mut r = 0u128;
-    //TODO:
-    r
   }
 }
 
