@@ -5,6 +5,7 @@ use crate::bits;
 
 mod board;
 mod cell;
+mod hash;
 mod piece;
 
 pub struct Position {
