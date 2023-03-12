@@ -24,6 +24,7 @@ fn moves_generation() {
     let checks = pos.compute_checks();
     let moves = pos.compute_moves(&checks);
     let drops = pos.compute_drops(&checks);
+    println!("sfen = {:?}", sfen);
     println!("moves = {:?}", moves);
     println!("drops = {:?}", drops);
     let mut res = Vec::new();

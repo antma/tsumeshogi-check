@@ -335,10 +335,16 @@ impl Position {
     }
     let (black_pieces, white_pieces) = board::count_pieces(&board);
     if black_pieces[piece::KING as usize] > 1 {
-      return Err(ParseSFENError::new(sfen, String::from("too many black kings")));
+      return Err(ParseSFENError::new(
+        sfen,
+        String::from("too many black kings"),
+      ));
     }
     if white_pieces[piece::KING as usize] > 1 {
-      return Err(ParseSFENError::new(sfen, String::from("too many white kings")));
+      return Err(ParseSFENError::new(
+        sfen,
+        String::from("too many white kings"),
+      ));
     }
     let side = if a[1] == "w" {
       -1
@@ -380,14 +386,19 @@ impl Position {
         }
       }
     }
-    for p in piece::PAWN .. piece::KING {
+    for p in piece::PAWN..piece::KING {
       let e = piece::expected_number_of_pieces(p);
       let p = p as usize;
       let t = black_pieces[p] + white_pieces[p] + black_pockets[p] as u32 + white_pockets[p] as u32;
       if t > e {
         return Err(ParseSFENError::new(
           sfen,
-          format!("{} {}, expected number of theese pieces are {}", t, piece::to_human_string(p as i8), e)
+          format!(
+            "{} {}, expected number of theese pieces are {}",
+            t,
+            piece::to_human_string(p as i8),
+            e
+          ),
         ));
       }
     }
@@ -865,15 +876,8 @@ impl Position {
     }
     r
   }
-  fn validate_checks(&self, checks: &Checks) -> bool {
-    match checks.king_pos {
-      Some(king_pos) => self.board[king_pos] == piece::KING * self.side,
-      None => true,
-    }
-  }
   pub fn compute_moves(&self, checks: &Checks) -> Vec<Move> {
     let mut r = Vec::new();
-    assert!(self.validate_checks(checks));
     match checks.attacking_pieces.len() {
       0 => {
         //no check
@@ -940,7 +944,7 @@ impl Position {
       }
     }
     if u.taken_piece != piece::NONE {
-      self.hash ^= hash::get_piece_hash(u.taken_piece.abs(), m.to);
+      self.hash ^= hash::get_piece_hash(u.taken_piece, m.to);
       if u.taken_piece.abs() == piece::PAWN {
         self.nifu_masks ^= 1u32 << (((1 - self.side as i32) << 3) + (m.to % 9) as i32);
       }
@@ -958,9 +962,11 @@ impl Position {
       }
     }
     self.board[m.to] = m.to_piece;
+    self.hash ^= hash::get_piece_hash(m.to_piece, m.to);
     self.move_no += 1;
     self.side *= -1;
     self.hash = !self.hash;
+    assert!(self.validate_hash(), "after doing move {:?}", m);
     u
   }
   pub fn undo_move(&mut self, m: &Move, u: &UndoMove) {
@@ -1087,5 +1093,23 @@ impl fmt::Display for Position {
       write!(f, "-")?;
     }
     write!(f, " {}", self.move_no)
+  }
+}
+
+impl Position {
+  fn validate_checks(&self, checks: &Checks) -> bool {
+    match checks.king_pos {
+      Some(king_pos) => self.board[king_pos] == piece::KING * self.side,
+      None => true,
+    }
+  }
+  fn validate_hash(&self) -> bool {
+    let mut hash = board::compute_hash(&self.board)
+      ^ hash::compute_black_pockets_hash(&self.black_pockets)
+      ^ hash::compute_white_pockets_hash(&self.white_pockets);
+    if self.side < 0 {
+      hash = !hash;
+    }
+    self.hash == hash
   }
 }
