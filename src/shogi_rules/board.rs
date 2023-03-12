@@ -1,4 +1,6 @@
+use super::hash;
 use super::piece;
+
 pub fn find_king_position(board: &[i8], s: i8) -> Option<usize> {
   let king = super::piece::KING * s;
   board
@@ -21,4 +23,12 @@ pub fn count_pieces(board: &[i8]) -> (Vec<u32>, Vec<u32>) {
     }
   }
   (b, w)
+}
+
+pub fn compute_hash(board: &[i8]) -> u64 {
+  board
+    .iter()
+    .enumerate()
+    .filter(|(_, &p)| p != piece::NONE)
+    .fold(0, |acc, (cell, p)| acc ^ hash::get_piece_hash(*p, cell))
 }

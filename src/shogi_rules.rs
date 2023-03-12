@@ -14,6 +14,7 @@ pub struct Position {
   white_pockets: [u8; 8],
   black_king_position: Option<usize>,
   white_king_position: Option<usize>,
+  hash: u64,
   drop_masks: u32,
   nifu_masks: u32,
   move_no: u32,
@@ -144,6 +145,7 @@ impl ParseSFENError {
 }
 
 pub struct UndoMove {
+  hash: u64,
   drop_masks: u32,
   nifu_masks: u32,
   taken_piece: i8,
@@ -379,12 +381,19 @@ impl Position {
       ));
     }
     let move_no = move_no.unwrap();
+    let mut hash = board::compute_hash(&board)
+      ^ hash::compute_black_pockets_hash(&black_pockets)
+      ^ hash::compute_white_pockets_hash(&white_pockets);
+    if side < 0 {
+      hash = !hash;
+    }
     let pos = Position {
       board,
       black_pockets,
       white_pockets,
       black_king_position: board::find_king_position(&board, 1),
       white_king_position: board::find_king_position(&board, -1),
+      hash,
       drop_masks: compute_drops_mask(&black_pockets) | (compute_drops_mask(&white_pockets) << 16),
       nifu_masks,
       side,
@@ -877,15 +886,16 @@ impl Position {
     }
     r
   }
-  //TODO: incremental drop_masks
   pub fn do_move(&mut self, m: &Move) -> UndoMove {
     let u = UndoMove {
+      hash: self.hash,
       drop_masks: self.drop_masks,
       nifu_masks: self.nifu_masks,
       taken_piece: self.board[m.to],
     };
     if m.from != 0xff {
       self.board[m.from] = piece::NONE;
+      self.hash ^= hash::get_piece_hash(m.from_piece, m.from);
       if m.to_piece == piece::KING {
         self.black_king_position = Some(m.to);
       } else if m.to_piece == -piece::KING {
@@ -893,10 +903,14 @@ impl Position {
       }
     } else {
       if m.to_piece > 0 {
+        self.hash ^=
+          hash::get_black_pocket_hash(m.to_piece, self.black_pockets[m.to_piece as usize]);
         if decrement_pocket(&mut self.black_pockets[m.to_piece as usize]) {
           self.drop_masks ^= 1u32 << m.to_piece;
         }
       } else {
+        self.hash ^=
+          hash::get_white_pocket_hash(-m.to_piece, self.white_pockets[(-m.to_piece) as usize]);
         if decrement_pocket(&mut self.white_pockets[(-m.to_piece) as usize]) {
           self.drop_masks ^= 1u32 << (16 - m.to_piece);
         }
@@ -908,6 +922,7 @@ impl Position {
       }
     }
     if u.taken_piece != piece::NONE {
+      self.hash ^= hash::get_piece_hash(u.taken_piece.abs(), m.to);
       if u.taken_piece.abs() == piece::PAWN {
         self.nifu_masks ^= 1u32 << (((1 - self.side as i32) << 3) + (m.to % 9) as i32);
       }
@@ -916,18 +931,22 @@ impl Position {
         if increment_pocket(&mut self.white_pockets[p as usize]) {
           self.drop_masks ^= 1u32 << (16 + p);
         }
+        self.hash ^= hash::get_white_pocket_hash(p, self.white_pockets[p as usize]);
       } else {
         if increment_pocket(&mut self.black_pockets[(-p) as usize]) {
           self.drop_masks ^= 1u32 << (-p);
         }
+        self.hash ^= hash::get_black_pocket_hash(-p, self.black_pockets[(-p) as usize]);
       }
     }
     self.board[m.to] = m.to_piece;
     self.move_no += 1;
     self.side *= -1;
+    self.hash = !self.hash;
     u
   }
   pub fn undo_move(&mut self, m: &Move, u: &UndoMove) {
+    self.hash = u.hash;
     self.drop_masks = u.drop_masks;
     self.nifu_masks = u.nifu_masks;
     self.board[m.to] = u.taken_piece;
