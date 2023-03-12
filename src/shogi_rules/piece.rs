@@ -54,6 +54,14 @@ pub const WHITE_DIRECTIONS: [(isize, isize, u8); 8] = [
   (-1, 0, 2),
   (-1, 1, 1),
 ];
+pub const fn expected_number_of_pieces(abs_piece: i8) -> u32 {
+  match abs_piece {
+    PAWN => 18,
+    LANCE | KNIGHT | SILVER | GOLD => 4,
+    BISHOP | ROOK | KING => 2,
+    _ => 0,
+  }
+}
 pub fn unpromote(v: i8) -> i8 {
   if v >= PROMOTED {
     v - PROMOTED
@@ -194,4 +202,19 @@ pub fn color(piece: i8) -> &'static str {
   } else {
     "white"
   }
+}
+
+pub fn to_human_string(p: i8) -> String {
+  let s = match p {
+    PAWN => "pawn",
+    LANCE => "lance",
+    KNIGHT => "knight",
+    SILVER => "silver",
+    GOLD => "gold",
+    BISHOP => "bishop",
+    ROOK => "rook",
+    KING => "king",
+    _ => "???",
+  };
+  String::from(s)
 }

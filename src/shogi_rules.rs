@@ -333,6 +333,13 @@ impl Position {
         }
       }
     }
+    let (black_pieces, white_pieces) = board::count_pieces(&board);
+    if black_pieces[piece::KING as usize] > 1 {
+      return Err(ParseSFENError::new(sfen, String::from("too many black kings")));
+    }
+    if white_pieces[piece::KING as usize] > 1 {
+      return Err(ParseSFENError::new(sfen, String::from("too many white kings")));
+    }
     let side = if a[1] == "w" {
       -1
     } else if a[1] == "b" {
@@ -371,6 +378,17 @@ impl Position {
           }
           cnt = 0;
         }
+      }
+    }
+    for p in piece::PAWN .. piece::KING {
+      let e = piece::expected_number_of_pieces(p);
+      let p = p as usize;
+      let t = black_pieces[p] + white_pieces[p] + black_pockets[p] as u32 + white_pockets[p] as u32;
+      if t > e {
+        return Err(ParseSFENError::new(
+          sfen,
+          format!("{} {}, expected number of theese pieces are {}", t, piece::to_human_string(p as i8), e)
+        ));
       }
     }
     let move_no = u32::from_str(&a[3]);
