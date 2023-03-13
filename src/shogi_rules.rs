@@ -14,7 +14,7 @@ pub struct Position {
   white_pockets: [u8; 8],
   black_king_position: Option<usize>,
   white_king_position: Option<usize>,
-  hash: u64,
+  pub hash: u64,
   drop_masks: u32,
   nifu_masks: u32,
   move_no: u32,
@@ -877,6 +877,7 @@ impl Position {
     r
   }
   pub fn compute_moves(&self, checks: &Checks) -> Vec<Move> {
+    assert!(self.validate_checks(checks));
     let mut r = Vec::new();
     match checks.attacking_pieces.len() {
       0 => {
@@ -1062,7 +1063,8 @@ impl fmt::Display for Position {
             write!(f, "{}", cnt)?;
             cnt = 0;
           }
-          write!(f, "{}", piece::to_string(*c, true))?;
+          let s = piece::to_string(*c, true);
+          write!(f, "{}", if *c > 0 { s } else { s.to_ascii_lowercase() })?;
         }
       }
       if cnt > 0 {
@@ -1076,6 +1078,9 @@ impl fmt::Display for Position {
       .zip(piece::PIECE_TO_CHAR.chars())
     {
       if k > 0 {
+        if k > 1 {
+          write!(f, "{}", k)?;
+        }
         write!(f, "{}", c.to_ascii_uppercase())?;
         t += k as u32;
       }
@@ -1085,6 +1090,9 @@ impl fmt::Display for Position {
       .zip(piece::PIECE_TO_CHAR.chars())
     {
       if k > 0 {
+        if k > 1 {
+          write!(f, "{}", k)?;
+        }
         write!(f, "{}", c)?;
         t += k as u32;
       }
