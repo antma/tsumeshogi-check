@@ -1,4 +1,4 @@
-use tsumeshogi_check::shogi_rules::Position;
+use tsumeshogi_check::shogi::Position;
 
 #[test]
 fn legal_position() {

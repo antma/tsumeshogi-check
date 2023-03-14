@@ -1,5 +1,5 @@
-use crate::shogi_rules;
-use shogi_rules::{Checks, Move, Position};
+use crate::shogi;
+use shogi::{Checks, Move, Position};
 use std::collections::HashMap;
 use std::fmt;
 

@@ -1,4 +1,4 @@
 pub mod bits;
 pub mod cmd_options;
-pub mod shogi_rules;
+pub mod shogi;
 pub mod tsume_search;

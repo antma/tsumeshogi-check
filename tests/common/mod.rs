@@ -1,4 +1,4 @@
-use tsumeshogi_check::shogi_rules::Position;
+use tsumeshogi_check::shogi::Position;
 use tsumeshogi_check::tsume_search::search_ext;
 
 pub fn tsume_batch_test_ext(

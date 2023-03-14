@@ -3,7 +3,7 @@ use std::io::prelude::*;
 use std::io::BufReader;
 
 use tsumeshogi_check::cmd_options::CMDOptions;
-use tsumeshogi_check::shogi_rules::Position;
+use tsumeshogi_check::shogi::Position;
 use tsumeshogi_check::tsume_search::search_ext;
 
 use log::{debug, error, info, warn};
