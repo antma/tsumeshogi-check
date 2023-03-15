@@ -3,11 +3,29 @@ use std::io::prelude::*;
 use std::io::BufReader;
 
 use tsumeshogi_check::cmd_options::CMDOptions;
+use tsumeshogi_check::psn;
 use tsumeshogi_check::shogi::Position;
 use tsumeshogi_check::tsume_search::search_ext;
 
 use log::{debug, error, info, warn};
 //use log::{debug, info};
+
+fn process_psn(filename: &str) -> std::io::Result<()> {
+  let it = psn::PSNFileIterator::new(filename)?;
+  for (game_no, a) in it.enumerate() {
+    if a.is_err() {
+      error!("Game #{}: {:?}", game_no + 1, a);
+      break;
+    }
+    let a = a.unwrap();
+    let g = psn::parse_psn_game(&a);
+    if let Some(err) = g.err() {
+      error!("Game #{}: {:?}", game_no + 1, err);
+      break;
+    }
+  }
+  Ok(())
+}
 
 fn process_file(filename: &str, depth: usize) -> std::io::Result<()> {
   let file = File::open(filename)?;
@@ -60,7 +78,11 @@ fn main() -> std::io::Result<()> {
     .init();
   debug!("{:?}", opts);
   if let Some(filename) = opts.args.into_iter().next() {
-    process_file(&filename, opts.depth)?;
+    if filename.ends_with(".psn") {
+      process_psn(&filename)?;
+    } else {
+      process_file(&filename, opts.depth)?;
+    }
   }
   Ok(())
 }

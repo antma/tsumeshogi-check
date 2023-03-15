@@ -78,7 +78,7 @@ fn parse_header(s: &str) -> Option<(String, String)> {
   Some((key, value))
 }
 
-struct PSNFileIterator {
+pub struct PSNFileIterator {
   reader: BufReader<File>,
 }
 
@@ -119,7 +119,19 @@ impl PSNFileIterator {
   }
 }
 
-pub fn parse_psn_game(a: &Vec<String>) -> Game {
+#[derive(Debug)]
+pub struct ParsePSNGameError {
+  msg: String,
+  line: String,
+}
+
+impl ParsePSNGameError {
+  fn new(line: String, msg: String) -> Self {
+    Self { msg, line }
+  }
+}
+
+pub fn parse_psn_game(a: &Vec<String>) -> std::result::Result<Game, ParsePSNGameError> {
   let mut g = Game::default();
   let mut st = 0;
   let mut pos = Position::default();
@@ -135,18 +147,34 @@ pub fn parse_psn_game(a: &Vec<String>) -> Game {
       if let Some(t) = s.strip_prefix(&prefix) {
         //TODO: parse and do long notation move
         match Move::from_str(t) {
-          Ok(m) => {}
-          Err(e) => {}
+          Ok(m) => {
+            let _ = pos.do_move(&m);
+            if !pos.is_legal() {
+              return Err(ParsePSNGameError::new(
+                s.clone(),
+                String::from("king under check"),
+              ));
+            }
+          }
+          Err(e) => {
+            return Err(ParsePSNGameError::new(s.clone(), format!("{:?}", e)));
+          }
         }
-      } else if let Some(t) = last_line(&s) {
+      } else if let Some(t) = last_line(s) {
         g.set_header(String::from("text_result"), String::from(t));
         st += 1;
       } else {
-        //TODO: return error
+        return Err(ParsePSNGameError::new(
+          s.clone(),
+          String::from("expected move or game result"),
+        ));
       }
     } else {
-      //TODO: return error
+      return Err(ParsePSNGameError::new(
+        s.clone(),
+        String::from("extra data after result"),
+      ));
     }
   }
-  g
+  Ok(g)
 }
