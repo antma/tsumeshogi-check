@@ -2,12 +2,23 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
 
+use crate::shogi::game::Game;
+use crate::shogi::Position;
+
 #[test]
 fn test_parse_header() {
   assert_eq!(
     parse_header("[Date \"24/02/2023\"]"),
     Some((String::from("date"), String::from("24/02/2023")))
   );
+}
+
+fn last_line<'a>(s: &'a str) -> Option<&'a str> {
+  if let Some(t) = s.strip_prefix("--") {
+    t.strip_suffix("--")
+  } else {
+    None
+  }
 }
 
 fn parse_header(s: &str) -> Option<(String, String)> {
@@ -80,12 +91,13 @@ impl Iterator for PSNFileIterator {
             //EOF reached
             break None;
           }
-          if r.is_empty() && s.trim().is_empty() {
+          let s = s.trim();
+          if r.is_empty() && s.is_empty() {
             //skip first blank lines
             continue;
           }
-          let last = s.starts_with("--") && s.ends_with("--");
-          r.push(s);
+          let last = last_line(s).is_some();
+          r.push(String::from(s));
           if last {
             return Some(Ok(r));
           }
@@ -102,4 +114,32 @@ impl PSNFileIterator {
     let reader = BufReader::new(file);
     Ok(Self { reader })
   }
+}
+
+pub fn parse_psn_game(a: &Vec<String>) -> Game {
+  let mut g = Game::default();
+  let mut st = 0;
+  let mut pos = Position::default();
+  for s in a {
+    if st == 0 {
+      //parse headers
+      match parse_header(s) {
+        Some((key, value)) => g.set_header(key, value),
+        None => st += 1,
+      }
+    } else if st == 1 {
+      let prefix = format!("{}.", pos.move_no);
+      if let Some(t) = s.strip_prefix(&prefix) {
+        //TODO: parse and do long notation move
+      } else if let Some(t) = last_line(&s) {
+        g.set_header(String::from("text_result"), String::from(t));
+        st += 1;
+      } else {
+        //TODO: return error
+      }
+    } else {
+      //TODO: return error
+    }
+  }
+  g
 }

@@ -5,6 +5,7 @@ use crate::bits;
 
 mod board;
 mod cell;
+pub mod game;
 mod hash;
 mod piece;
 
@@ -15,9 +16,9 @@ pub struct Position {
   black_king_position: Option<usize>,
   white_king_position: Option<usize>,
   pub hash: u64,
+  pub move_no: u32,
   drop_masks: u32,
   nifu_masks: u32,
-  move_no: u32,
   side: i8,
 }
 
@@ -1119,5 +1120,11 @@ impl Position {
       hash = !hash;
     }
     self.hash == hash
+  }
+}
+
+impl Default for Position {
+  fn default() -> Self {
+    Position::parse_sfen("lnsgkgsnl/1r5b1/ppppppppp/9/9/9/PPPPPPPPP/1B5R1/LNSGKGSNL b - 1").unwrap()
   }
 }
