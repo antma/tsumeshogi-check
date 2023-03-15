@@ -13,6 +13,10 @@ impl Move {
   pub fn is_pawn_drop(&self) -> bool {
     self.from_piece == piece::NONE && self.to_piece.abs() == piece::PAWN
   }
+  pub fn swap_side(&mut self) {
+    self.from_piece *= -1;
+    self.to_piece *= -1;
+  }
 }
 
 #[derive(Debug)]
@@ -75,7 +79,7 @@ impl FromStr for Move {
         2 => {
           if c == '*' {
             drop = true;
-          //TODO: st =
+            st = 5;
           } else if c.is_ascii_digit() {
             from_col = ((c as u8) - 48) as i8;
             st += 1;

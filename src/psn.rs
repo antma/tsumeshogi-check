@@ -152,8 +152,12 @@ pub fn parse_psn_game(a: &Vec<String>) -> std::result::Result<Game, ParsePSNGame
       log::debug!("prefix = {}", prefix);
       if let Some(t) = s.strip_prefix(&prefix) {
         match Move::from_str(t) {
-          Ok(m) => {
+          Ok(mut m) => {
             log::debug!("move = {:?}", m);
+            if pos.side < 0 {
+              m.swap_side();
+            }
+            //TODO: check that enumerate moves
             let _ = pos.do_move(&m);
             if !pos.is_legal() {
               return Err(ParsePSNGameError::new(

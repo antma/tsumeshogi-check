@@ -22,7 +22,7 @@ pub struct Position {
   pub move_no: u32,
   drop_masks: u32,
   nifu_masks: u32,
-  side: i8,
+  pub side: i8,
 }
 
 struct SlidingIterator {
