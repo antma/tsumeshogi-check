@@ -7,7 +7,10 @@ mod board;
 mod cell;
 pub mod game;
 mod hash;
+pub mod moves;
 mod piece;
+
+pub use moves::Move;
 
 pub struct Position {
   board: [i8; 81],
@@ -20,20 +23,6 @@ pub struct Position {
   drop_masks: u32,
   nifu_masks: u32,
   side: i8,
-}
-
-#[derive(Clone, Default, Debug, PartialEq, Eq, Hash)]
-pub struct Move {
-  from: usize,
-  to: usize,
-  from_piece: i8,
-  to_piece: i8,
-}
-
-impl Move {
-  pub fn is_pawn_drop(&self) -> bool {
-    self.from_piece == piece::NONE && self.to_piece.abs() == piece::PAWN
-  }
 }
 
 struct SlidingIterator {

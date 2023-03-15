@@ -1,9 +1,12 @@
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
+use std::str::FromStr;
 
 use crate::shogi::game::Game;
+use crate::shogi::moves;
 use crate::shogi::Position;
+use moves::Move;
 
 #[test]
 fn test_parse_header() {
@@ -131,6 +134,10 @@ pub fn parse_psn_game(a: &Vec<String>) -> Game {
       let prefix = format!("{}.", pos.move_no);
       if let Some(t) = s.strip_prefix(&prefix) {
         //TODO: parse and do long notation move
+        match Move::from_str(t) {
+          Ok(m) => {}
+          Err(e) => {}
+        }
       } else if let Some(t) = last_line(&s) {
         g.set_header(String::from("text_result"), String::from(t));
         st += 1;
