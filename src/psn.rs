@@ -136,18 +136,24 @@ pub fn parse_psn_game(a: &Vec<String>) -> std::result::Result<Game, ParsePSNGame
   let mut st = 0;
   let mut pos = Position::default();
   for s in a {
+    log::debug!("st = {}, process line {}", st, s);
     if st == 0 {
       //parse headers
       match parse_header(s) {
-        Some((key, value)) => g.set_header(key, value),
+        Some((key, value)) => {
+          g.set_header(key, value);
+          continue;
+        }
         None => st += 1,
       }
-    } else if st == 1 {
+    }
+    if st == 1 {
       let prefix = format!("{}.", pos.move_no);
+      log::debug!("prefix = {}", prefix);
       if let Some(t) = s.strip_prefix(&prefix) {
-        //TODO: parse and do long notation move
         match Move::from_str(t) {
           Ok(m) => {
+            log::debug!("move = {:?}", m);
             let _ = pos.do_move(&m);
             if !pos.is_legal() {
               return Err(ParsePSNGameError::new(

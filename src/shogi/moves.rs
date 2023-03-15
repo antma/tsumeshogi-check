@@ -89,7 +89,7 @@ impl FromStr for Move {
         //from row
         3 => {
           if 'a' <= c && c <= 'i' {
-            from_row = (c as u8 - 64) as i8;
+            from_row = (c as u8 - 96) as i8;
             st += 1;
           } else {
             return Err(MoveFromStrError::new(s, String::from("expected from row")));
@@ -119,7 +119,7 @@ impl FromStr for Move {
         }
         6 => {
           if 'a' <= c && c <= 'i' {
-            to_row = (c as u8 - 64) as i8;
+            to_row = (c as u8 - 96) as i8;
             st += 1;
           } else {
             return Err(MoveFromStrError::new(s, String::from("expected to row")));
@@ -151,6 +151,7 @@ impl FromStr for Move {
     if st < 7 {
       return Err(MoveFromStrError::new(s, String::from("incomplete move")));
     }
+    log::debug!("to_row = {}, to_col = {}", to_row, to_col);
     let to_cell = (9 * (to_row - 1) + (to_col - 1)) as usize;
     if drop {
       if from_promoted {
