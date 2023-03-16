@@ -1054,10 +1054,6 @@ impl Position {
         return false;
       }
       if p == piece::PAWN {
-        let mut mask = 1 << (m.to % 9);
-        if m.to_piece < 0 {
-          mask <<= 16;
-        }
         let bit = 1u32 << (((1 + self.side as i32) << 3) + (m.to % 9) as i32);
         if (self.nifu_masks & bit) != 0 {
           return false;
