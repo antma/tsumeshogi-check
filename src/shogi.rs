@@ -1036,6 +1036,44 @@ impl Position {
     //self.undo_move(&drop, &u1);
     res
   }
+  pub fn validate_move(&self, m: &Move) -> bool {
+    if m.to_piece * self.side <= 0 {
+      return false;
+    }
+    if m.is_drop() {
+      if self.board[m.to] != piece::NONE || piece::is_promoted(m.to_piece) {
+        return false;
+      }
+      let q = if m.to_piece > 0 {
+        &self.black_pockets
+      } else {
+        &self.white_pockets
+      };
+      let p = m.to_piece.abs();
+      if q[p as usize] == 0 {
+        return false;
+      }
+      if p == piece::PAWN {
+        let mut mask = 1 << (m.to % 9);
+        if m.to_piece < 0 {
+          mask <<= 16;
+        }
+        let bit = 1u32 << (((1 + self.side as i32) << 3) + (m.to % 9) as i32);
+        if (self.nifu_masks & bit) != 0 {
+          return false;
+        }
+      }
+      true
+    } else {
+      if self.board[m.from] != m.from_piece || m.from == m.to {
+        return false;
+      }
+      self
+        .checks(m.to, -self.side)
+        .attacking_pieces
+        .contains(&m.from)
+    }
+  }
 }
 
 impl fmt::Display for Position {

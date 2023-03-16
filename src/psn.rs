@@ -157,7 +157,12 @@ pub fn parse_psn_game(a: &Vec<String>) -> std::result::Result<Game, ParsePSNGame
             if pos.side < 0 {
               m.swap_side();
             }
-            //TODO: check that enumerate moves
+            if !pos.validate_move(&m) {
+              return Err(ParsePSNGameError::new(
+                s.clone(),
+                format!("illegal move in position \"{}\"", pos),
+              ));
+            }
             let _ = pos.do_move(&m);
             if !pos.is_legal() {
               return Err(ParsePSNGameError::new(

@@ -13,6 +13,9 @@ impl Move {
   pub fn is_pawn_drop(&self) -> bool {
     self.from_piece == piece::NONE && self.to_piece.abs() == piece::PAWN
   }
+  pub fn is_drop(&self) -> bool {
+    self.from_piece == piece::NONE
+  }
   pub fn swap_side(&mut self) {
     self.from_piece *= -1;
     self.to_piece *= -1;
