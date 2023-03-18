@@ -8,7 +8,7 @@ mod cell;
 pub mod game;
 mod hash;
 pub mod moves;
-mod piece;
+pub mod piece;
 
 pub use moves::Move;
 
