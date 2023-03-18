@@ -9,7 +9,7 @@ const JP_ROWS: [char; 9] = [
   '一', '二', '三', '四', '五', '六', '七', '八', '九',
 ];
 
-pub fn move_to_kif_format(m: &Move, prev_move: &Option<Move>) -> String {
+fn move_to_kif_format(m: &Move, prev_move: &Option<Move>) -> String {
   let mut s = String::with_capacity(8);
   if m.is_drop() {
     s.push(JP_COLS[m.to % 9]);
@@ -49,5 +49,14 @@ pub fn game_to_lines(game: &Game) -> Vec<String> {
     }
   }
   a.push(String::from("手数----指手---------消費時間--"));
+  let mut last_move = None;
+  for (i, m) in game.moves.iter().enumerate() {
+    a.push(format!(
+      "{0:>4}{1}",
+      i + 1,
+      move_to_kif_format(m, &last_move)
+    ));
+    last_move = Some(m.clone());
+  }
   a
 }
