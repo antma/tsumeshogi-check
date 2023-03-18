@@ -218,3 +218,21 @@ pub fn to_human_string(p: i8) -> String {
   };
   String::from(s)
 }
+
+pub fn to_jp_string(abs_piece: i8) -> &'static str {
+  match abs_piece {
+    PAWN => "歩",
+    KNIGHT => "桂",
+    SILVER => "銀",
+    GOLD => "金",
+    BISHOP => "角",
+    ROOK => "飛",
+    KING => "玉",
+    PROMOTED_PAWN => "と",
+    PROMOTED_KNIGHT => "成桂",
+    PROMOTED_SILVER => "成銀",
+    PROMOTED_BISHOP => "馬",
+    PROMOTED_ROOK => "龍",
+    _ => panic!("unhandled piece {}", abs_piece),
+  }
+}
