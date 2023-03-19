@@ -15,6 +15,7 @@ fn move_to_kif_format(m: &Move, prev_move: &Option<Move>) -> String {
     s.push(JP_COLS[m.to % 9]);
     s.push(JP_ROWS[m.to / 9]);
     s.push_str(&piece::to_jp_string(m.to_piece.abs()));
+    s.push('打');
   } else {
     let cell = prev_move.as_ref().map(|q| q.to).unwrap_or(0xff);
     if cell == m.to {
@@ -52,7 +53,7 @@ pub fn game_to_lines(game: &Game) -> Vec<String> {
   let mut last_move = None;
   for (i, m) in game.moves.iter().enumerate() {
     a.push(format!(
-      "{0:>4}{1}",
+      "{0:>4} {1}",
       i + 1,
       move_to_kif_format(m, &last_move)
     ));

@@ -222,6 +222,7 @@ pub fn to_human_string(p: i8) -> String {
 pub fn to_jp_string(abs_piece: i8) -> &'static str {
   match abs_piece {
     PAWN => "歩",
+    LANCE => "香",
     KNIGHT => "桂",
     SILVER => "銀",
     GOLD => "金",
@@ -229,6 +230,7 @@ pub fn to_jp_string(abs_piece: i8) -> &'static str {
     ROOK => "飛",
     KING => "玉",
     PROMOTED_PAWN => "と",
+    PROMOTED_LANCE => "成香",
     PROMOTED_KNIGHT => "成桂",
     PROMOTED_SILVER => "成銀",
     PROMOTED_BISHOP => "馬",

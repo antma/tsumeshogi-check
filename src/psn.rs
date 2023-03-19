@@ -170,6 +170,7 @@ pub fn parse_psn_game(a: &Vec<String>) -> std::result::Result<Game, ParsePSNGame
                 String::from("king under check"),
               ));
             }
+            g.moves.push(m);
           }
           Err(e) => {
             return Err(ParsePSNGameError::new(s.clone(), format!("{:?}", e)));
