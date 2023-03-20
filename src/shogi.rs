@@ -832,6 +832,28 @@ impl Position {
   pub fn is_take(&self, m: &Move) -> bool {
     self.board[m.to] != piece::NONE
   }
+  //slow (mate or stalemate)
+  pub fn has_legal_move(&mut self) -> bool {
+    let c = self.compute_checks();
+    let moves = self.compute_moves(&c);
+    for m in &moves {
+      let u = self.do_move(m);
+      let legal = self.is_legal();
+      self.undo_move(m, &u);
+      if legal {
+        return false;
+      }
+    }
+    for m in self.compute_drops(&c) {
+      let u = self.do_move(&m);
+      let legal = self.is_legal();
+      self.undo_move(&m, &u);
+      if legal {
+        return false;
+      }
+    }
+    true
+  }
   pub fn compute_drops(&self, checks: &Checks) -> Vec<Move> {
     let mut r = Vec::new();
     match checks.attacking_pieces.len() {

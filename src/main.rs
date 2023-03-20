@@ -4,8 +4,8 @@ use std::io::BufReader;
 
 use std::fs::OpenOptions;
 
-use tsumeshogi_check::kif;
 use tsumeshogi_check::cmd_options::CMDOptions;
+use tsumeshogi_check::kif;
 use tsumeshogi_check::psn;
 use tsumeshogi_check::shogi::Position;
 use tsumeshogi_check::tsume_search::search_ext;

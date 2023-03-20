@@ -3,7 +3,7 @@ use std::io::prelude::*;
 use std::io::BufReader;
 use std::str::FromStr;
 
-use crate::shogi::game::Game;
+use crate::shogi::game::{Game, GameResult};
 use crate::shogi::moves;
 use crate::shogi::Position;
 use moves::Move;
@@ -191,6 +191,29 @@ pub fn parse_psn_game(a: &Vec<String>) -> std::result::Result<Game, ParsePSNGame
         String::from("extra data after result"),
       ));
     }
+  }
+  match g.result() {
+    GameResult::BlackWon => {
+      if pos.side < 0 {
+        assert_eq!(g.moves.len() % 2, 1);
+        if !pos.has_legal_move() {
+          g.set_header(String::from("checkmate"), String::from("true"));
+        } else {
+          g.set_header(String::from("resignation"), String::from("true"));
+        }
+      }
+    }
+    GameResult::WhiteWon => {
+      if pos.side > 0 {
+        assert_eq!(g.moves.len() % 2, 0);
+        if !pos.has_legal_move() {
+          g.set_header(String::from("checkmate"), String::from("true"));
+        } else {
+          g.set_header(String::from("resignation"), String::from("true"));
+        }
+      }
+    }
+    GameResult::Unknown => (),
   }
   Ok(g)
 }
