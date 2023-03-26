@@ -57,7 +57,10 @@ fn process_file(filename: &str, depth: usize) -> std::io::Result<()> {
       );
       continue;
     }
-    let pos = pos.unwrap();
+    let mut pos = pos.unwrap();
+    if pos.side < 0 {
+      pos.swap_sides();
+    }
     match search_ext(pos, depth, true) {
       Some(res) => {
         if res < depth as i32 {

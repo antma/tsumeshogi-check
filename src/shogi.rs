@@ -159,7 +159,48 @@ fn increment_pocket(q: &mut u8) -> bool {
   *q == 1
 }
 
+fn compute_hash(board: &[i8], black_pockets: &[u8], white_pockets: &[u8], side: i8) -> u64 {
+  let mut res = board::compute_hash(&board)
+    ^ hash::compute_black_pockets_hash(&black_pockets)
+    ^ hash::compute_white_pockets_hash(&white_pockets);
+  if side < 0 {
+    res = !res;
+  }
+  res
+}
+
+fn swap_words(x: u32) -> u32 {
+  let lo = x & 0xffff;
+  let hi = x >> 16;
+  (lo << 16) + hi
+}
+
 impl Position {
+  fn compute_hash(&self) -> u64 {
+    compute_hash(&self.board, &self.black_pockets, &self.white_pockets, self.side)
+  }
+  pub fn swap_sides(&mut self) {
+    for col in 0 .. 9 {
+      for row in 0 .. 4 {
+        let i = 9 * row + col;
+        let j = 9 * (8 - row) + col;
+        let t = -self.board[i];
+        self.board[i] = -self.board[j];
+        self.board[j] = t;
+      }
+      self.board[9 * 4 + col] *= -1;
+    }
+    let t = self.black_pockets;
+    self.black_pockets = self.white_pockets;
+    self.white_pockets = t;
+    let t = self.black_king_position;
+    self.black_king_position = self.white_king_position;
+    self.white_king_position = t;
+    self.drop_masks = swap_words(self.drop_masks);
+    self.nifu_masks = swap_words(self.nifu_masks);
+    self.side *= -1;
+    self.hash = self.compute_hash();
+  }
   pub fn move_to_string(&self, m: &Move, moves: &Vec<Move>) -> String {
     let mut s = String::new();
     let p = m.from_piece;
@@ -400,12 +441,7 @@ impl Position {
       ));
     }
     let move_no = move_no.unwrap();
-    let mut hash = board::compute_hash(&board)
-      ^ hash::compute_black_pockets_hash(&black_pockets)
-      ^ hash::compute_white_pockets_hash(&white_pockets);
-    if side < 0 {
-      hash = !hash;
-    }
+    let hash = compute_hash(&board, &black_pockets, &white_pockets, side);
     let pos = Position {
       board,
       black_pockets,
@@ -1158,13 +1194,7 @@ impl Position {
     }
   }
   fn validate_hash(&self) -> bool {
-    let mut hash = board::compute_hash(&self.board)
-      ^ hash::compute_black_pockets_hash(&self.black_pockets)
-      ^ hash::compute_white_pockets_hash(&self.white_pockets);
-    if self.side < 0 {
-      hash = !hash;
-    }
-    self.hash == hash
+    self.hash == self.compute_hash()
   }
 }
 
