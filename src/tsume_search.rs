@@ -67,7 +67,7 @@ impl MateHash {
 }
 
 pub struct Search {
-  cur_line: Vec<Move>,
+  //cur_line: Vec<Move>,
   checks: Vec<Checks>,
   line: MovesLine,
   stats: SearchStats,
@@ -79,7 +79,7 @@ pub struct Search {
 
 impl Search {
   fn set_max_depth(&mut self, max_depth: usize) {
-    self.cur_line = vec![Move::default(); max_depth + 1];
+    //self.cur_line = vec![Move::default(); max_depth + 1];
     self.checks = vec![Checks::default(); max_depth + 1];
     if self.line.a.len() < max_depth + 1 {
       self.line.a.reserve(max_depth + 1 - self.line.a.len());
@@ -88,7 +88,7 @@ impl Search {
   }
   fn new(allow_futile_drops: bool, debug_log: bool) -> Self {
     Self {
-      cur_line: Vec::default(),
+      //cur_line: Vec::default(),
       checks: Vec::default(),
       line: MovesLine { a: Vec::default() },
       stats: SearchStats::default(),
@@ -120,7 +120,7 @@ impl Search {
       }
       let u = pos.do_move(&m);
       if pos.is_legal() {
-        self.cur_line[cur_depth] = m.clone();
+        //self.cur_line[cur_depth] = m.clone();
         if cur_depth >= self.max_depth {
           //no mate
           pos.undo_move(&m, &u);
@@ -154,7 +154,7 @@ impl Search {
       }
       let u = pos.do_move(&m);
       if pos.is_legal() {
-        self.cur_line[cur_depth] = m.clone();
+        //self.cur_line[cur_depth] = m.clone();
         if legal_moves == 0
           && !self.allow_futile_drops
           && pos.is_futile_drop(&self.checks[cur_depth], &m)
@@ -229,7 +229,7 @@ impl Search {
       }
       let u = pos.do_move(&m);
       if pos.is_legal() {
-        self.cur_line[cur_depth] = m.clone();
+        //self.cur_line[cur_depth] = m.clone();
         self.checks[cur_depth + 1] = pos.compute_checks();
         if self.checks[cur_depth + 1].is_check() {
           let ev = self.gote_search(pos, cur_depth + 1, alpha, beta);
@@ -263,9 +263,62 @@ impl Search {
     }
     beta
   }
+  fn sente_root_search(&mut self, pos: &mut Position, skip_move: Option<Move>) -> i32 {
+    let cur_depth = 0;
+    let alpha = -1;
+    let orig_beta = self.max_depth as i32 + 1;
+    let nodes = self.stats.nodes;
+    self.stats.nodes += 1;
+    let drops = pos.compute_drops_with_check();
+    let moves = pos.compute_moves(&self.checks[cur_depth]);
+    let mut beta = orig_beta;
+    for m in drops.iter().chain(moves.iter()) {
+      if self.debug_log {
+        self.line.push(pos.move_to_string(m, &moves));
+      }
+      if let Some(u) = skip_move.as_ref() {
+        if *u == *m {
+          continue;
+        }
+      }
+      let u = pos.do_move(&m);
+      if pos.is_legal() {
+        self.checks[cur_depth + 1] = pos.compute_checks();
+        if self.checks[cur_depth + 1].is_check() {
+          let ev = self.gote_search(pos, cur_depth + 1, alpha, beta);
+          if self.debug_log {
+            debug!("{}, ev = {}", self.line, ev);
+          }
+          if !(ev == cur_depth as i32 + 1 && m.is_pawn_drop()) && beta > ev {
+            beta = ev;
+          }
+        }
+      }
+      pos.undo_move(&m, &u);
+      if self.debug_log {
+        self.line.pop();
+      }
+      if beta <= alpha {
+        /*
+        if beta >= alpha && beta < orig_beta {
+          self.mate_hash.insert(&pos, beta as u32 - cur_depth as u32);
+        }
+        */
+        return beta;
+      }
+    }
+    if skip_move.is_none() && beta >= alpha && beta < orig_beta {
+      self.mate_hash.insert(
+        &pos,
+        beta as i32 - cur_depth as i32,
+        self.stats.nodes - nodes,
+      );
+    }
+    beta
+  }
   fn search(&mut self, pos: &mut Position) -> i32 {
     self.checks[0] = pos.compute_checks();
-    self.sente_search(pos, 0, -1, self.max_depth as i32 + 1)
+    self.sente_root_search(pos, None)
   }
 }
 
