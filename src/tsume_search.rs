@@ -36,25 +36,32 @@ struct SearchStats {
   hash_cuts: u64,
 }
 
+struct HashSlotValue {
+  nodes: u64,
+  ev: i32,
+}
+
 #[derive(Default)]
 struct MateHash {
-  h: HashMap<u64, u32>,
-  //fen_hash: HashMap<u64, String>,
+  h: HashMap<u64, HashSlotValue>,
 }
 
 impl MateHash {
-  fn get(&self, pos: &Position) -> Option<u32> {
-    if let Some(ev) = self.h.get(&pos.hash) {
-      //assert_eq!(*(self.fen_hash.get(&pos.hash).unwrap()), pos.to_string());
-      Some(*ev)
-    } else {
-      None
-    }
+  fn get<'a>(&'a self, pos: &Position) -> Option<&'a HashSlotValue> {
+    self.h.get(&pos.hash)
+    /*
+        if let Some(ev) = self.h.get(&pos.hash) {
+          //assert_eq!(*(self.fen_hash.get(&pos.hash).unwrap()), pos.to_string());
+          Some(*ev)
+        } else {
+          None
+        }
+    */
   }
-  fn insert(&mut self, pos: &Position, ev: u32) {
+  fn insert(&mut self, pos: &Position, ev: i32, nodes: u64) {
     assert!(ev < 255);
     debug!("insert {} ev={}", pos, ev);
-    self.h.insert(pos.hash, ev);
+    self.h.insert(pos.hash, HashSlotValue { nodes, ev });
     //self.fen_hash.insert(pos.hash, pos.to_string());
   }
 }
@@ -93,13 +100,14 @@ impl Search {
   }
   //maximize
   fn gote_search(&mut self, pos: &mut Position, cur_depth: usize, alpha: i32, beta: i32) -> i32 {
+    let nodes = self.stats.nodes;
     self.stats.nodes += 1;
     if beta <= cur_depth as i32 {
       return cur_depth as i32;
     }
-    if let Some(eval) = self.mate_hash.get(&pos) {
+    if let Some(q) = self.mate_hash.get(&pos) {
       self.stats.hash_cuts += 1;
-      return eval as i32 + cur_depth as i32;
+      return q.ev + cur_depth as i32;
     }
     let moves = pos.compute_moves(&self.checks[cur_depth]);
     let (takes, king_escapes): (Vec<_>, Vec<_>) = moves.iter().partition(|m| pos.is_take(*m));
@@ -156,7 +164,7 @@ impl Search {
           if self.debug_log {
             self.line.pop();
           }
-          self.mate_hash.insert(&pos, 0);
+          self.mate_hash.insert(&pos, 0, self.stats.nodes - nodes);
           return cur_depth as i32;
         }
         if cur_depth >= self.max_depth {
@@ -187,20 +195,25 @@ impl Search {
     }
     if legal_moves == 0 {
       //mate
-      self.mate_hash.insert(&pos, 0);
+      self.mate_hash.insert(&pos, 0, self.stats.nodes - nodes);
       return cur_depth as i32;
     }
     if alpha > orig_alpha && alpha <= beta {
-      self.mate_hash.insert(&pos, alpha as u32 - cur_depth as u32);
+      self.mate_hash.insert(
+        &pos,
+        alpha as i32 - cur_depth as i32,
+        self.stats.nodes - nodes,
+      );
     }
     alpha
   }
   //minimize
   fn sente_search(&mut self, pos: &mut Position, cur_depth: usize, alpha: i32, beta: i32) -> i32 {
+    let nodes = self.stats.nodes;
     self.stats.nodes += 1;
-    if let Some(eval) = self.mate_hash.get(&pos) {
+    if let Some(q) = self.mate_hash.get(&pos) {
       self.stats.hash_cuts += 1;
-      return eval as i32 + cur_depth as i32;
+      return q.ev + cur_depth as i32;
     }
     let eval_lowerbound = (cur_depth + 1) as i32;
     if beta <= eval_lowerbound {
@@ -242,7 +255,11 @@ impl Search {
       }
     }
     if beta >= alpha && beta < orig_beta {
-      self.mate_hash.insert(&pos, beta as u32 - cur_depth as u32);
+      self.mate_hash.insert(
+        &pos,
+        beta as i32 - cur_depth as i32,
+        self.stats.nodes - nodes,
+      );
     }
     beta
   }
