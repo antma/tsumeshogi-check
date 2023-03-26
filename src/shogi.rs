@@ -841,7 +841,7 @@ impl Position {
       let legal = self.is_legal();
       self.undo_move(m, &u);
       if legal {
-        return false;
+        return true;
       }
     }
     for m in self.compute_drops(&c) {
@@ -849,10 +849,10 @@ impl Position {
       let legal = self.is_legal();
       self.undo_move(&m, &u);
       if legal {
-        return false;
+        return true;
       }
     }
-    true
+    false
   }
   pub fn compute_drops(&self, checks: &Checks) -> Vec<Move> {
     let mut r = Vec::new();

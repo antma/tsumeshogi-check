@@ -201,6 +201,11 @@ pub fn parse_psn_game(a: &Vec<String>) -> std::result::Result<Game, ParsePSNGame
         } else {
           g.set_header(String::from("resignation"), String::from("true"));
         }
+      } else {
+        return Err(ParsePSNGameError::new(
+          String::default(),
+          format!("unexpected black to move in {}", g.to_short_string()),
+        ));
       }
     }
     GameResult::WhiteWon => {
@@ -211,9 +216,19 @@ pub fn parse_psn_game(a: &Vec<String>) -> std::result::Result<Game, ParsePSNGame
         } else {
           g.set_header(String::from("resignation"), String::from("true"));
         }
+      } else {
+        return Err(ParsePSNGameError::new(
+          String::default(),
+          format!("unexpected white to move in {}", g.to_short_string()),
+        ));
       }
     }
-    GameResult::Unknown => (),
+    GameResult::Unknown => {
+      return Err(ParsePSNGameError::new(
+        String::default(),
+        format!("unknown game result in {}", g.to_short_string()),
+      ));
+    }
   }
   Ok(g)
 }
