@@ -175,6 +175,11 @@ fn swap_words(x: u32) -> u32 {
   (lo << 16) + hi
 }
 
+fn mirror_row(cell: usize) -> usize {
+  let (row, col) = cell::unpack(cell);
+  9 * (8 - row) + col
+}
+
 impl Position {
   fn compute_hash(&self) -> u64 {
     compute_hash(
@@ -198,13 +203,21 @@ impl Position {
     let t = self.black_pockets;
     self.black_pockets = self.white_pockets;
     self.white_pockets = t;
-    let t = self.black_king_position;
-    self.black_king_position = self.white_king_position;
+    let t = self.black_king_position.map(mirror_row);
+    self.black_king_position = self.white_king_position.map(mirror_row);
     self.white_king_position = t;
     self.drop_masks = swap_words(self.drop_masks);
     self.nifu_masks = swap_words(self.nifu_masks);
     self.side *= -1;
     self.hash = self.compute_hash();
+    assert_eq!(
+      self.black_king_position,
+      board::find_king_position(&self.board, 1)
+    );
+    assert_eq!(
+      self.white_king_position,
+      board::find_king_position(&self.board, -1)
+    );
   }
   pub fn move_to_string(&self, m: &Move, moves: &Vec<Move>) -> String {
     let mut s = String::new();

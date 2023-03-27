@@ -1,3 +1,4 @@
+use tsumeshogi_check::shogi::Position;
 mod common;
 
 #[test]
@@ -15,6 +16,7 @@ fn tsume3() {
       "5k3/7gR/4S4/7L1/9/9/9/9/9 b Sr2b3g2s4n3l18p 1",
       "8l/6nkg/5PpBp/5+r3/7R1/9/9/9/9 b b3g4s3n3l15p 1",
       "9/9/9/9/9/7np/8k/8B/7LR b rb4g4s3n3l17p 1",
+      "ln1gkg1nl/6+P2/2sppps1p/2p3p2/p8/P1P1P3P/2NP1PP2/3s1KSR1/L1+b2G1NL w R2Pbgp 42",
     ],
     3,
   );
@@ -29,6 +31,19 @@ fn no_tsume3() {
     ],
     3,
   );
+}
+
+#[test]
+fn swap_sides() {
+  let mut pos = Position::parse_sfen(
+    "ln1gkg1nl/6+P2/2sppps1p/2p3p2/p8/P1P1P3P/2NP1PP2/3s1KSR1/L1+b2G1NL w R2Pbgp 42",
+  )
+  .unwrap();
+  pos.swap_sides();
+  let mut a = Vec::new();
+  let s = pos.to_string();
+  a.push(s.as_str());
+  common::tsume_batch_test(a, 3);
 }
 
 //futile drops
