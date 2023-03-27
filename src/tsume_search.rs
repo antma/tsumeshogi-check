@@ -395,23 +395,48 @@ impl Search {
     assert!(self.positions_hashes.is_empty());
     res
   }
+  fn get_pv_from_hash(&self, pos: &mut Position) -> Option<Vec<Move>> {
+    let mut a = Vec::with_capacity(self.max_depth);
+    let mut u = Vec::with_capacity(self.max_depth);
+    for _ in 0..self.max_depth {
+      if let Some(q) = self.mate_hash.get(&pos) {
+        if let Some(m) = q.best_move.as_ref() {
+          u.push(pos.do_move(m));
+          a.push(m.clone());
+        } else {
+          break;
+        }
+      } else {
+        break;
+      }
+    }
+    for (m, u) in a.iter().zip(u.iter()).rev() {
+      pos.undo_move(m, u);
+    }
+    if u.len() != self.max_depth {
+      None
+    } else {
+      Some(a)
+    }
+  }
+  fn iterative_search(&mut self, pos: &mut Position, max_depth: usize) -> Option<i32> {
+    for depth in (1..=max_depth).step_by(2) {
+      self.set_max_depth(depth);
+      debug!("depth = {}", depth);
+      let ev = self.search(pos);
+      if ev == (depth as i32) {
+        debug!("stats = {:?}", self.stats);
+        return Some(ev);
+      }
+    }
+    None
+  }
 }
 
 pub fn search_ext(mut pos: Position, max_depth: usize, allow_futile_drops: bool) -> Option<i32> {
-  let fen = pos.to_string();
+  //let fen = pos.to_string();
   let mut s = Search::new(allow_futile_drops, log::log_enabled!(log::Level::Debug));
-  for depth in (1..=max_depth).step_by(2) {
-    s.set_max_depth(depth);
-    debug!("depth = {}", depth);
-    let ev = s.search(&mut pos);
-    assert_eq!(fen, pos.to_string());
-    if ev == (depth as i32) {
-      debug!("stats = {:?}", s.stats);
-      return Some(ev);
-    }
-  }
-  debug!("stats = {:?}", s.stats);
-  None
+  s.iterative_search(&mut pos, max_depth)
 }
 
 pub fn search(pos: Position, max_depth: usize) -> Option<i32> {
