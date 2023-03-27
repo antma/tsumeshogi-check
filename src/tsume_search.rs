@@ -35,6 +35,7 @@ struct SearchStats {
   hash_cuts: u64,
   alpha_cuts: u64,
   beta_cuts: u64,
+  repetition_cuts: u64,
 }
 
 struct HashSlotValue {
@@ -81,6 +82,7 @@ pub struct Search {
   line: MovesLine,
   stats: SearchStats,
   mate_hash: MateHash,
+  positions_hashes: Vec<u64>,
   nodes: u64,
   max_depth: usize,
   allow_futile_drops: bool,
@@ -103,11 +105,29 @@ impl Search {
       line: MovesLine { a: Vec::default() },
       stats: SearchStats::default(),
       mate_hash: MateHash::default(),
+      positions_hashes: Vec::new(),
       nodes: 0,
       max_depth: 0,
       allow_futile_drops,
       debug_log,
     }
+  }
+  fn push(&mut self, pos: &Position, cur_depth: usize) {
+    assert_eq!(self.positions_hashes.len(), cur_depth);
+    self.positions_hashes.push(pos.hash);
+  }
+  fn pop(&mut self, cur_depth: usize) {
+    self.positions_hashes.pop();
+    assert_eq!(self.positions_hashes.len(), cur_depth);
+  }
+  fn repetition(&self, pos: &Position) -> bool {
+    let h = pos.hash;
+    self
+      .positions_hashes
+      .iter()
+      .step_by(2)
+      .find(|&&p| p == h)
+      .is_some()
   }
   //maximize
   fn gote_search(&mut self, pos: &mut Position, cur_depth: usize, alpha: i32, beta: i32) -> i32 {
@@ -127,6 +147,7 @@ impl Search {
     let mut alpha = alpha;
     let mut best_move: Option<Move> = None;
     let mut best_nodes = 0u64;
+    self.push(pos, cur_depth);
     for m in takes.into_iter().chain(king_escapes.into_iter()) {
       if self.debug_log {
         self.line.push(pos.move_to_string(&m, &moves));
@@ -140,6 +161,7 @@ impl Search {
           if self.debug_log {
             self.line.pop();
           }
+          self.pop(cur_depth);
           return i32::MAX;
         }
         self.checks[cur_depth + 1] = pos.compute_checks();
@@ -162,6 +184,7 @@ impl Search {
       }
       if beta <= alpha {
         self.stats.alpha_cuts += 1;
+        self.pop(cur_depth);
         return alpha;
       }
     }
@@ -183,6 +206,7 @@ impl Search {
             self.line.pop();
           }
           self.mate_hash.insert(&pos, 0, self.nodes - nodes, None);
+          self.pop(cur_depth);
           return cur_depth as i32;
         }
         if cur_depth >= self.max_depth {
@@ -191,6 +215,7 @@ impl Search {
           if self.debug_log {
             self.line.pop();
           }
+          self.pop(cur_depth);
           return i32::MAX;
         }
         self.checks[cur_depth + 1] = pos.compute_checks();
@@ -213,6 +238,7 @@ impl Search {
       }
       if beta <= alpha {
         self.stats.alpha_cuts += 1;
+        self.pop(cur_depth);
         return alpha;
       }
     }
@@ -221,6 +247,7 @@ impl Search {
       self
         .mate_hash
         .insert(&pos, 0, self.nodes - nodes, best_move);
+      self.pop(cur_depth);
       return cur_depth as i32;
     }
     if alpha > orig_alpha && alpha <= beta {
@@ -231,6 +258,7 @@ impl Search {
         best_move,
       );
     }
+    self.pop(cur_depth);
     alpha
   }
   //minimize
@@ -245,11 +273,16 @@ impl Search {
     if beta <= eval_lowerbound {
       return eval_lowerbound;
     }
+    if self.repetition(pos) {
+      self.stats.repetition_cuts += 1;
+      return i32::MAX;
+    }
     let drops = pos.compute_drops_with_check();
     let moves = pos.compute_moves(&self.checks[cur_depth]);
     let orig_beta = beta;
     let mut beta = beta;
     let mut best_move: Option<Move> = None;
+    self.push(pos, cur_depth);
     for m in drops.iter().chain(moves.iter()) {
       if self.debug_log {
         self.line.push(pos.move_to_string(m, &moves));
@@ -280,6 +313,7 @@ impl Search {
         }
         */
         self.stats.beta_cuts += 1;
+        self.pop(cur_depth);
         return beta;
       }
     }
@@ -291,6 +325,7 @@ impl Search {
         best_move,
       );
     }
+    self.pop(cur_depth);
     beta
   }
   fn sente_root_search(&mut self, pos: &mut Position, skip_move: Option<Move>) -> i32 {
@@ -303,6 +338,7 @@ impl Search {
     let moves = pos.compute_moves(&self.checks[cur_depth]);
     let mut beta = orig_beta;
     let mut best_move = None;
+    self.push(pos, cur_depth);
     for m in drops.iter().chain(moves.iter()) {
       if self.debug_log {
         self.line.push(pos.move_to_string(m, &moves));
@@ -337,6 +373,7 @@ impl Search {
         }
         */
         self.stats.beta_cuts += 1;
+        self.pop(cur_depth);
         return beta;
       }
     }
@@ -348,11 +385,15 @@ impl Search {
         best_move,
       );
     }
+    self.pop(cur_depth);
     beta
   }
   fn search(&mut self, pos: &mut Position) -> i32 {
     self.checks[0] = pos.compute_checks();
-    self.sente_root_search(pos, None)
+    assert!(self.positions_hashes.is_empty());
+    let res = self.sente_root_search(pos, None);
+    assert!(self.positions_hashes.is_empty());
+    res
   }
 }
 
