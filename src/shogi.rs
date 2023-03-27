@@ -177,11 +177,16 @@ fn swap_words(x: u32) -> u32 {
 
 impl Position {
   fn compute_hash(&self) -> u64 {
-    compute_hash(&self.board, &self.black_pockets, &self.white_pockets, self.side)
+    compute_hash(
+      &self.board,
+      &self.black_pockets,
+      &self.white_pockets,
+      self.side,
+    )
   }
   pub fn swap_sides(&mut self) {
-    for col in 0 .. 9 {
-      for row in 0 .. 4 {
+    for col in 0..9 {
+      for row in 0..4 {
         let i = 9 * row + col;
         let j = 9 * (8 - row) + col;
         let t = -self.board[i];

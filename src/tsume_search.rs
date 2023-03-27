@@ -32,11 +32,13 @@ impl fmt::Display for MovesLine {
 
 #[derive(Default, Debug)]
 struct SearchStats {
-  nodes: u64,
   hash_cuts: u64,
+  alpha_cuts: u64,
+  beta_cuts: u64,
 }
 
 struct HashSlotValue {
+  best_move: Option<Move>,
   nodes: u64,
   ev: i32,
 }
@@ -58,10 +60,17 @@ impl MateHash {
         }
     */
   }
-  fn insert(&mut self, pos: &Position, ev: i32, nodes: u64) {
+  fn insert(&mut self, pos: &Position, ev: i32, nodes: u64, best_move: Option<Move>) {
     assert!(ev < 255);
     debug!("insert {} ev={}", pos, ev);
-    self.h.insert(pos.hash, HashSlotValue { nodes, ev });
+    self.h.insert(
+      pos.hash,
+      HashSlotValue {
+        nodes,
+        ev,
+        best_move,
+      },
+    );
     //self.fen_hash.insert(pos.hash, pos.to_string());
   }
 }
@@ -72,6 +81,7 @@ pub struct Search {
   line: MovesLine,
   stats: SearchStats,
   mate_hash: MateHash,
+  nodes: u64,
   max_depth: usize,
   allow_futile_drops: bool,
   debug_log: bool,
@@ -93,6 +103,7 @@ impl Search {
       line: MovesLine { a: Vec::default() },
       stats: SearchStats::default(),
       mate_hash: MateHash::default(),
+      nodes: 0,
       max_depth: 0,
       allow_futile_drops,
       debug_log,
@@ -100,8 +111,8 @@ impl Search {
   }
   //maximize
   fn gote_search(&mut self, pos: &mut Position, cur_depth: usize, alpha: i32, beta: i32) -> i32 {
-    let nodes = self.stats.nodes;
-    self.stats.nodes += 1;
+    let nodes = self.nodes;
+    self.nodes += 1;
     if beta <= cur_depth as i32 {
       return cur_depth as i32;
     }
@@ -114,6 +125,8 @@ impl Search {
     let mut legal_moves = 0;
     let orig_alpha = alpha;
     let mut alpha = alpha;
+    let mut best_move: Option<Move> = None;
+    let mut best_nodes = 0u64;
     for m in takes.into_iter().chain(king_escapes.into_iter()) {
       if self.debug_log {
         self.line.push(pos.move_to_string(&m, &moves));
@@ -130,12 +143,16 @@ impl Search {
           return i32::MAX;
         }
         self.checks[cur_depth + 1] = pos.compute_checks();
+        let t = self.nodes;
         let ev = self.sente_search(pos, cur_depth + 1, alpha, beta);
+        let t = self.nodes - t;
         if self.debug_log {
           debug!("{}, ev = {}", self.line, ev);
         }
-        if alpha < ev {
+        if alpha < ev || (alpha == ev && best_nodes < t) {
           alpha = ev;
+          best_move = Some(m.clone());
+          best_nodes = t;
         }
         legal_moves += 1;
       }
@@ -144,6 +161,7 @@ impl Search {
         self.line.pop();
       }
       if beta <= alpha {
+        self.stats.alpha_cuts += 1;
         return alpha;
       }
     }
@@ -164,7 +182,7 @@ impl Search {
           if self.debug_log {
             self.line.pop();
           }
-          self.mate_hash.insert(&pos, 0, self.stats.nodes - nodes);
+          self.mate_hash.insert(&pos, 0, self.nodes - nodes, None);
           return cur_depth as i32;
         }
         if cur_depth >= self.max_depth {
@@ -176,12 +194,16 @@ impl Search {
           return i32::MAX;
         }
         self.checks[cur_depth + 1] = pos.compute_checks();
+        let t = self.nodes;
         let ev = self.sente_search(pos, cur_depth + 1, alpha, beta);
+        let t = self.nodes - t;
         if self.debug_log {
           debug!("{}, ev = {}", self.line, ev);
         }
-        if alpha < ev {
+        if alpha < ev || (alpha == ev && best_nodes < t) {
           alpha = ev;
+          best_move = Some(m.clone());
+          best_nodes = t;
         }
         legal_moves += 1;
       }
@@ -190,27 +212,31 @@ impl Search {
         self.line.pop();
       }
       if beta <= alpha {
+        self.stats.alpha_cuts += 1;
         return alpha;
       }
     }
     if legal_moves == 0 {
       //mate
-      self.mate_hash.insert(&pos, 0, self.stats.nodes - nodes);
+      self
+        .mate_hash
+        .insert(&pos, 0, self.nodes - nodes, best_move);
       return cur_depth as i32;
     }
     if alpha > orig_alpha && alpha <= beta {
       self.mate_hash.insert(
         &pos,
         alpha as i32 - cur_depth as i32,
-        self.stats.nodes - nodes,
+        self.nodes - nodes,
+        best_move,
       );
     }
     alpha
   }
   //minimize
   fn sente_search(&mut self, pos: &mut Position, cur_depth: usize, alpha: i32, beta: i32) -> i32 {
-    let nodes = self.stats.nodes;
-    self.stats.nodes += 1;
+    let nodes = self.nodes;
+    self.nodes += 1;
     if let Some(q) = self.mate_hash.get(&pos) {
       self.stats.hash_cuts += 1;
       return q.ev + cur_depth as i32;
@@ -223,6 +249,7 @@ impl Search {
     let moves = pos.compute_moves(&self.checks[cur_depth]);
     let orig_beta = beta;
     let mut beta = beta;
+    let mut best_move: Option<Move> = None;
     for m in drops.iter().chain(moves.iter()) {
       if self.debug_log {
         self.line.push(pos.move_to_string(m, &moves));
@@ -238,6 +265,7 @@ impl Search {
           }
           if !(ev == cur_depth as i32 + 1 && m.is_pawn_drop()) && beta > ev {
             beta = ev;
+            best_move = Some(m.clone());
           }
         }
       }
@@ -251,6 +279,7 @@ impl Search {
           self.mate_hash.insert(&pos, beta as u32 - cur_depth as u32);
         }
         */
+        self.stats.beta_cuts += 1;
         return beta;
       }
     }
@@ -258,7 +287,8 @@ impl Search {
       self.mate_hash.insert(
         &pos,
         beta as i32 - cur_depth as i32,
-        self.stats.nodes - nodes,
+        self.nodes - nodes,
+        best_move,
       );
     }
     beta
@@ -267,11 +297,12 @@ impl Search {
     let cur_depth = 0;
     let alpha = -1;
     let orig_beta = self.max_depth as i32 + 1;
-    let nodes = self.stats.nodes;
-    self.stats.nodes += 1;
+    let nodes = self.nodes;
+    self.nodes += 1;
     let drops = pos.compute_drops_with_check();
     let moves = pos.compute_moves(&self.checks[cur_depth]);
     let mut beta = orig_beta;
+    let mut best_move = None;
     for m in drops.iter().chain(moves.iter()) {
       if self.debug_log {
         self.line.push(pos.move_to_string(m, &moves));
@@ -291,6 +322,7 @@ impl Search {
           }
           if !(ev == cur_depth as i32 + 1 && m.is_pawn_drop()) && beta > ev {
             beta = ev;
+            best_move = Some(m.clone());
           }
         }
       }
@@ -304,6 +336,7 @@ impl Search {
           self.mate_hash.insert(&pos, beta as u32 - cur_depth as u32);
         }
         */
+        self.stats.beta_cuts += 1;
         return beta;
       }
     }
@@ -311,7 +344,8 @@ impl Search {
       self.mate_hash.insert(
         &pos,
         beta as i32 - cur_depth as i32,
-        self.stats.nodes - nodes,
+        self.nodes - nodes,
+        best_move,
       );
     }
     beta
