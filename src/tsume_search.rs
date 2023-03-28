@@ -417,6 +417,26 @@ impl Search {
       Some(moves.only_moves())
     }
   }
+  //returns Some(depth) if tsume in depth moves isn't unique in the line m
+  pub fn is_unique_mate(&mut self, pos: &mut Position, m: &Vec<Move>) -> Option<usize> {
+    assert_eq!(m.len() % 2, 1);
+    let mut moves = Moves::with_capacity(m.len());
+    for p in m {
+      moves.push(pos, p);
+    }
+    let mut depth = 1;
+    while let Some(p) = moves.pop(pos) {
+      self.set_max_depth(depth);
+      if self.sente_root_search(pos, Some(p)) == depth as i32 {
+        moves.undo(pos);
+        return Some(depth);
+      }
+      moves.pop(pos);
+      depth += 2;
+    }
+    assert_eq!(moves.len(), 0);
+    None
+  }
   fn iterative_search(&mut self, pos: &mut Position, max_depth: usize) -> Option<i32> {
     for depth in (1..=max_depth).step_by(2) {
       self.set_max_depth(depth);
