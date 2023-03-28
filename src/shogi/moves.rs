@@ -1,5 +1,5 @@
-use super::piece;
 use super::Position;
+use super::{cell, piece};
 use std::str::FromStr;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, Hash)]
@@ -17,6 +17,13 @@ pub struct UndoMove {
   pub taken_piece: i8,
 }
 
+const JP_COLS: [char; 9] = [
+  '１', '２', '３', '４', '５', '６', '７', '８', '９',
+];
+const JP_ROWS: [char; 9] = [
+  '一', '二', '三', '四', '五', '六', '七', '八', '九',
+];
+
 impl Move {
   pub fn is_pawn_drop(&self) -> bool {
     self.from_piece == piece::NONE && self.to_piece.abs() == piece::PAWN
@@ -27,6 +34,38 @@ impl Move {
   pub fn swap_side(&mut self) {
     self.from_piece *= -1;
     self.to_piece *= -1;
+  }
+
+  pub fn to_kif(&self, prev_move: &Option<Move>) -> String {
+    let mut s = String::with_capacity(8);
+    if self.is_drop() {
+      let (row, col) = cell::unpack(self.to);
+      s.push(JP_COLS[col]);
+      s.push(JP_ROWS[row]);
+      s.push_str(&piece::to_jp_string(self.to_piece.abs()));
+      s.push('打');
+    } else {
+      let cell = prev_move.as_ref().map(|q| q.to).unwrap_or(0xff);
+      if cell == self.to {
+        s.push_str("同　");
+      } else {
+        let (row, col) = cell::unpack(self.to);
+        s.push(JP_COLS[col]);
+        s.push(JP_ROWS[row]);
+      }
+      if self.to_piece != self.from_piece {
+        s.push_str(&piece::to_jp_string(self.from_piece.abs()));
+        s.push('成');
+      } else {
+        s.push_str(&piece::to_jp_string(self.to_piece.abs()));
+      }
+      let (row, col) = cell::unpack(self.from);
+      s.push('(');
+      s.push((49 + col as u8) as char);
+      s.push((49 + row as u8) as char);
+      s.push(')');
+    }
+    s
   }
 }
 
@@ -217,6 +256,14 @@ impl Moves {
   pub fn push(&mut self, pos: &mut Position, m: &Move) {
     self.undos.push(pos.do_move(m));
     self.moves.push(m.clone());
+  }
+  pub fn pop(&mut self, pos: &mut Position) -> Option<Move> {
+    let o = self.moves.pop();
+    if let Some(m) = o.as_ref() {
+      let u = self.undos.pop().unwrap();
+      pos.undo_move(m, &u);
+    }
+    o
   }
   pub fn undo(&self, pos: &mut Position) {
     for (m, u) in self.moves.iter().zip(self.undos.iter()).rev() {
