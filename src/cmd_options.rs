@@ -97,6 +97,7 @@ fn try_parse_arg_option<R: FromStr<Err = impl std::fmt::Display>, I: Iterator<It
 #[derive(Debug)]
 pub struct CMDOptions {
   pub depth: usize,
+  pub output: String,
   pub format_target: bool,
   pub level_filter: LevelFilter,
   pub args: Vec<String>,
@@ -108,10 +109,14 @@ impl CMDOptions {
     let mut p = it.peekable();
     let mut format_target = false;
     let mut level_filter = LevelFilter::Error;
+    let mut output = String::new();
     loop {
       if let Some(d) = try_parse_arg_option::<usize, _>(&mut p, "d", "depth") {
         depth = d;
         continue;
+      }
+      if let Some(o) = try_parse_arg_option::<String, _>(&mut p, "o", "output") {
+        output = o;
       }
       if try_parse_option(&mut p, "w", "warn") {
         level_filter = LevelFilter::Warn;
@@ -129,6 +134,7 @@ impl CMDOptions {
     }
     CMDOptions {
       depth,
+      output,
       format_target,
       level_filter,
       args: p.collect(),

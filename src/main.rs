@@ -1,14 +1,13 @@
 use std::fs::File;
 use std::io::prelude::*;
-use std::io::BufReader;
+use std::io::{BufReader, BufWriter};
 
 use std::fs::OpenOptions;
 
+use shogi::{moves, Position};
+use tsume_search::Search;
 use tsumeshogi_check::cmd_options::CMDOptions;
-use tsumeshogi_check::kif;
-use tsumeshogi_check::psn;
-use tsumeshogi_check::shogi::Position;
-use tsumeshogi_check::tsume_search::search_ext;
+use tsumeshogi_check::{kif, psn, shogi, tsume_search};
 
 use log::{debug, error, info, warn};
 //use log::{debug, info};
@@ -43,9 +42,22 @@ fn process_psn(filename: &str) -> std::io::Result<()> {
   Ok(())
 }
 
-fn process_file(filename: &str, depth: usize) -> std::io::Result<()> {
+const BUF_SIZE: usize = 1 << 16;
+
+fn process_file(filename: &str, depth: usize, output_filename: &str) -> std::io::Result<()> {
+  let id = filename.strip_suffix(".sfen").unwrap();
   let file = File::open(filename)?;
   let reader = BufReader::new(file);
+  let mut writer = if output_filename.is_empty() {
+    None
+  } else {
+    let f = OpenOptions::new()
+      .write(true)
+      .create_new(true)
+      .open(&output_filename)?;
+    Some(BufWriter::with_capacity(BUF_SIZE, f))
+  };
+  let mut writer = writer.as_mut();
   for (test, line) in reader.lines().enumerate() {
     let line = line?;
     let pos = Position::parse_sfen(&line);
@@ -61,7 +73,10 @@ fn process_file(filename: &str, depth: usize) -> std::io::Result<()> {
     if pos.side < 0 {
       pos.swap_sides();
     }
-    match search_ext(pos, depth, true) {
+    pos.move_no = 1;
+    let allow_futile_drops = false;
+    let mut s = Search::new(allow_futile_drops);
+    match s.iterative_search(&mut pos, depth) {
       Some(res) => {
         if res < depth as i32 {
           warn!(
@@ -82,6 +97,36 @@ fn process_file(filename: &str, depth: usize) -> std::io::Result<()> {
         panic!("");
       }
     }
+    if let Some(ref mut writer) = writer {
+      if let Some(p) = s.get_pv_from_hash(&mut pos) {
+        if let Some(t) = s.is_unique_mate(&mut pos, &p) {
+          warn!(
+            "Tsume in {} moves isn't unique. Test #{}, sfen: {}, line: {}",
+            t,
+            test + 1,
+            pos.to_string(),
+            moves::moves_to_kif(&p, 1)
+          );
+        } else {
+          //https://www.chessprogramming.org/Extended_Position_Description
+          write!(
+            writer,
+            "{} c0 \"{}\"; id {}-{}; acn {};\n",
+            pos,
+            moves::moves_to_kif(&p, 1),
+            id,
+            test + 1,
+            s.nodes
+          )?;
+        }
+      } else {
+        error!(
+          "Can't restore PV from hash table. Test #{}, sfen: {}",
+          test + 1,
+          line
+        );
+      }
+    }
     if (test + 1) % 1000 == 0 {
       info!("{} positions were processed.", test + 1);
     }
@@ -99,8 +144,8 @@ fn main() -> std::io::Result<()> {
   if let Some(filename) = opts.args.into_iter().next() {
     if filename.ends_with(".psn") {
       process_psn(&filename)?;
-    } else {
-      process_file(&filename, opts.depth)?;
+    } else if filename.ends_with(".sfen") {
+      process_file(&filename, opts.depth, &opts.output)?;
     }
   }
   Ok(())

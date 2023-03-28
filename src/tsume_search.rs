@@ -78,13 +78,12 @@ impl MateHash {
 }
 
 pub struct Search {
-  //cur_line: Vec<Move>,
   checks: Vec<Checks>,
   line: MovesLine,
   stats: SearchStats,
   mate_hash: MateHash,
   positions_hashes: Vec<u64>,
-  nodes: u64,
+  pub nodes: u64,
   max_depth: usize,
   allow_futile_drops: bool,
   debug_log: bool,
@@ -99,9 +98,8 @@ impl Search {
     }
     self.max_depth = max_depth;
   }
-  fn new(allow_futile_drops: bool, debug_log: bool) -> Self {
+  pub fn new(allow_futile_drops: bool) -> Self {
     Self {
-      //cur_line: Vec::default(),
       checks: Vec::default(),
       line: MovesLine { a: Vec::default() },
       stats: SearchStats::default(),
@@ -110,7 +108,7 @@ impl Search {
       nodes: 0,
       max_depth: 0,
       allow_futile_drops,
-      debug_log,
+      debug_log: log::log_enabled!(log::Level::Debug),
     }
   }
   fn push(&mut self, pos: &Position, cur_depth: usize) {
@@ -396,7 +394,7 @@ impl Search {
     assert!(self.positions_hashes.is_empty());
     res
   }
-  fn get_pv_from_hash(&self, pos: &mut Position) -> Option<Vec<Move>> {
+  pub fn get_pv_from_hash(&self, pos: &mut Position) -> Option<Vec<Move>> {
     let mut moves = Moves::with_capacity(self.max_depth);
     for _ in 0..self.max_depth {
       if let Some(q) = self.mate_hash.get(&pos) {
@@ -437,7 +435,7 @@ impl Search {
     assert_eq!(moves.len(), 0);
     None
   }
-  fn iterative_search(&mut self, pos: &mut Position, max_depth: usize) -> Option<i32> {
+  pub fn iterative_search(&mut self, pos: &mut Position, max_depth: usize) -> Option<i32> {
     for depth in (1..=max_depth).step_by(2) {
       self.set_max_depth(depth);
       debug!("depth = {}", depth);
@@ -452,8 +450,7 @@ impl Search {
 }
 
 pub fn search_ext(mut pos: Position, max_depth: usize, allow_futile_drops: bool) -> Option<i32> {
-  //let fen = pos.to_string();
-  let mut s = Search::new(allow_futile_drops, log::log_enabled!(log::Level::Debug));
+  let mut s = Search::new(allow_futile_drops);
   s.iterative_search(&mut pos, max_depth)
 }
 

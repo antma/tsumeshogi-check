@@ -242,6 +242,21 @@ pub struct Moves {
   undos: Vec<UndoMove>,
 }
 
+pub fn moves_to_kif(moves: &Vec<Move>, mut side: i8) -> String {
+  let mut s = String::new();
+  let mut prev: Option<Move> = None;
+  for m in moves {
+    if prev.is_some() {
+      s.push(' ');
+    }
+    s.push(if side > 0 { '☗' } else { '☖' });
+    s.push_str(m.to_kif(&prev).as_str());
+    prev = Some(m.clone());
+    side *= -1;
+  }
+  s
+}
+
 impl Moves {
   pub fn with_capacity(capacity: usize) -> Self {
     Moves {
@@ -272,18 +287,7 @@ impl Moves {
   pub fn only_moves(self) -> Vec<Move> {
     self.moves
   }
-  pub fn to_kif(&self, mut side: i8) -> String {
-    let mut s = String::new();
-    let mut prev: Option<Move> = None;
-    for m in &self.moves {
-      if prev.is_none() {
-        s.push(' ');
-      }
-      s.push(if side > 0 { '☗' } else { '☖' });
-      s.push_str(m.to_kif(&prev).as_str());
-      prev = Some(m.clone());
-      side *= -1;
-    }
-    s
+  pub fn to_kif(&self, side: i8) -> String {
+    moves_to_kif(&self.moves, side)
   }
 }
