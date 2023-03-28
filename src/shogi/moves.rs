@@ -35,7 +35,6 @@ impl Move {
     self.from_piece *= -1;
     self.to_piece *= -1;
   }
-
   pub fn to_kif(&self, prev_move: &Option<Move>) -> String {
     let mut s = String::with_capacity(8);
     if self.is_drop() {
@@ -272,5 +271,19 @@ impl Moves {
   }
   pub fn only_moves(self) -> Vec<Move> {
     self.moves
+  }
+  pub fn to_kif(&self, mut side: i8) -> String {
+    let mut s = String::new();
+    let mut prev: Option<Move> = None;
+    for m in &self.moves {
+      if prev.is_none() {
+        s.push(' ');
+      }
+      s.push(if side > 0 { '☗' } else { '☖' });
+      s.push_str(m.to_kif(&prev).as_str());
+      prev = Some(m.clone());
+      side *= -1;
+    }
+    s
   }
 }
