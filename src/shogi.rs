@@ -134,13 +134,6 @@ impl ParseSFENError {
   }
 }
 
-pub struct UndoMove {
-  hash: u64,
-  drop_masks: u32,
-  nifu_masks: u32,
-  taken_piece: i8,
-}
-
 fn compute_drops_mask(q: &[u8]) -> u32 {
   q.iter()
     .enumerate()
@@ -975,8 +968,8 @@ impl Position {
     }
     r
   }
-  pub fn do_move(&mut self, m: &Move) -> UndoMove {
-    let u = UndoMove {
+  pub fn do_move(&mut self, m: &Move) -> moves::UndoMove {
+    let u = moves::UndoMove {
       hash: self.hash,
       drop_masks: self.drop_masks,
       nifu_masks: self.nifu_masks,
@@ -1036,7 +1029,7 @@ impl Position {
     assert!(self.validate_hash(), "after doing move {:?}", m);
     u
   }
-  pub fn undo_move(&mut self, m: &Move, u: &UndoMove) {
+  pub fn undo_move(&mut self, m: &Move, u: &moves::UndoMove) {
     self.hash = u.hash;
     self.drop_masks = u.drop_masks;
     self.nifu_masks = u.nifu_masks;

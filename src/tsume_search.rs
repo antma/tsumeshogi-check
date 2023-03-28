@@ -1,4 +1,5 @@
 use crate::shogi;
+use shogi::moves::Moves;
 use shogi::{Checks, Move, Position};
 use std::collections::HashMap;
 use std::fmt;
@@ -396,13 +397,11 @@ impl Search {
     res
   }
   fn get_pv_from_hash(&self, pos: &mut Position) -> Option<Vec<Move>> {
-    let mut a = Vec::with_capacity(self.max_depth);
-    let mut u = Vec::with_capacity(self.max_depth);
+    let mut moves = Moves::with_capacity(self.max_depth);
     for _ in 0..self.max_depth {
       if let Some(q) = self.mate_hash.get(&pos) {
         if let Some(m) = q.best_move.as_ref() {
-          u.push(pos.do_move(m));
-          a.push(m.clone());
+          moves.push(pos, m);
         } else {
           break;
         }
@@ -410,13 +409,12 @@ impl Search {
         break;
       }
     }
-    for (m, u) in a.iter().zip(u.iter()).rev() {
-      pos.undo_move(m, u);
-    }
-    if u.len() != self.max_depth {
+    let l = moves.len();
+    moves.undo(pos);
+    if l != self.max_depth {
       None
     } else {
-      Some(a)
+      Some(moves.only_moves())
     }
   }
   fn iterative_search(&mut self, pos: &mut Position, max_depth: usize) -> Option<i32> {

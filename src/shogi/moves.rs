@@ -1,4 +1,5 @@
 use super::piece;
+use super::Position;
 use std::str::FromStr;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq, Hash)]
@@ -7,6 +8,13 @@ pub struct Move {
   pub to: usize,
   pub from_piece: i8,
   pub to_piece: i8,
+}
+
+pub struct UndoMove {
+  pub hash: u64,
+  pub drop_masks: u32,
+  pub nifu_masks: u32,
+  pub taken_piece: i8,
 }
 
 impl Move {
@@ -188,5 +196,34 @@ impl FromStr for Move {
         to_piece: p + (if to_promoted { piece::PROMOTED } else { 0 }),
       })
     }
+  }
+}
+
+pub struct Moves {
+  moves: Vec<Move>,
+  undos: Vec<UndoMove>,
+}
+
+impl Moves {
+  pub fn with_capacity(capacity: usize) -> Self {
+    Moves {
+      moves: Vec::with_capacity(capacity),
+      undos: Vec::with_capacity(capacity),
+    }
+  }
+  pub fn len(&self) -> usize {
+    self.moves.len()
+  }
+  pub fn push(&mut self, pos: &mut Position, m: &Move) {
+    self.undos.push(pos.do_move(m));
+    self.moves.push(m.clone());
+  }
+  pub fn undo(&self, pos: &mut Position) {
+    for (m, u) in self.moves.iter().zip(self.undos.iter()).rev() {
+      pos.undo_move(m, u);
+    }
+  }
+  pub fn only_moves(self) -> Vec<Move> {
+    self.moves
   }
 }
