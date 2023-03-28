@@ -1,3 +1,4 @@
+use super::kif::push_cell_as_jp_str;
 use super::Position;
 use super::{cell, piece};
 use std::str::FromStr;
@@ -17,13 +18,6 @@ pub struct UndoMove {
   pub taken_piece: i8,
 }
 
-const JP_COLS: [char; 9] = [
-  '１', '２', '３', '４', '５', '６', '７', '８', '９',
-];
-const JP_ROWS: [char; 9] = [
-  '一', '二', '三', '四', '五', '六', '七', '八', '九',
-];
-
 impl Move {
   pub fn is_pawn_drop(&self) -> bool {
     self.from_piece == piece::NONE && self.to_piece.abs() == piece::PAWN
@@ -38,9 +32,7 @@ impl Move {
   pub fn to_kif(&self, prev_move: &Option<Move>) -> String {
     let mut s = String::with_capacity(8);
     if self.is_drop() {
-      let (row, col) = cell::unpack(self.to);
-      s.push(JP_COLS[col]);
-      s.push(JP_ROWS[row]);
+      push_cell_as_jp_str(&mut s, self.to);
       s.push_str(&piece::to_jp_string(self.to_piece.abs()));
       s.push('打');
     } else {
@@ -48,9 +40,7 @@ impl Move {
       if cell == self.to {
         s.push_str("同　");
       } else {
-        let (row, col) = cell::unpack(self.to);
-        s.push(JP_COLS[col]);
-        s.push(JP_ROWS[row]);
+        push_cell_as_jp_str(&mut s, self.to);
       }
       if self.to_piece != self.from_piece {
         s.push_str(&piece::to_jp_string(self.from_piece.abs()));
@@ -58,10 +48,8 @@ impl Move {
       } else {
         s.push_str(&piece::to_jp_string(self.to_piece.abs()));
       }
-      let (row, col) = cell::unpack(self.from);
       s.push('(');
-      s.push((49 + col as u8) as char);
-      s.push((49 + row as u8) as char);
+      cell::push_cell_as_en_str(&mut s, self.from, true);
       s.push(')');
     }
     s

@@ -12,9 +12,16 @@ pub fn unpack(cell: usize) -> (usize, usize) {
   (cell / 9, cell % 9)
 }
 
+pub fn push_cell_as_en_str(s: &mut String, cell: usize, numeric: bool) {
+  let (row, col) = super::cell::unpack(cell);
+  s.push((49 + col as u8) as char);
+  s.push(((if numeric { 49 } else { 97 }) + row as u8) as char);
+}
+
 pub fn to_string(cell: usize) -> String {
-  let (row, col) = unpack(cell);
-  format!("{}{}", col + 1, (row as u8 + 'a' as u8) as char)
+  let mut s = String::with_capacity(2);
+  push_cell_as_en_str(&mut s, cell, false);
+  s
 }
 
 fn delta(cell1: usize, cell2: usize) -> Direction {

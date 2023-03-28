@@ -1,12 +1,12 @@
+use crate::bits;
 use std::fmt;
 use std::str::FromStr;
-
-use crate::bits;
 
 mod board;
 mod cell;
 pub mod game;
 mod hash;
+pub mod kif;
 pub mod moves;
 pub mod piece;
 
