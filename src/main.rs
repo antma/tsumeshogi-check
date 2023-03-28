@@ -7,7 +7,7 @@ use std::fs::OpenOptions;
 use shogi::{moves, Position};
 use tsume_search::Search;
 use tsumeshogi_check::cmd_options::CMDOptions;
-use tsumeshogi_check::{kif, psn, shogi, tsume_search};
+use tsumeshogi_check::{psn, shogi, tsume_search};
 
 use log::{debug, error, info, warn};
 //use log::{debug, info};
@@ -31,11 +31,9 @@ fn process_psn(filename: &str) -> std::io::Result<()> {
         break;
       }
       Ok(g) => {
-        let l = kif::game_to_lines(&g);
-        for s in l {
-          write!(f, "{}\n", s)?;
-          f.flush()?;
-        }
+        let s = shogi::kif::game_to_kif(&g, None);
+        write!(f, "{}", s)?;
+        f.flush()?;
       }
     }
   }
