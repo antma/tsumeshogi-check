@@ -16,15 +16,20 @@ pub fn push_cell_as_jp_str(s: &mut String, cell: usize) {
   s.push(JP_ROWS[row]);
 }
 
-fn push_pockets_as_jp_str(s: &mut String, pockets: &[u8]) {
-  s.push_str("後手の持駒：");
-  for (i, p) in pockets
+fn push_pockets_as_jp_str(s: &mut String, pockets: &[u8], side: i8) {
+  s.push(if side > 0 { '先' } else { '後' });
+  s.push_str("手の持駒：");
+  for (f, (i, p)) in pockets
     .iter()
     .enumerate()
     .skip(1)
     .rev()
     .filter(|&(_, &c)| c > 0)
+    .enumerate()
   {
+    if f > 0 {
+      s.push(' ');
+    }
     s.push(piece::to_jp_char(i as i8));
     if *p > 1 {
       if *p >= 10 {
@@ -42,13 +47,12 @@ fn push_pockets_as_jp_str(s: &mut String, pockets: &[u8]) {
 const BOARD_DELIMETER: &'static str = "+---------------------------+\n";
 
 pub fn position_to_kif(s: &mut String, pos: &Position) {
-  push_pockets_as_jp_str(s, &pos.white_pockets);
-  s.push('\n');
+  push_pockets_as_jp_str(s, &pos.white_pockets, -1);
   s.push_str("  ９ ８ ７ ６ ５ ４ ３ ２ １\n");
   s.push_str(BOARD_DELIMETER);
   for (row, d) in JP_ROWS.iter().enumerate() {
     s.push('|');
-    for c in pos.board.iter().skip(9 * row).take(9) {
+    for c in pos.board.iter().skip(9 * row).take(9).rev() {
       if *c == 0 {
         s.push('・');
         continue;
@@ -57,6 +61,7 @@ pub fn position_to_kif(s: &mut String, pos: &Position) {
         s.push('v');
         -(*c)
       } else {
+        s.push(' ');
         *c
       };
       s.push(piece::to_jp_char(abs_piece));
@@ -66,7 +71,7 @@ pub fn position_to_kif(s: &mut String, pos: &Position) {
     s.push('\n');
   }
   s.push_str(BOARD_DELIMETER);
-  push_pockets_as_jp_str(s, &pos.black_pockets);
+  push_pockets_as_jp_str(s, &pos.black_pockets, 1);
   if pos.side < 0 {
     s.push_str("後手番\n");
   }
@@ -77,7 +82,6 @@ pub fn game_to_kif(game: &Game, start_pos: Option<&Position>) -> String {
   if let Some(pos) = start_pos {
     position_to_kif(&mut s, pos);
   }
-  //let mut a = Vec::with_capacity(game.moves.len() + 10);
   for (jp, en) in vec![
     ("開始日時", "date"),
     ("棋戦", "event"),

@@ -4,13 +4,13 @@ use std::io::{BufReader, BufWriter};
 
 use std::fs::OpenOptions;
 
-use shogi::{moves, Position};
+use game::Game;
+use shogi::{game, moves, Position};
 use tsume_search::Search;
 use tsumeshogi_check::cmd_options::CMDOptions;
 use tsumeshogi_check::{psn, shogi, tsume_search};
 
 use log::{debug, error, info, warn};
-//use log::{debug, info};
 
 fn process_psn(filename: &str) -> std::io::Result<()> {
   let dst = filename.strip_suffix("psn").unwrap();
@@ -42,11 +42,29 @@ fn process_psn(filename: &str) -> std::io::Result<()> {
 
 const BUF_SIZE: usize = 1 << 16;
 
+#[derive(PartialEq)]
+enum Format {
+  Unknown,
+  Kif,
+  Sfen,
+}
+
+fn get_file_format(filename: &str) -> Format {
+  if filename.ends_with(".kif") {
+    Format::Kif
+  } else if filename.ends_with(".sfen") {
+    Format::Sfen
+  } else {
+    Format::Unknown
+  }
+}
+
 fn process_file(filename: &str, depth: usize, output_filename: &str) -> std::io::Result<()> {
+  let output_format = get_file_format(output_filename);
   let id = filename.strip_suffix(".sfen").unwrap();
   let file = File::open(filename)?;
   let reader = BufReader::new(file);
-  let mut writer = if output_filename.is_empty() {
+  let mut writer = if output_format == Format::Unknown {
     None
   } else {
     let f = OpenOptions::new()
@@ -83,6 +101,8 @@ fn process_file(filename: &str, depth: usize, output_filename: &str) -> std::io:
             test + 1,
             line
           );
+          //TODO: option for shorter mates
+          continue;
         }
       }
       _ => {
@@ -106,16 +126,26 @@ fn process_file(filename: &str, depth: usize, output_filename: &str) -> std::io:
             moves::moves_to_kif(&p, 1)
           );
         } else {
-          //https://www.chessprogramming.org/Extended_Position_Description
-          write!(
-            writer,
-            "{} c0 \"{}\"; id {}-{}; acn {};\n",
-            pos,
-            moves::moves_to_kif(&p, 1),
-            id,
-            test + 1,
-            s.nodes
-          )?;
+          match output_format {
+            //https://www.chessprogramming.org/Extended_Position_Description
+            Format::Sfen => write!(
+              writer,
+              "{} c0 \"{}\"; id {}-{}; acn {};\n",
+              pos,
+              moves::moves_to_kif(&p, 1),
+              id,
+              test + 1,
+              s.nodes
+            )?,
+            Format::Kif => {
+              let mut game = Game::default();
+              game.set_header(String::from("black"), format!("{}-{}", id, test + 1));
+              game.moves = p;
+              let s = shogi::kif::game_to_kif(&game, Some(&pos));
+              write!(writer, "{}", s)?;
+            }
+            Format::Unknown => panic!("unhandled output format"),
+          }
         }
       } else {
         error!(
