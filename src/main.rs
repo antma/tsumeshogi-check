@@ -139,7 +139,7 @@ fn process_file(filename: &str, depth: usize, output_filename: &str) -> std::io:
             )?,
             Format::Kif => {
               let mut game = Game::default();
-              game.set_header(String::from("black"), format!("{}-{}", id, test + 1));
+              game.set_header(String::from("event"), format!("{}-{}", id, test + 1));
               game.moves = p;
               let s = shogi::kif::game_to_kif(&game, Some(&pos));
               write!(writer, "{}", s)?;

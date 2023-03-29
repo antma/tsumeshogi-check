@@ -79,15 +79,19 @@ pub fn position_to_kif(s: &mut String, pos: &Position) {
 
 pub fn game_to_kif(game: &Game, start_pos: Option<&Position>) -> String {
   let mut s = String::new();
-  if let Some(pos) = start_pos {
-    position_to_kif(&mut s, pos);
-  }
   for (jp, en) in vec![
     ("開始日時", "date"),
     ("棋戦", "event"),
+    ("", "sfen"),
     ("先手", "black"),
     ("後手", "white"),
   ] {
+    if en == "sfen" {
+      if let Some(pos) = start_pos {
+        position_to_kif(&mut s, pos);
+      }
+      continue;
+    }
     if let Some(t) = game.header.get(en) {
       s.push_str(&format!("{}：{}\n", jp, t));
     }
