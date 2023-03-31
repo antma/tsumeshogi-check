@@ -100,6 +100,7 @@ fn process_file(filename: &str, depth: usize, output_filename: &str) -> std::io:
     if pos.side < 0 {
       pos.swap_sides();
     }
+    assert!(pos.side > 0);
     pos.move_no = 1;
     let allow_futile_drops = false;
     let mut s = Search::new(allow_futile_drops);
@@ -152,6 +153,7 @@ fn process_file(filename: &str, depth: usize, output_filename: &str) -> std::io:
               let mut game = Game::default();
               game.set_header(String::from("event"), format!("{}-{}", id, test + 1));
               game.moves = p;
+              assert!(pos.side > 0);
               let s = shogi::kif::game_to_kif(&game, Some(&pos));
               write!(writer, "{}", s)?;
             }

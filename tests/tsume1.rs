@@ -1,3 +1,6 @@
+use tsumeshogi_check::shogi::Position;
+use tsumeshogi_check::tsume_search::Search;
+
 mod common;
 
 #[test]
@@ -44,4 +47,15 @@ fn no_tsume1() {
 #[test]
 fn pawn_drop_no_mate() {
   common::no_tsume_batch_test(vec!["kn7/1s7/9/1N7/9/9/9/9/9 b P2r2b4g3s2n4l17p 1"], 1);
+}
+
+#[test]
+fn not_unique_mate() {
+  let mut pos = Position::parse_sfen("k8/9/K8/9/9/9/9/9/9 b G2r2b3g4s4n4l18p 1").unwrap();
+  let allow_futile_drops = true;
+  let mut s = Search::new(allow_futile_drops);
+  assert_eq!(s.iterative_search(&mut pos, 1), Some(1));
+  let h = s.get_pv_from_hash(&mut pos).unwrap();
+  let t = s.is_unique_mate(&mut pos, &h);
+  assert!(t.is_some());
 }

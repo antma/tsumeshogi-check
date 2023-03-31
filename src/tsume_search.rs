@@ -180,6 +180,7 @@ pub struct Search {
   stats: SearchStats,
   mate_hash: MateHash,
   positions_hashes: Vec<u64>,
+  skip_move: Option<Move>,
   pub nodes: u64,
   max_depth: usize,
   mating_side: i8,
@@ -312,6 +313,7 @@ impl Search {
       stats: SearchStats::default(),
       mate_hash: MateHash::default(),
       positions_hashes: Vec::new(),
+      skip_move: None,
       nodes: 0,
       max_depth: 0,
       mating_side: 0,
@@ -355,17 +357,20 @@ impl Search {
     let h = (self.max_depth - ply) as u8;
     //hash probe and fix mate eval according ply
     let hash = pos.hash;
-    if let Some(q) = self.mate_hash.get(hash) {
-      if let Some(ev) = q.cut(to_hash_eval(alpha, ply), to_hash_eval(beta, ply)) {
-        if ev.abs() <= EVAL_MATE || h <= q.h {
-          let ev = from_hash_eval(ev, ply);
-          assert!(ev.abs() < EVAL_MATE || ev.abs() == EVAL_INF);
-          debug!(
-            "hash cutoff in position {}, hash = {:16x}, ev = {}, slot.h = {}, h = {}",
-            pos, hash, ev, q.h, h
-          );
-          self.stats.hash_cuts += 1;
-          return ev;
+    let use_hash = ply > 0 || self.skip_move.is_none();
+    if use_hash {
+      if let Some(q) = self.mate_hash.get(hash) {
+        if let Some(ev) = q.cut(to_hash_eval(alpha, ply), to_hash_eval(beta, ply)) {
+          if ev.abs() <= EVAL_MATE || h <= q.h {
+            let ev = from_hash_eval(ev, ply);
+            assert!(ev.abs() < EVAL_MATE || ev.abs() == EVAL_INF);
+            debug!(
+              "hash cutoff in position {}, hash = {:16x}, ev = {}, slot.h = {}, h = {}",
+              pos, hash, ev, q.h, h
+            );
+            self.stats.hash_cuts += 1;
+            return ev;
+          }
         }
       }
     }
@@ -374,6 +379,14 @@ impl Search {
     let mut it = MovesIterator::new(pos, ochecks, sente, self.allow_futile_drops);
     self.push(hash, ply);
     while let Some((m, u, oc)) = it.do_next_move(pos) {
+      if ply == 0 {
+        if let Some(q) = self.skip_move.as_ref() {
+          if m == *q {
+            pos.undo_move(&m, &u);
+            continue;
+          }
+        }
+      }
       if h == 0 {
         assert_eq!(sente, false);
         pos.undo_move(&m, &u);
@@ -411,14 +424,16 @@ impl Search {
       }
       if alpha >= beta {
         self.stats.beta_cuts += 1;
-        self.mate_hash.store(
-          pos,
-          &EvalType::Lobound,
-          to_hash_eval(alpha, ply),
-          self.nodes - nodes,
-          best_move,
-          h,
-        );
+        if use_hash {
+          self.mate_hash.store(
+            pos,
+            &EvalType::Lobound,
+            to_hash_eval(alpha, ply),
+            self.nodes - nodes,
+            best_move,
+            h,
+          );
+        }
         self.pop(ply);
         return alpha;
       }
@@ -439,24 +454,26 @@ impl Search {
       );
       return alpha;
     }
-    if best_move.is_none() {
-      self.mate_hash.store(
-        pos,
-        &EvalType::Hibound,
-        to_hash_eval(alpha, ply),
-        self.nodes - nodes,
-        best_move,
-        h,
-      );
-    } else {
-      self.mate_hash.store(
-        pos,
-        &EvalType::Exact,
-        to_hash_eval(alpha, ply),
-        self.nodes - nodes,
-        best_move,
-        h,
-      );
+    if use_hash {
+      if best_move.is_none() {
+        self.mate_hash.store(
+          pos,
+          &EvalType::Hibound,
+          to_hash_eval(alpha, ply),
+          self.nodes - nodes,
+          best_move,
+          h,
+        );
+      } else {
+        self.mate_hash.store(
+          pos,
+          &EvalType::Exact,
+          to_hash_eval(alpha, ply),
+          self.nodes - nodes,
+          best_move,
+          h,
+        );
+      }
     }
     return alpha;
   }
@@ -495,7 +512,6 @@ impl Search {
       Some(moves.only_moves())
     }
   }
-  //TODO: recode sente_root_search
   //returns Some(depth) if tsume in depth moves isn't unique in the line m
   pub fn is_unique_mate(&mut self, pos: &mut Position, m: &Vec<Move>) -> Option<usize> {
     assert_eq!(m.len() % 2, 1);
@@ -503,11 +519,14 @@ impl Search {
     for p in m {
       moves.push(pos, p);
     }
-    /*
     let mut depth = 1;
-    while let Some(p) = moves.pop(pos) {
+    loop {
+      let o = moves.pop(pos);
+      if o.is_none() { break; }
       self.set_max_depth(depth);
-      if self.sente_root_search(pos, Some(p)) == depth as i32 {
+      self.skip_move = o;
+      let ev = self.nega_max_search(pos, None, 0, -EVAL_INF, EVAL_INF);
+      if ev == (EVAL_MATE - depth as i16) {
         moves.undo(pos);
         return Some(depth);
       }
@@ -515,7 +534,6 @@ impl Search {
       depth += 2;
     }
     assert_eq!(moves.len(), 0);
-    */
     None
   }
   pub fn iterative_search(&mut self, pos: &mut Position, max_depth: usize) -> Option<i16> {
