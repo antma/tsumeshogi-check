@@ -16,6 +16,7 @@ pub fn push_cell_as_jp_str(s: &mut String, cell: usize) {
   s.push(JP_ROWS[row]);
 }
 
+//TODO: empty hand
 fn push_pockets_as_jp_str(s: &mut String, pockets: &[u8], side: i8) {
   s.push(if side > 0 { '先' } else { '後' });
   s.push_str("手の持駒：");

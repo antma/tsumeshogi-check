@@ -2,7 +2,6 @@ use crate::shogi;
 use moves::{Move, Moves, UndoMove};
 use shogi::{moves, Checks, Position};
 use std::collections::HashMap;
-use std::fmt;
 
 use log::debug;
 
@@ -135,6 +134,13 @@ fn from_hash_eval(ev: i16, ply: usize) -> i16 {
   }
 }
 
+fn option_move_to_kif(o: &Option<Move>) -> String {
+  match o.as_ref() {
+    Some(m) => m.to_kif(&None),
+    None => String::from("None"),
+  }
+}
+
 impl MateHash {
   fn get<'a>(&'a self, hash: u64) -> Option<&'a HashSlotValue> {
     self.0.get(&hash)
@@ -148,12 +154,13 @@ impl MateHash {
     best_move: Option<Move>,
     h: u8,
   ) {
-    if ev.abs() > EVAL_MATE {
-      return;
-    }
     debug!(
-      "store {}, hash = {:16x}, et = {:?}, ev = {}, best_move = {:?}",
-      pos, pos.hash, et, ev, best_move
+      "store {}, hash = {:16x}, et = {:?}, ev = {}, best_move = {}",
+      pos,
+      pos.hash,
+      et,
+      ev,
+      option_move_to_kif(&best_move)
     );
     self
       .0
@@ -362,7 +369,7 @@ impl Search {
         continue;
       }
       if alpha <= ev {
-        if (alpha == ev && best_nodes < t) || best_move.is_none() {
+        if alpha < ev || (alpha == ev && best_nodes < t) || best_move.is_none() {
           best_move = Some(m);
           best_nodes = t;
         }
