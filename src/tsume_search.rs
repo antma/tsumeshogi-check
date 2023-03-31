@@ -403,7 +403,7 @@ impl Search {
         continue;
       }
       if alpha <= ev {
-        if alpha < ev || (alpha == ev && best_nodes < t) || best_move.is_none() {
+        if alpha < ev || (!sente && alpha == ev && best_nodes < t) || best_move.is_none() {
           best_move = Some(m);
           best_nodes = t;
         }
