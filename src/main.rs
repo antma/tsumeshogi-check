@@ -13,15 +13,26 @@ use tsumeshogi_check::{psn, shogi, tsume_search};
 use log::{debug, error, info, warn};
 
 const OVERWRITE_DESTINATION_FILE: bool = true;
+const BUF_SIZE: usize = 1 << 16;
+
+fn open_destination_file(dst: &str) -> std::io::Result<File> {
+  if OVERWRITE_DESTINATION_FILE {
+    OpenOptions::new().write(true).create(true).open(dst)
+  } else {
+    OpenOptions::new().write(true).create_new(true).open(dst)
+  }
+}
+
+fn open_destination_writer(dst: &str) -> std::io::Result<BufWriter<File>> {
+  let f = open_destination_file(dst)?;
+  Ok(BufWriter::with_capacity(BUF_SIZE, f))
+}
 
 fn process_psn(filename: &str) -> std::io::Result<()> {
   let dst = filename.strip_suffix("psn").unwrap();
   let mut dst = String::from(dst);
   dst.push_str("kif");
-  let mut f = OpenOptions::new()
-    .write(true)
-    .create_new(!OVERWRITE_DESTINATION_FILE)
-    .open(&dst)?;
+  let mut f = open_destination_writer(&dst)?;
   let it = psn::PSNFileIterator::new(filename)?;
   for (game_no, a) in it.enumerate() {
     if a.is_err() {
@@ -44,8 +55,6 @@ fn process_psn(filename: &str) -> std::io::Result<()> {
   }
   Ok(())
 }
-
-const BUF_SIZE: usize = 1 << 16;
 
 #[derive(PartialEq)]
 enum Format {
@@ -72,11 +81,8 @@ fn process_file(filename: &str, depth: usize, output_filename: &str) -> std::io:
   let mut writer = if output_format == Format::Unknown {
     None
   } else {
-    let f = OpenOptions::new()
-      .write(true)
-      .create_new(!OVERWRITE_DESTINATION_FILE)
-      .open(&output_filename)?;
-    Some(BufWriter::with_capacity(BUF_SIZE, f))
+    let w = open_destination_writer(&output_filename)?;
+    Some(w)
   };
   let mut writer = writer.as_mut();
   for (test, line) in reader.lines().enumerate() {

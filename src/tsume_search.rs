@@ -159,7 +159,8 @@ impl MateHash {
       pos.hash,
       et,
       ev,
-      option_move_to_kif(&best_move), h
+      option_move_to_kif(&best_move),
+      h
     );
     self
       .0
@@ -359,7 +360,10 @@ impl Search {
         if ev.abs() <= EVAL_MATE || h <= q.h {
           let ev = from_hash_eval(ev, ply);
           assert!(ev.abs() < EVAL_MATE || ev.abs() == EVAL_INF);
-          debug!("hash cutoff in position {}, hash = {:16x}, ev = {}, slot.h = {}, h = {}", pos, hash, ev, q.h, h);
+          debug!(
+            "hash cutoff in position {}, hash = {:16x}, ev = {}, slot.h = {}, h = {}",
+            pos, hash, ev, q.h, h
+          );
           self.stats.hash_cuts += 1;
           return ev;
         }
