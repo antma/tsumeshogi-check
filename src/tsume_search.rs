@@ -57,10 +57,9 @@ enum EvalType {
 
 impl HashSlotValue {
   fn cut(&self, alpha: i16, beta: i16) -> Option<i16> {
+    assert!(alpha <= beta);
     if self.lo_ev == self.hi_ev {
-      if alpha <= self.lo_ev && self.lo_ev <= beta {
-        return Some(self.lo_ev);
-      }
+      return Some(self.lo_ev);
     } else {
       if self.lo_ev > -EVAL_INF && beta <= self.lo_ev {
         return Some(self.lo_ev);
@@ -155,12 +154,12 @@ impl MateHash {
     h: u8,
   ) {
     debug!(
-      "store {}, hash = {:16x}, et = {:?}, ev = {}, best_move = {}",
+      "store {}, hash = {:16x}, et = {:?}, ev = {}, best_move = {}, h = {}",
       pos,
       pos.hash,
       et,
       ev,
-      option_move_to_kif(&best_move)
+      option_move_to_kif(&best_move), h
     );
     self
       .0
@@ -358,8 +357,11 @@ impl Search {
     if let Some(q) = self.mate_hash.get(hash) {
       if let Some(ev) = q.cut(to_hash_eval(alpha, ply), to_hash_eval(beta, ply)) {
         if ev.abs() <= EVAL_MATE || h <= q.h {
+          let ev = from_hash_eval(ev, ply);
+          assert!(ev.abs() < EVAL_MATE || ev.abs() == EVAL_INF);
+          debug!("hash cutoff in position {}, hash = {:16x}, ev = {}, slot.h = {}, h = {}", pos, hash, ev, q.h, h);
           self.stats.hash_cuts += 1;
-          return from_hash_eval(ev, ply);
+          return ev;
         }
       }
     }
@@ -368,7 +370,8 @@ impl Search {
     let mut it = MovesIterator::new(pos, ochecks, sente, self.allow_futile_drops);
     self.push(hash, ply);
     while let Some((m, u, oc)) = it.do_next_move(pos) {
-      if !sente && h == 0 {
+      if h == 0 {
+        assert_eq!(sente, false);
         pos.undo_move(&m, &u);
         self.pop(ply);
         return EVAL_INF;
@@ -421,13 +424,14 @@ impl Search {
     if !sente && it.legal_moves == 0 {
       //mate
       let alpha = -EVAL_MATE + ply as i16;
+      assert_eq!(to_hash_eval(alpha, ply), -EVAL_MATE);
       self.mate_hash.store(
         pos,
         &EvalType::Exact,
-        to_hash_eval(alpha, ply),
+        -EVAL_MATE,
         self.nodes - nodes,
         None,
-        h,
+        u8::MAX,
       );
       return alpha;
     }
