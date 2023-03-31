@@ -18,7 +18,10 @@ fn process_psn(filename: &str) -> std::io::Result<()> {
   let dst = filename.strip_suffix("psn").unwrap();
   let mut dst = String::from(dst);
   dst.push_str("kif");
-  let mut f = OpenOptions::new().write(true).create_new(!OVERWRITE_DESTINATION_FILE).open(&dst)?;
+  let mut f = OpenOptions::new()
+    .write(true)
+    .create_new(!OVERWRITE_DESTINATION_FILE)
+    .open(&dst)?;
   let it = psn::PSNFileIterator::new(filename)?;
   for (game_no, a) in it.enumerate() {
     if a.is_err() {
@@ -96,7 +99,7 @@ fn process_file(filename: &str, depth: usize, output_filename: &str) -> std::io:
     let mut s = Search::new(allow_futile_drops);
     match s.iterative_search(&mut pos, depth) {
       Some(res) => {
-        if res < depth as i32 {
+        if res < depth as i16 {
           warn!(
             "Found faster mate in {} move(s). Test #{}, sfen: {}",
             res,

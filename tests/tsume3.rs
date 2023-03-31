@@ -1,10 +1,12 @@
 use tsumeshogi_check::shogi::Position;
+use tsumeshogi_check::tsume_search::Search;
 mod common;
 
 #[test]
 fn tsume3() {
   common::tsume_batch_test(
     vec![
+      "k2G5/9/K8/9/N8/9/9/9/9 b 2r2b3g4s3n4l18p 1",
       "3sks3/9/4S4/9/9/8B/9/9/9 b S 1",
       "9/4k4/9/4P4/9/9/9/9/9 b 2G2r2b4s4n4l17p 1",
       "9/6k2/9/5G3/4G4/4P4/9/9/9 b 2G2r2b4s4n4l17p 1",
@@ -44,6 +46,22 @@ fn swap_sides() {
   let s = pos.to_string();
   a.push(s.as_str());
   common::tsume_batch_test(a, 3);
+}
+
+#[test]
+fn recover_pv() {
+  let mut pos = Position::parse_sfen(
+    "2R4nl/6g2/S2+B2s1+P/2gppppp1/1kpsnP3/LN1PS4/1PG1P1N2/3K3R1/1+p3+b2L b LPg5p 125",
+  )
+  .unwrap();
+  let hash = pos.hash;
+  let allow_futile_drops = false;
+  let mut s = Search::new(allow_futile_drops);
+  assert_eq!(s.iterative_search(&mut pos, 3), Some(3));
+  assert_eq!(hash, pos.hash);
+  let pv = s.get_pv_from_hash(&mut pos);
+  assert_eq!(hash, pos.hash);
+  assert!(pv.is_some());
 }
 
 //futile drops

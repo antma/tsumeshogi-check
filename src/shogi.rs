@@ -10,7 +10,7 @@ pub mod kif;
 pub mod moves;
 pub mod piece;
 
-pub use moves::Move;
+use moves::Move;
 
 pub struct Position {
   board: [i8; 81],
@@ -1026,7 +1026,11 @@ impl Position {
     self.move_no += 1;
     self.side *= -1;
     self.hash = !self.hash;
-    assert!(self.validate_hash(), "after doing move {:?}", m);
+    assert!(
+      self.validate_hash(),
+      "hash validation failed after doing {:?}",
+      m
+    );
     u
   }
   pub fn undo_move(&mut self, m: &Move, u: &moves::UndoMove) {
