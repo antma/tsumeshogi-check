@@ -2,8 +2,6 @@ use std::fs::File;
 use std::io::prelude::*;
 use std::io::{BufReader, BufWriter};
 
-use std::fs::OpenOptions;
-
 use game::Game;
 use shogi::{game, moves, Position};
 use tsume_search::Search;
@@ -17,9 +15,9 @@ const BUF_SIZE: usize = 1 << 16;
 
 fn open_destination_file(dst: &str) -> std::io::Result<File> {
   if OVERWRITE_DESTINATION_FILE {
-    OpenOptions::new().write(true).create(true).open(dst)
+    File::create(dst)
   } else {
-    OpenOptions::new().write(true).create_new(true).open(dst)
+    std::fs::OpenOptions::new().create_new(true).open(dst)
   }
 }
 

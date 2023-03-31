@@ -522,7 +522,9 @@ impl Search {
     let mut depth = 1;
     loop {
       let o = moves.pop(pos);
-      if o.is_none() { break; }
+      if o.is_none() {
+        break;
+      }
       self.set_max_depth(depth);
       self.skip_move = o;
       let ev = self.nega_max_search(pos, None, 0, -EVAL_INF, EVAL_INF);
