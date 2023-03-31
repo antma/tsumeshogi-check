@@ -16,10 +16,10 @@ pub fn push_cell_as_jp_str(s: &mut String, cell: usize) {
   s.push(JP_ROWS[row]);
 }
 
-//TODO: empty hand
 fn push_pockets_as_jp_str(s: &mut String, pockets: &[u8], side: i8) {
   s.push(if side > 0 { '先' } else { '後' });
   s.push_str("手の持駒：");
+  let mut empty_hand = true;
   for (f, (i, p)) in pockets
     .iter()
     .enumerate()
@@ -28,6 +28,7 @@ fn push_pockets_as_jp_str(s: &mut String, pockets: &[u8], side: i8) {
     .filter(|&(_, &c)| c > 0)
     .enumerate()
   {
+    empty_hand = false;
     if f > 0 {
       s.push(' ');
     }
@@ -41,6 +42,9 @@ fn push_pockets_as_jp_str(s: &mut String, pockets: &[u8], side: i8) {
         s.push(JP_ROWS[*p as usize - 1]);
       }
     }
+  }
+  if empty_hand {
+    s.push_str("なし");
   }
   s.push('\n');
 }
