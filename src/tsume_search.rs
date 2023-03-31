@@ -175,6 +175,7 @@ impl MateHash {
 
 pub struct Search {
   //checks: Vec<Checks>,
+  validate_hash: ValidateHash,
   line: Vec<Move>,
   stats: SearchStats,
   mate_hash: MateHash,
@@ -273,6 +274,30 @@ impl MovesIterator {
 const EVAL_INF: i16 = i16::MAX - 1;
 const EVAL_MATE: i16 = 30000;
 
+#[derive(Default)]
+struct ValidateHash(HashMap<u64, String>);
+impl ValidateHash {
+  fn check(&mut self, pos: &Position) -> bool {
+    let mut fen = pos.to_string();
+    if let Some((prefix, _)) = fen.rsplit_once(' ') {
+      fen.truncate(prefix.len());
+    } else {
+      return false;
+    }
+    let mut res = true;
+    self
+      .0
+      .entry(pos.hash)
+      .and_modify(|e| {
+        if *e != fen {
+          res = false;
+        }
+      })
+      .or_insert(fen);
+    res
+  }
+}
+
 impl Search {
   fn set_max_depth(&mut self, max_depth: usize) {
     //self.cur_line = vec![Move::default(); max_depth + 1];
@@ -282,6 +307,7 @@ impl Search {
   pub fn new(allow_futile_drops: bool) -> Self {
     Self {
       //checks: Vec::default(),
+      validate_hash: ValidateHash::default(),
       line: Vec::new(),
       stats: SearchStats::default(),
       mate_hash: MateHash::default(),
@@ -318,6 +344,7 @@ impl Search {
     mut alpha: i16,
     beta: i16,
   ) -> i16 {
+    //assert!(self.validate_hash.check(pos));
     let nodes = self.nodes;
     self.nodes += 1;
     let sente = (ply & 1) == 0;
