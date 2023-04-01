@@ -529,7 +529,12 @@ impl Search {
     }
   }
   //returns Some(depth) if tsume in depth moves isn't unique in the line m
-  pub fn is_unique_mate(&mut self, pos: &mut Position, m: &Vec<Move>) -> Option<usize> {
+  pub fn is_unique_mate(
+    &mut self,
+    pos: &mut Position,
+    m: &Vec<Move>,
+    depth_extention: usize,
+  ) -> Option<usize> {
     assert_eq!(m.len() % 2, 1);
     let mut moves = Moves::with_capacity(m.len());
     for p in m {
@@ -541,10 +546,11 @@ impl Search {
       if o.is_none() {
         break;
       }
-      self.set_max_depth(depth);
       self.skip_move = o;
-      let ev = self.nega_max_search(pos, None, 0, -EVAL_INF, EVAL_INF);
-      if ev == (EVAL_MATE - depth as i16) {
+      if self
+        .iterative_search(pos, depth + depth_extention)
+        .is_some()
+      {
         moves.undo(pos);
         return Some(depth);
       }

@@ -71,7 +71,12 @@ fn get_file_format(filename: &str) -> Format {
   }
 }
 
-fn process_file(filename: &str, depth: usize, output_filename: &str) -> std::io::Result<()> {
+fn process_file(
+  filename: &str,
+  depth: usize,
+  depth_extend: usize,
+  output_filename: &str,
+) -> std::io::Result<()> {
   let output_format = get_file_format(output_filename);
   let id = filename.strip_suffix(".sfen").unwrap();
   let file = File::open(filename)?;
@@ -127,7 +132,7 @@ fn process_file(filename: &str, depth: usize, output_filename: &str) -> std::io:
     }
     if let Some(ref mut writer) = writer {
       if let Some(p) = s.get_pv_from_hash(&mut pos) {
-        if let Some(t) = s.is_unique_mate(&mut pos, &p) {
+        if let Some(t) = s.is_unique_mate(&mut pos, &p, depth_extend) {
           warn!(
             "Tsume in {} moves isn't unique. Test #{}, sfen: {}, line: {}",
             t,
@@ -184,7 +189,7 @@ fn main() -> std::io::Result<()> {
     if filename.ends_with(".psn") {
       process_psn(&filename)?;
     } else if filename.ends_with(".sfen") {
-      process_file(&filename, opts.depth, &opts.output)?;
+      process_file(&filename, opts.depth, opts.depth_extend, &opts.output)?;
     }
   }
   Ok(())
