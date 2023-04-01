@@ -174,7 +174,6 @@ impl MateHash {
 }
 
 pub struct Search {
-  //checks: Vec<Checks>,
   validate_hash: ValidateHash,
   line: Vec<Move>,
   stats: SearchStats,
@@ -191,6 +190,7 @@ pub struct Search {
 struct MovesIterator {
   moves: Vec<Move>,
   checks: Checks,
+  best_move: Option<Move>,
   k: usize,
   state: u32,
   legal_moves: u32,
@@ -199,20 +199,35 @@ struct MovesIterator {
 }
 
 impl MovesIterator {
-  fn new(pos: &Position, ochecks: Option<Checks>, sente: bool, allow_futile_drops: bool) -> Self {
-    let checks = ochecks.unwrap_or_else(|| pos.compute_checks());
-    let moves = if sente {
-      pos.compute_moves(&checks)
+  fn compute_moves(&mut self, pos: &Position) {
+    self.moves = if self.sente {
+      pos.compute_moves(&self.checks)
     } else {
-      let moves = pos.compute_moves(&checks);
+      let moves = pos.compute_moves(&self.checks);
       let (mut takes, king_escapes): (Vec<_>, Vec<_>) =
         moves.into_iter().partition(|m| pos.is_take(m));
       takes.extend(king_escapes.into_iter());
       takes
     };
+  }
+  fn compute_drops(&mut self, pos: &Position) {
+    self.moves = if self.sente {
+      pos.compute_drops_with_check()
+    } else {
+      pos.compute_drops(&self.checks)
+    };
+  }
+  fn new(
+    pos: &Position,
+    ochecks: Option<Checks>,
+    best_move: Option<Move>,
+    sente: bool,
+    allow_futile_drops: bool,
+  ) -> Self {
     Self {
-      moves,
-      checks,
+      moves: best_move.clone().into_iter().collect(),
+      checks: ochecks.unwrap_or_else(|| pos.compute_checks()),
+      best_move: best_move,
       k: 0,
       state: 0,
       legal_moves: 0,
@@ -225,19 +240,21 @@ impl MovesIterator {
       if self.k < self.moves.len() {
         let r = self.moves[self.k].clone();
         self.k += 1;
+        if let Some(t) = self.best_move.as_ref() {
+          if self.state > 0 && *t == r {
+            //don't process best move (from hash) twice
+            continue;
+          }
+        }
         break Some(r);
       }
       self.moves.clear();
       self.state += 1;
       self.k = 0;
-      if self.state == 1 {
-        self.moves = if self.sente {
-          pos.compute_drops_with_check()
-        } else {
-          pos.compute_drops(&self.checks)
-        };
-      } else {
-        break None;
+      match self.state {
+        1 => self.compute_moves(pos),
+        2 => self.compute_drops(pos),
+        _ => break None,
       }
     }
   }
@@ -301,13 +318,10 @@ impl ValidateHash {
 
 impl Search {
   fn set_max_depth(&mut self, max_depth: usize) {
-    //self.cur_line = vec![Move::default(); max_depth + 1];
-    //self.checks = vec![Checks::default(); max_depth + 1];
     self.max_depth = max_depth;
   }
   pub fn new(allow_futile_drops: bool) -> Self {
     Self {
-      //checks: Vec::default(),
       validate_hash: ValidateHash::default(),
       line: Vec::new(),
       stats: SearchStats::default(),
@@ -358,6 +372,7 @@ impl Search {
     //hash probe and fix mate eval according ply
     let hash = pos.hash;
     let use_hash = ply > 0 || self.skip_move.is_none();
+    let mut hash_best_move: Option<Move> = None;
     if use_hash {
       if let Some(q) = self.mate_hash.get(hash) {
         if let Some(ev) = q.cut(to_hash_eval(alpha, ply), to_hash_eval(beta, ply)) {
@@ -372,11 +387,12 @@ impl Search {
             return ev;
           }
         }
+        hash_best_move = q.best_move.clone();
       }
     }
     let mut best_move: Option<Move> = None;
     let mut best_nodes = 0;
-    let mut it = MovesIterator::new(pos, ochecks, sente, self.allow_futile_drops);
+    let mut it = MovesIterator::new(pos, ochecks, hash_best_move, sente, self.allow_futile_drops);
     self.push(hash, ply);
     while let Some((m, u, oc)) = it.do_next_move(pos) {
       if ply == 0 {
