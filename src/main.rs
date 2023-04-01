@@ -107,7 +107,7 @@ fn process_file(
     pos.move_no = 1;
     let allow_futile_drops = false;
     let mut s = Search::new(allow_futile_drops);
-    match s.iterative_search(&mut pos, depth) {
+    match s.iterative_search(&mut pos, 1, depth) {
       Some(res) => {
         if res < depth as i16 {
           warn!(

@@ -57,7 +57,7 @@ fn recover_pv() {
   let hash = pos.hash;
   let allow_futile_drops = false;
   let mut s = Search::new(allow_futile_drops);
-  assert_eq!(s.iterative_search(&mut pos, 3), Some(3));
+  assert_eq!(s.iterative_search(&mut pos, 1, 3), Some(3));
   assert_eq!(hash, pos.hash);
   let pv = s.get_pv_from_hash(&mut pos);
   assert_eq!(hash, pos.hash);

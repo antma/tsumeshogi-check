@@ -1026,7 +1026,7 @@ impl Position {
     self.move_no += 1;
     self.side *= -1;
     self.hash = !self.hash;
-    assert!(
+    debug_assert!(
       self.validate_hash(),
       "hash validation failed after doing {:?}",
       m

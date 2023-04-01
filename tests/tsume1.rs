@@ -54,8 +54,8 @@ fn not_unique_mate() {
   let mut pos = Position::parse_sfen("k8/9/K8/9/9/9/9/9/9 b G2r2b3g4s4n4l18p 1").unwrap();
   let allow_futile_drops = true;
   let mut s = Search::new(allow_futile_drops);
-  assert_eq!(s.iterative_search(&mut pos, 1), Some(1));
+  assert_eq!(s.iterative_search(&mut pos, 1, 1), Some(1));
   let h = s.get_pv_from_hash(&mut pos).unwrap();
-  let t = s.is_unique_mate(&mut pos, &h);
+  let t = s.is_unique_mate(&mut pos, &h, 0);
   assert!(t.is_some());
 }

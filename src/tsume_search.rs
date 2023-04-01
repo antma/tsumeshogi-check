@@ -36,6 +36,7 @@ impl fmt::Display for MovesLine {
 struct SearchStats {
   hash_cuts: u64,
   beta_cuts: u64,
+  eval_out_of_range_cuts: u64,
   repetition_cuts: u64,
 }
 
@@ -55,9 +56,16 @@ enum EvalType {
   Exact,
 }
 
+fn validate_eval(ev: i16) -> bool {
+  let ev = ev.abs();
+  ev.abs() <= EVAL_MATE || ev == EVAL_INF
+}
+
 impl HashSlotValue {
   fn cut(&self, alpha: i16, beta: i16) -> Option<i16> {
-    assert!(alpha <= beta);
+    debug_assert!(validate_eval(alpha), "alpha = {}", alpha);
+    debug_assert!(validate_eval(beta), "beta = {}", beta);
+    assert!(alpha <= beta, "alpha = {}, beta = {}", alpha, beta);
     if self.lo_ev == self.hi_ev {
       return Some(self.lo_ev);
     } else {
@@ -118,7 +126,7 @@ impl HashSlotValue {
 struct MateHash(HashMap<u64, HashSlotValue>);
 
 fn to_hash_eval(ev: i16, ply: usize) -> i16 {
-  if ev.abs() <= EVAL_MATE {
+  if ev.abs() < EVAL_INF {
     ev + (ply as i16) * ev.signum()
   } else {
     ev
@@ -126,7 +134,7 @@ fn to_hash_eval(ev: i16, ply: usize) -> i16 {
 }
 
 fn from_hash_eval(ev: i16, ply: usize) -> i16 {
-  if ev.abs() <= EVAL_MATE {
+  if ev.abs() < EVAL_INF {
     ev - (ply as i16) * ev.signum()
   } else {
     ev
@@ -336,12 +344,12 @@ impl Search {
     }
   }
   fn push(&mut self, hash: u64, ply: usize) {
-    assert_eq!(self.positions_hashes.len(), ply);
+    debug_assert_eq!(self.positions_hashes.len(), ply);
     self.positions_hashes.push(hash);
   }
   fn pop(&mut self, ply: usize) {
     self.positions_hashes.pop();
-    assert_eq!(self.positions_hashes.len(), ply);
+    debug_assert_eq!(self.positions_hashes.len(), ply);
   }
   fn repetition(&self, pos: &Position) -> bool {
     let h = pos.hash;
@@ -360,10 +368,30 @@ impl Search {
     mut alpha: i16,
     beta: i16,
   ) -> i16 {
-    //assert!(self.validate_hash.check(pos));
+    debug!(
+      "nega_max_search(pos: \"{}\", hash: {:16x}, ply: {}, alpha: {}, beta: {}",
+      pos, pos.hash, ply, alpha, beta
+    );
+    debug_assert!(validate_eval(alpha), "alpha = {}", alpha);
+    debug_assert!(validate_eval(beta), "beta = {}", beta);
+    debug_assert!(alpha <= beta);
+    //debug_assert!(self.validate_hash.check(pos));
     let nodes = self.nodes;
     self.nodes += 1;
     let sente = (ply & 1) == 0;
+    if sente {
+      let max_possible_score = EVAL_MATE - (ply + 1) as i16;
+      if max_possible_score < alpha {
+        self.stats.eval_out_of_range_cuts += 1;
+        return max_possible_score;
+      }
+    } else {
+      let min_possible_score = -EVAL_MATE + ply as i16;
+      if beta < min_possible_score {
+        self.stats.eval_out_of_range_cuts += 1;
+        return min_possible_score;
+      }
+    }
     if self.repetition(pos) {
       self.stats.repetition_cuts += 1;
       return if sente { -EVAL_INF } else { EVAL_INF };
@@ -376,9 +404,9 @@ impl Search {
     if use_hash {
       if let Some(q) = self.mate_hash.get(hash) {
         if let Some(ev) = q.cut(to_hash_eval(alpha, ply), to_hash_eval(beta, ply)) {
-          if ev.abs() <= EVAL_MATE || h <= q.h {
+          if ev.abs() < EVAL_INF || h <= q.h {
             let ev = from_hash_eval(ev, ply);
-            assert!(ev.abs() < EVAL_MATE || ev.abs() == EVAL_INF);
+            debug_assert!(validate_eval(ev), "ev = {}", ev);
             debug!(
               "hash cutoff in position {}, hash = {:16x}, ev = {}, slot.h = {}, h = {}",
               pos, hash, ev, q.h, h
@@ -414,6 +442,7 @@ impl Search {
       }
       let t = self.nodes;
       let ev = -self.nega_max_search(pos, oc, ply + 1, -beta, -alpha);
+      debug_assert!(validate_eval(alpha));
       let t = self.nodes - t;
       debug!(
         "{}: h = {}, ev = {}, nodes = {}",
@@ -459,7 +488,7 @@ impl Search {
     if !sente && it.legal_moves == 0 {
       //mate
       let alpha = -EVAL_MATE + ply as i16;
-      assert_eq!(to_hash_eval(alpha, ply), -EVAL_MATE);
+      debug_assert_eq!(to_hash_eval(alpha, ply), -EVAL_MATE);
       self.mate_hash.store(
         pos,
         &EvalType::Exact,
@@ -497,11 +526,11 @@ impl Search {
     self.mating_side = pos.side;
     assert!(self.positions_hashes.is_empty());
     let res = self.nega_max_search(pos, None, 0, -EVAL_INF, EVAL_INF);
-    //self.sente_root_search(pos, None);
     assert!(self.positions_hashes.is_empty());
     res
   }
   pub fn get_pv_from_hash(&self, pos: &mut Position) -> Option<Vec<Move>> {
+    let hash = pos.hash;
     let mut moves = Moves::with_capacity(self.max_depth);
     for _ in 0..self.max_depth {
       if let Some(q) = self.mate_hash.get(pos.hash) {
@@ -521,6 +550,7 @@ impl Search {
     }
     let l = moves.len();
     moves.undo(pos);
+    assert_eq!(pos.hash, hash);
     if l != self.max_depth {
       debug!("Fail to find move in hash after {}", moves.to_kif(pos.side));
       None
@@ -535,6 +565,7 @@ impl Search {
     m: &Vec<Move>,
     depth_extention: usize,
   ) -> Option<usize> {
+    let hash = pos.hash;
     assert_eq!(m.len() % 2, 1);
     let mut moves = Moves::with_capacity(m.len());
     for p in m {
@@ -548,35 +579,45 @@ impl Search {
       }
       self.skip_move = o;
       if self
-        .iterative_search(pos, depth + depth_extention)
+        .iterative_search(pos, depth, depth + depth_extention)
         .is_some()
       {
         moves.undo(pos);
+        assert_eq!(pos.hash, hash);
         return Some(depth);
       }
       moves.pop(pos);
       depth += 2;
     }
     assert_eq!(moves.len(), 0);
+    assert_eq!(pos.hash, hash);
     None
   }
-  pub fn iterative_search(&mut self, pos: &mut Position, max_depth: usize) -> Option<i16> {
-    for depth in (1..=max_depth).step_by(2) {
+  pub fn iterative_search(
+    &mut self,
+    pos: &mut Position,
+    min_depth: usize,
+    max_depth: usize,
+  ) -> Option<i16> {
+    let hash = pos.hash;
+    for depth in (min_depth..=max_depth).step_by(2) {
       self.set_max_depth(depth);
       debug!("depth = {}", depth);
       let ev = self.search(pos);
       if ev == (EVAL_MATE - depth as i16) {
         debug!("stats = {:?}", self.stats);
+        assert_eq!(pos.hash, hash);
         return Some(depth as i16);
       }
     }
+    assert_eq!(pos.hash, hash);
     None
   }
 }
 
 pub fn search_ext(mut pos: Position, max_depth: usize, allow_futile_drops: bool) -> Option<i16> {
   let mut s = Search::new(allow_futile_drops);
-  s.iterative_search(&mut pos, max_depth)
+  s.iterative_search(&mut pos, 1, max_depth)
 }
 
 pub fn search(pos: Position, max_depth: usize) -> Option<i16> {
