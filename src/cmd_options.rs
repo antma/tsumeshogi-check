@@ -123,6 +123,7 @@ impl CMDOptions {
       }
       if let Some(o) = try_parse_arg_option::<String, _>(&mut p, "o", "output") {
         output = o;
+        continue;
       }
       if try_parse_option(&mut p, "w", "warn") {
         level_filter = LevelFilter::Warn;
