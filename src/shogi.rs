@@ -1084,7 +1084,6 @@ impl Position {
   pub fn is_futile_drop(&mut self, checks: &Checks, drop: &Move) -> bool {
     let attacking_piece = checks.attacking_pieces[0];
     let mut res = true;
-    //let u1 = self.do_move(&drop);
     let p = self.board[attacking_piece];
     let take_move = Move {
       from: attacking_piece,
@@ -1092,22 +1091,25 @@ impl Position {
       from_piece: p,
       to_piece: p,
     };
-    let u2 = self.do_move(&take_move);
-    assert!(self.is_legal(), "SFEN: {}", self);
+    let mut u = moves::Moves::with_capacity(2);
+    u.push(self, &take_move);
+    if !self.is_legal() {
+      u.undo(self);
+      return false;
+    }
     let moves = self.compute_moves(&self.compute_checks());
     for m in moves {
-      let u3 = self.do_move(&m);
+      u.push(self, &m);
       if self.is_legal() {
         //no mate
-        res = false;
-        self.undo_move(&m, &u3);
-        break;
+        u.undo(self);
+        return false;
       }
-      self.undo_move(&m, &u3);
+      u.pop(self);
     }
-    self.undo_move(&take_move, &u2);
-    //self.undo_move(&drop, &u1);
-    res
+    //mate
+    u.undo(self);
+    true
   }
   pub fn validate_move(&self, m: &Move) -> bool {
     if m.to_piece * self.side <= 0 {

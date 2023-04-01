@@ -203,7 +203,7 @@ struct MovesIterator {
   state: u32,
   legal_moves: u32,
   sente: bool,
-  allow_futile_drops: bool,
+  expect_futile_drop_check: bool,
 }
 
 impl MovesIterator {
@@ -240,10 +240,10 @@ impl MovesIterator {
       state: 0,
       legal_moves: 0,
       sente,
-      allow_futile_drops,
+      expect_futile_drop_check: !sente && !allow_futile_drops,
     }
   }
-  fn next(&mut self, pos: &mut Position) -> Option<Move> {
+  fn next(&mut self, pos: &mut Position) -> Option<(Move, bool)> {
     loop {
       if self.k < self.moves.len() {
         let r = self.moves[self.k].clone();
@@ -251,10 +251,10 @@ impl MovesIterator {
         if let Some(t) = self.best_move.as_ref() {
           if self.state > 0 && *t == r {
             //don't process best move (from hash) twice
-            continue;
+            break Some((r, false));
           }
         }
-        break Some(r);
+        break Some((r, true));
       }
       self.moves.clear();
       self.state += 1;
@@ -267,28 +267,34 @@ impl MovesIterator {
     }
   }
   fn do_next_move(&mut self, pos: &mut Position) -> Option<(Move, UndoMove, Option<Checks>)> {
-    while let Some(m) = self.next(pos) {
+    while let Some((m, unprocessed)) = self.next(pos) {
       let u = pos.do_move(&m);
       if pos.is_legal() {
         let (good, ochecks) = if self.sente {
           let c = pos.compute_checks();
           (c.is_check(), Some(c))
         } else {
-          if self.legal_moves == 0
-            && !self.allow_futile_drops
-            && m.is_drop()
+          if self.k == 1
+            && self.state == 2
+            && self.expect_futile_drop_check
             && pos.is_futile_drop(&self.checks, &m)
           {
             self.k = self.moves.len();
             pos.undo_move(&m, &u);
             return None;
           } else {
+            self.expect_futile_drop_check = false;
             (true, None)
           }
         };
         if good {
           self.legal_moves += 1;
-          return Some((m, u, ochecks));
+          if !m.is_drop() {
+            self.expect_futile_drop_check = false;
+          }
+          if unprocessed {
+            return Some((m, u, ochecks));
+          }
         }
       }
       pos.undo_move(&m, &u);

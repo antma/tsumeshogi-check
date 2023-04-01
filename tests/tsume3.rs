@@ -64,5 +64,17 @@ fn recover_pv() {
   assert!(pv.is_some());
 }
 
+#[test]
+fn unique_mate() {
+  let mut pos =
+    Position::parse_sfen("+N7l/9/2GSppS2/p5p+Rp/7l1/1PP1k4/P1SP2NP1/2GK2S2/LN1B1G3 b RN3Pbgl5p 1")
+      .unwrap();
+  let allow_futile_drops = false;
+  let mut s = Search::new(allow_futile_drops);
+  assert_eq!(s.iterative_search(&mut pos, 1, 3), Some(3));
+  let pv = s.get_pv_from_hash(&mut pos).unwrap();
+  s.is_unique_mate(&mut pos, &pv, 2);
+}
+
 //futile drops
 //9/2B+Pg4/2gp5/5p3/R2LkN3/2NP5/2G1PP3/9/9 b rbg4s2n3l14p 1
