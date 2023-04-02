@@ -591,11 +591,13 @@ impl Search {
       {
         moves.undo(pos);
         assert_eq!(pos.hash, hash);
+        self.skip_move = None;
         return Some(depth);
       }
       moves.pop(pos);
       depth += 2;
-    }
+    };
+    self.skip_move = None;
     assert_eq!(moves.len(), 0);
     assert_eq!(pos.hash, hash);
     None
