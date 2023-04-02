@@ -465,11 +465,14 @@ impl Search {
         continue;
       }
       if alpha <= ev {
-        if alpha < ev || (!sente && alpha == ev && best_nodes < t) || best_move.is_none() {
+        if alpha < ev
+          || (!sente && self.skip_move.is_none() && best_nodes < t)
+          || best_move.is_none()
+        {
+          alpha = ev;
           best_move = Some(m);
           best_nodes = t;
         }
-        alpha = ev;
       }
       if alpha >= beta {
         self.stats.beta_cuts += 1;
