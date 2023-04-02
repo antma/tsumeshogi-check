@@ -81,6 +81,7 @@ fn process_file(
   let id = filename.strip_suffix(".sfen").unwrap();
   let file = File::open(filename)?;
   let reader = BufReader::new(file);
+  let mut nodes = 0;
   let mut writer = if output_format == Format::Unknown {
     None
   } else {
@@ -117,6 +118,7 @@ fn process_file(
             line
           );
           //TODO: option for shorter mates
+          nodes += s.nodes;
           continue;
         }
       }
@@ -171,10 +173,12 @@ fn process_file(
         );
       }
     }
+    nodes += s.nodes;
     if (test + 1) % 1000 == 0 {
       info!("{} positions were processed.", test + 1);
     }
   }
+  info!("{} nodes", nodes);
   Ok(())
 }
 

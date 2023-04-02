@@ -129,6 +129,10 @@ impl CMDOptions {
         level_filter = LevelFilter::Warn;
         continue;
       }
+      if try_parse_option(&mut p, "i", "info") {
+        level_filter = LevelFilter::Info;
+        continue;
+      }
       if try_parse_option(&mut p, "", "debug") {
         level_filter = LevelFilter::Debug;
         continue;
