@@ -387,13 +387,13 @@ impl Search {
     let sente = (ply & 1) == 0;
     if sente {
       let max_possible_score = EVAL_MATE - (ply + 1) as i16;
-      if max_possible_score < alpha {
+      if max_possible_score <= alpha {
         self.stats.eval_out_of_range_cuts += 1;
         return max_possible_score;
       }
     } else {
       let min_possible_score = -EVAL_MATE + ply as i16;
-      if beta < min_possible_score {
+      if beta <= min_possible_score {
         self.stats.eval_out_of_range_cuts += 1;
         return min_possible_score;
       }
