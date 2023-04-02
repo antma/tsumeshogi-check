@@ -19,6 +19,10 @@ fn tsume3() {
       "8l/6nkg/5PpBp/5+r3/7R1/9/9/9/9 b b3g4s3n3l15p 1",
       "9/9/9/9/9/7np/8k/8B/7LR b rb4g4s3n3l17p 1",
       "ln1gkg1nl/6+P2/2sppps1p/2p3p2/p8/P1P1P3P/2NP1PP2/3s1KSR1/L1+b2G1NL w R2Pbgp 42",
+      "4kp+R2/1+B4n2/4p1Sp1/2pps1l1g/1p3PR2/2P6/1GNPP+pN2/3S5/1+lBKG4 b GNL4Psl3p 105",
+      "6+R2/1+B1k2n2/4p1Sp1/2pps1l1g/1p3PR2/2P6/1GNPP+pN2/3S5/1+lBKG4 b GNL4Psl4p 105",
+      "6+R2/1+B2k1n2/4p1Sp1/2pps1l1g/1p3PR2/2P6/1GNPP+pN2/3S5/1+lBKG4 b GNL4Psl4p 105",
+      "4kl+R2/1+B4n2/4p1Sp1/2pps1l1g/1p3PR2/2P6/1GNPP+pN2/3S5/1+lBKG4 b GNL4Ps4p 105",
     ],
     3,
   );

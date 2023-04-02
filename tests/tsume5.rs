@@ -15,6 +15,7 @@ fn tsume5() {
       "9/9/3S5/3p1p3/4kb3/3P2s2/4P4/4N4/9 b RNrb3g2s2n4l14p 1",
       "7nl/7k1/9/9/7BL/5+r1R1/9/9/9 b 2Gb2g4s3n2l18p 1",
       "7r1/7k1/4r4/5N+Bp1/8p/9/9/9/9 b G2Nb3g4sn4l16p 1",
+      "4k4/1+B4n+R1/4p1Sp1/2pps1l1g/1p3PR2/2P6/1GNPP+pN2/3S5/1+lBKG4 b GNL4Psl4p 1",
     ],
     5,
   );

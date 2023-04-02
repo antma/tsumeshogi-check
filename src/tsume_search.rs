@@ -63,6 +63,7 @@ fn validate_eval(ev: i16) -> bool {
 
 impl HashSlotValue {
   fn cut(&self, alpha: i16, beta: i16) -> Option<i16> {
+    log::trace!("cut(self={:?}, alpha = {}, beta = {})", self, alpha, beta);
     debug_assert!(validate_eval(alpha), "alpha = {}", alpha);
     debug_assert!(validate_eval(beta), "beta = {}", beta);
     assert!(alpha <= beta, "alpha = {}, beta = {}", alpha, beta);
@@ -70,10 +71,10 @@ impl HashSlotValue {
       return Some(self.lo_ev);
     } else {
       if self.lo_ev > -EVAL_INF && beta <= self.lo_ev {
-        return Some(self.lo_ev);
+        return Some(beta);
       }
       if self.hi_ev < EVAL_INF && self.hi_ev >= alpha {
-        return Some(self.hi_ev);
+        return Some(alpha);
       }
     }
     None
@@ -127,7 +128,9 @@ struct MateHash(HashMap<u64, HashSlotValue>);
 
 fn to_hash_eval(ev: i16, ply: usize) -> i16 {
   if ev.abs() < EVAL_INF {
-    ev + (ply as i16) * ev.signum()
+    let ev = ev + (ply as i16) * ev.signum();
+    debug_assert!(ev.abs() <= EVAL_MATE);
+    ev
   } else {
     ev
   }
@@ -135,7 +138,9 @@ fn to_hash_eval(ev: i16, ply: usize) -> i16 {
 
 fn from_hash_eval(ev: i16, ply: usize) -> i16 {
   if ev.abs() < EVAL_INF {
-    ev - (ply as i16) * ev.signum()
+    let ev = ev - (ply as i16) * ev.signum();
+    debug_assert!(ev.abs() <= EVAL_MATE);
+    ev
   } else {
     ev
   }
@@ -596,7 +601,7 @@ impl Search {
       }
       moves.pop(pos);
       depth += 2;
-    };
+    }
     self.skip_move = None;
     assert_eq!(moves.len(), 0);
     assert_eq!(pos.hash, hash);
@@ -611,15 +616,14 @@ impl Search {
     let hash = pos.hash;
     for depth in (min_depth..=max_depth).step_by(2) {
       self.set_max_depth(depth);
-      debug!("depth = {}", depth);
       let ev = self.search(pos);
+      debug!("depth = {}, ev = {}", depth, ev);
+      assert_eq!(pos.hash, hash);
       if ev == (EVAL_MATE - depth as i16) {
         debug!("stats = {:?}", self.stats);
-        assert_eq!(pos.hash, hash);
         return Some(depth as i16);
       }
     }
-    assert_eq!(pos.hash, hash);
     None
   }
 }
