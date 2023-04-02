@@ -790,7 +790,7 @@ impl Position {
       Some(king_pos) => self.checks(king_pos, s),
       None => Checks {
         blocking_cells: 0,
-        attacking_pieces: Vec::new(),
+        attacking_pieces: Vec::with_capacity(0),
         king_pos: None,
         hash: self.hash,
       },
