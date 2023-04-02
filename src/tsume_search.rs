@@ -211,11 +211,9 @@ impl MovesIterator {
     self.moves = if self.sente {
       pos.compute_moves(&self.checks)
     } else {
-      let moves = pos.compute_moves(&self.checks);
-      let (mut takes, king_escapes): (Vec<_>, Vec<_>) =
-        moves.into_iter().partition(|m| pos.is_take(m));
-      takes.extend(king_escapes.into_iter());
-      takes
+      let mut moves = pos.compute_moves(&self.checks);
+      pos.reorder_takes_to_front(&mut moves);
+      moves
     };
   }
   fn compute_drops(&mut self, pos: &Position) {

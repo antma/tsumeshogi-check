@@ -1141,6 +1141,21 @@ impl Position {
         .contains(&m.from)
     }
   }
+  pub fn reorder_takes_to_front(&self, moves: &mut Vec<Move>) {
+    if moves.is_empty() {
+      return;
+    }
+    let mut i = 0;
+    let mut j = moves.len() - 1;
+    while i < j {
+      if self.is_take(&moves[j]) {
+        moves.swap(i, j);
+        i += 1;
+      } else {
+        j -= 1;
+      }
+    }
+  }
 }
 
 impl fmt::Display for Position {
