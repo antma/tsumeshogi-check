@@ -62,16 +62,7 @@ pub struct Checks {
   pub blocking_cells: u128,
   pub attacking_pieces: Vec<usize>,
   king_pos: Option<usize>,
-}
-
-impl Default for Checks {
-  fn default() -> Self {
-    Checks {
-      blocking_cells: 0,
-      attacking_pieces: Vec::new(),
-      king_pos: None,
-    }
-  }
+  hash: u64,
 }
 
 impl Checks {
@@ -783,6 +774,7 @@ impl Position {
       attacking_pieces,
       blocking_cells,
       king_pos: Some(king_pos),
+      hash: self.hash,
     }
   }
   fn find_king_position(&self, s: i8) -> Option<usize> {
@@ -796,7 +788,12 @@ impl Position {
     let king_pos = self.find_king_position(s);
     match king_pos {
       Some(king_pos) => self.checks(king_pos, s),
-      None => Checks::default(),
+      None => Checks {
+        blocking_cells: 0,
+        attacking_pieces: Vec::new(),
+        king_pos: None,
+        hash: self.hash,
+      },
     }
   }
   fn compute_potential_drops_map(&self, drops_mask: u32) -> PotentialDropsMap {
@@ -936,7 +933,7 @@ impl Position {
     r
   }
   pub fn compute_moves(&self, checks: &Checks) -> Vec<Move> {
-    assert!(self.validate_checks(checks));
+    debug_assert!(self.validate_checks(checks));
     let mut r = Vec::new();
     match checks.attacking_pieces.len() {
       0 => {
@@ -1083,7 +1080,6 @@ impl Position {
   }
   pub fn is_futile_drop(&mut self, checks: &Checks, drop: &Move) -> bool {
     let attacking_piece = checks.attacking_pieces[0];
-    let mut res = true;
     let p = self.board[attacking_piece];
     let take_move = Move {
       from: attacking_piece,
@@ -1205,6 +1201,9 @@ impl fmt::Display for Position {
 
 impl Position {
   fn validate_checks(&self, checks: &Checks) -> bool {
+    if self.hash != checks.hash {
+      return false;
+    }
     match checks.king_pos {
       Some(king_pos) => self.board[king_pos] == piece::KING * self.side,
       None => true,
