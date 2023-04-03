@@ -279,3 +279,17 @@ impl Moves {
     moves_to_kif(&self.moves, side)
   }
 }
+
+#[derive(Default)]
+pub struct HistoryTable(std::collections::HashMap<Move, u64>);
+impl HistoryTable {
+  fn get(&self, m: &Move) -> u64 {
+    *self.0.get(m).unwrap_or(&0)
+  }
+  pub fn increment(&mut self, m: Move) {
+    self.0.entry(m).and_modify(|e| *e += 1).or_insert(1);
+  }
+  pub fn sort(&self, m: &mut Vec<Move>) {
+    m.sort_by_cached_key(|m| u64::MAX - self.get(m));
+  }
+}
