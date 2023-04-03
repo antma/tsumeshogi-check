@@ -137,6 +137,10 @@ impl CMDOptions {
         level_filter = LevelFilter::Debug;
         continue;
       }
+      if try_parse_option(&mut p, "", "trace") {
+        level_filter = LevelFilter::Trace;
+        continue;
+      }
       if try_parse_option(&mut p, "t", "format-target") {
         format_target = true;
         continue;
