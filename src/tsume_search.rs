@@ -288,7 +288,11 @@ impl MovesIterator {
       let u = pos.do_move(&m);
       if pos.is_legal() {
         let (good, ochecks) = if self.sente {
-          let c = pos.compute_checks();
+          let c = if self.sente && m.is_drop() {
+            pos.compute_checks_after_drop_with_check(&m)
+          } else {
+            pos.compute_checks()
+          };
           (c.is_check(), Some(c))
         } else {
           if self.k == 1

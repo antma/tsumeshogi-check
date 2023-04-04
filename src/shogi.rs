@@ -986,6 +986,21 @@ impl Position {
       },
     }
   }
+  pub fn compute_checks_after_drop_with_check(&self, drop: &Move) -> Checks {
+    debug_assert!(drop.is_drop());
+    let king_pos = self.find_king_position(self.side);
+    let pos = king_pos.unwrap();
+    Checks {
+      blocking_cells: if piece::sliding(drop.to_piece) {
+        cell::between(pos, drop.to)
+      } else {
+        0
+      },
+      attacking_pieces: AttackingPiecesVec::once(drop.to),
+      king_pos,
+      hash: self.hash,
+    }
+  }
   pub fn is_legal(&self) -> bool {
     let s = -self.side;
     let king_pos = self.find_king_position(s);
