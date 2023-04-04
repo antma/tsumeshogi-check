@@ -485,7 +485,7 @@ impl Search {
       }
       let t = self.nodes;
       let ev = -self.nega_max_search(pos, oc, ply + 1, -beta, -alpha);
-      debug_assert!(validate_eval(alpha));
+      debug_assert!(validate_eval(ev));
       let t = self.nodes - t;
       debug!(
         "{}: h = {}, ev = {}, nodes = {}",
