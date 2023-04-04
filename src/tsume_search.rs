@@ -38,6 +38,9 @@ struct SearchStats {
   beta_cuts: u64,
   eval_out_of_range_cuts: u64,
   repetition_cuts: u64,
+  no_legal_moves_nodes: u64,
+  hash_nodes: u64,
+  max_hash_nodes: u64,
 }
 
 #[derive(Debug)]
@@ -164,6 +167,9 @@ fn option_move_to_kif(o: &Option<Move>) -> String {
 }
 
 impl MateHash {
+  fn len(&self) -> usize {
+    self.0.len()
+  }
   fn clear(&mut self) {
     self.0.clear();
   }
@@ -342,10 +348,14 @@ impl ValidateHash {
 }
 
 impl Search {
-  pub fn log_stats(&self) {
+  pub fn log_stats(&mut self) {
+    self.reset();
     log::info!("stats = {:#?}", self.stats);
   }
   pub fn reset(&mut self) {
+    let l = self.mate_hash.len() as u64;
+    self.stats.hash_nodes += l;
+    self.stats.max_hash_nodes = self.stats.max_hash_nodes.max(l);
     self.nodes = 0;
     self.mate_hash.clear();
   }
@@ -511,18 +521,22 @@ impl Search {
     }
     assert_eq!(hash, pos.hash);
     self.pop(ply);
-    if !sente && it.legal_moves == 0 {
-      //mate
-      let alpha = -EVAL_MATE + ply as i16;
-      debug_assert_eq!(to_hash_eval(alpha, ply), -EVAL_MATE);
+    if it.legal_moves == 0 {
+      //sente(no legal check moves), gote(mate)
+      let alpha = if sente {
+        -EVAL_INF
+      } else {
+        -EVAL_MATE + ply as i16
+      };
       self.mate_hash.store(
         pos,
         EvalType::Exact,
-        -EVAL_MATE,
+        to_hash_eval(alpha, ply),
         self.nodes - nodes,
         None,
-        u8::MAX,
+        u8::MAX, /* store forever */
       );
+      self.stats.no_legal_moves_nodes += 1;
       return alpha;
     }
     if use_hash {
