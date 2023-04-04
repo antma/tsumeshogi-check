@@ -696,6 +696,76 @@ impl Position {
     }
     false
   }
+  fn attacked(&self, king_pos: usize, s: i8) -> bool {
+    let (king_row, king_col) = cell::unpack(king_pos);
+    for t in if s > 0 {
+      piece::BLACK_DIRECTIONS.iter()
+    } else {
+      piece::WHITE_DIRECTIONS.iter()
+    } {
+      let mut row = king_row;
+      let mut col = king_col;
+      let mut cells = 0;
+      let q = loop {
+        let r = (row as isize) + t.0;
+        if r < 0 || r >= 9 {
+          break None;
+        }
+        let c = (col as isize) + t.1;
+        if c < 0 || c >= 9 {
+          break None;
+        }
+        row = r as usize;
+        col = c as usize;
+        let k = 9 * row + col;
+        let piece = self.board[k];
+        let t = s * piece;
+        if t < 0 {
+          break Some((k, piece));
+        } else if t == 0 {
+          cells |= 1u128 << k;
+        } else {
+          break None;
+        }
+      };
+      match q {
+        Some((k, piece)) => {
+          let p = piece.abs();
+          let b = if cells == 0 {
+            piece::is_near_dir(p, t.2)
+          } else {
+            piece::is_sliding_dir(p, t.2)
+          };
+          if b {
+            return true;
+          }
+        }
+        _ => (),
+      }
+    }
+    //knight checks
+    for t in piece::KNIGHT_MOVES.iter() {
+      let r = (king_row as isize) + t.0 * (s as isize);
+      if r < 0 || r >= 9 {
+        continue;
+      }
+      let c = (king_col as isize) + t.1 * (s as isize);
+      if c < 0 || c >= 9 {
+        continue;
+      }
+      let k = 9 * r as usize + c as usize;
+      let piece = self.board[k];
+      if s * piece >= 0 {
+        continue;
+      }
+      if piece.abs() != piece::KNIGHT {
+        continue;
+      }
+      return true;
+    }
+    false
+  }
+
   fn checks(&self, king_pos: usize, s: i8) -> Checks {
     let (king_row, king_col) = cell::unpack(king_pos);
     let mut attacking_pieces = Vec::new();
@@ -865,7 +935,12 @@ impl Position {
     self.find_checks(self.side)
   }
   pub fn is_legal(&self) -> bool {
-    self.find_checks(-self.side).attacking_pieces.is_empty()
+    let s = -self.side;
+    let king_pos = self.find_king_position(s);
+    match king_pos {
+      Some(king_pos) => !self.attacked(king_pos, s),
+      None => true,
+    }
   }
   pub fn is_check(&self) -> bool {
     self.compute_checks().is_check()
