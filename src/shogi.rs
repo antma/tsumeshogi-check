@@ -909,18 +909,6 @@ impl Position {
       self.white_king_position
     }
   }
-  fn find_checks(&self, s: i8) -> Checks {
-    let king_pos = self.find_king_position(s);
-    match king_pos {
-      Some(king_pos) => self.checks(king_pos, s),
-      None => Checks {
-        blocking_cells: 0,
-        attacking_pieces: AttackingPiecesVec::default(),
-        king_pos: None,
-        hash: self.hash,
-      },
-    }
-  }
   fn compute_potential_drops_map(&self, drops_mask: u32) -> PotentialDropsMap {
     let mut m = PotentialDropsMap::default();
     let king_pos = self.find_king_position(-self.side);
@@ -987,7 +975,16 @@ impl Position {
     m
   }
   pub fn compute_checks(&self) -> Checks {
-    self.find_checks(self.side)
+    let king_pos = self.find_king_position(self.side);
+    match king_pos {
+      Some(king_pos) => self.checks(king_pos, self.side),
+      None => Checks {
+        blocking_cells: 0,
+        attacking_pieces: AttackingPiecesVec::default(),
+        king_pos: None,
+        hash: self.hash,
+      },
+    }
   }
   pub fn is_legal(&self) -> bool {
     let s = -self.side;
