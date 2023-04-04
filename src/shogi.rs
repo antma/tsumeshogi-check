@@ -77,11 +77,20 @@ impl From<&[usize]> for AttackingPiecesVec {
 
 impl Default for AttackingPiecesVec {
   fn default() -> Self {
-    Self { a: [0; 2], n: 0 }
+    Self {
+      a: [usize::MAX; 2],
+      n: 0,
+    }
   }
 }
 
 impl AttackingPiecesVec {
+  pub fn once(x: usize) -> Self {
+    Self {
+      a: [x, usize::MAX],
+      n: 1,
+    }
+  }
   fn push(&mut self, x: usize) {
     self.a[self.n] = x;
     self.n += 1;
