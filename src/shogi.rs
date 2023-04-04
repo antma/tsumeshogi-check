@@ -57,10 +57,56 @@ impl SlidingIterator {
   }
 }
 
-#[derive(Clone)]
+#[derive(Debug, PartialEq)]
+pub struct AttackingPiecesVec {
+  a: [usize; 2],
+  n: usize,
+}
+
+impl From<&[usize]> for AttackingPiecesVec {
+  fn from(v: &[usize]) -> Self {
+    let mut r = Self::default();
+    r.n = v.len();
+    assert!(r.n <= 2);
+    for (k, q) in v.iter().enumerate() {
+      r.a[k] = *q;
+    }
+    r
+  }
+}
+
+impl Default for AttackingPiecesVec {
+  fn default() -> Self {
+    Self { a: [0; 2], n: 0 }
+  }
+}
+
+impl AttackingPiecesVec {
+  fn push(&mut self, x: usize) {
+    self.a[self.n] = x;
+    self.n += 1;
+  }
+  fn len(&self) -> usize {
+    self.n
+  }
+  fn contains(&self, x: &usize) -> bool {
+    self.a.iter().take(self.n).find(|y| **y == *x).is_some()
+  }
+  fn is_empty(&self) -> bool {
+    self.n == 0
+  }
+  fn first(&self) -> Option<&usize> {
+    if self.n == 0 {
+      None
+    } else {
+      Some(&self.a[0])
+    }
+  }
+}
+
 pub struct Checks {
   pub blocking_cells: u128,
-  pub attacking_pieces: Vec<usize>,
+  pub attacking_pieces: AttackingPiecesVec,
   king_pos: Option<usize>,
   hash: u64,
 }
@@ -721,7 +767,7 @@ impl Position {
         let piece = self.board[k];
         let t = s * piece;
         if t < 0 {
-          break Some((k, piece));
+          break Some(piece);
         } else if t == 0 {
           cells |= 1u128 << k;
         } else {
@@ -729,7 +775,7 @@ impl Position {
         }
       };
       match q {
-        Some((k, piece)) => {
+        Some(piece) => {
           let p = piece.abs();
           let b = if cells == 0 {
             piece::is_near_dir(p, t.2)
@@ -768,7 +814,7 @@ impl Position {
 
   fn checks(&self, king_pos: usize, s: i8) -> Checks {
     let (king_row, king_col) = cell::unpack(king_pos);
-    let mut attacking_pieces = Vec::new();
+    let mut attacking_pieces = AttackingPiecesVec::default();
     let mut blocking_cells = 0u128;
     for t in if s > 0 {
       piece::BLACK_DIRECTIONS.iter()
@@ -860,7 +906,7 @@ impl Position {
       Some(king_pos) => self.checks(king_pos, s),
       None => Checks {
         blocking_cells: 0,
-        attacking_pieces: Vec::with_capacity(0),
+        attacking_pieces: AttackingPiecesVec::default(),
         king_pos: None,
         hash: self.hash,
       },
@@ -993,7 +1039,7 @@ impl Position {
               false
             },
             SlidingIterator::new(
-              checks.attacking_pieces[0],
+              *checks.attacking_pieces.first().unwrap(),
               checks.king_pos.unwrap(),
               0x7fff_ffff,
             ),
@@ -1019,7 +1065,7 @@ impl Position {
         });
       }
       1 => {
-        let p = checks.attacking_pieces[0];
+        let p = *checks.attacking_pieces.first().unwrap();
         self.enumerate_simple_moves(|m| {
           let b = checks.blocking_cell(m.to);
           if (m.from_piece.abs() == piece::KING && !b) || b || m.to == p {
@@ -1154,7 +1200,7 @@ impl Position {
     false
   }
   pub fn is_futile_drop(&mut self, checks: &Checks, drop: &Move) -> bool {
-    let attacking_piece = checks.attacking_pieces[0];
+    let attacking_piece = *checks.attacking_pieces.first().unwrap();
     let p = self.board[attacking_piece];
     let take_move = Move {
       from: attacking_piece,
