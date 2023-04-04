@@ -89,6 +89,8 @@ fn process_file(
     Some(w)
   };
   let mut writer = writer.as_mut();
+  let allow_futile_drops = false;
+  let mut s = Search::new(allow_futile_drops);
   for (test, line) in reader.lines().enumerate() {
     let line = line?;
     let pos = Position::parse_sfen(&line);
@@ -106,8 +108,7 @@ fn process_file(
     }
     assert!(pos.side > 0);
     pos.move_no = 1;
-    let allow_futile_drops = false;
-    let mut s = Search::new(allow_futile_drops);
+    s.reset();
     match s.iterative_search(&mut pos, 1, depth) {
       Some(res) => {
         if res < depth as i16 {
@@ -179,6 +180,7 @@ fn process_file(
     }
   }
   info!("{} nodes", nodes);
+  s.log_stats();
   Ok(())
 }
 

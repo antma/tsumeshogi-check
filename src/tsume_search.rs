@@ -164,6 +164,9 @@ fn option_move_to_kif(o: &Option<Move>) -> String {
 }
 
 impl MateHash {
+  fn clear(&mut self) {
+    self.0.clear();
+  }
   fn get<'a>(&'a self, hash: u64) -> Option<&'a HashSlotValue> {
     self.0.get(&hash)
   }
@@ -339,6 +342,13 @@ impl ValidateHash {
 }
 
 impl Search {
+  pub fn log_stats(&self) {
+    log::info!("stats = {:#?}", self.stats);
+  }
+  pub fn reset(&mut self) {
+    self.nodes = 0;
+    self.mate_hash.clear();
+  }
   fn set_max_depth(&mut self, max_depth: usize) {
     debug!("set_max_depth({})", max_depth);
     self.max_depth = max_depth;
