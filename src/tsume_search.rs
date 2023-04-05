@@ -286,7 +286,7 @@ impl MovesIterator {
   fn do_next_move(&mut self, pos: &mut Position) -> Option<(Move, UndoMove, Option<Checks>)> {
     while let Some((m, unprocessed)) = self.next(pos) {
       let u = pos.do_move(&m);
-      let legal = if !self.checks.is_check() && m.is_drop() {
+      let legal = if m.is_drop() && (!self.sente || !self.checks.is_check()) {
         debug_assert!(pos.is_legal());
         true
       } else {
