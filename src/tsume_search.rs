@@ -441,7 +441,7 @@ impl Search {
         }
       }
       if h == 0 {
-        assert_eq!(sente, false);
+        debug_assert_eq!(sente, false);
         pos.undo_move(&m, &u);
         self.pop(ply);
         return EVAL_INF;
@@ -464,7 +464,7 @@ impl Search {
       if self.debug_log {
         self.line.pop();
       }
-      assert_eq!(hash, pos.hash);
+      debug_assert_eq!(hash, pos.hash);
       if sente && ev == EVAL_MATE - (ply + 1) as i16 && m.is_pawn_drop() {
         //mate by pawn drop
         continue;
@@ -516,20 +516,17 @@ impl Search {
       return alpha;
     }
     if use_hash {
+      let ev = to_hash_eval(alpha, ply);
+      let nodes = self.nodes - nodes;
       match best_move {
-        None => self.mate_hash.store(
-          pos,
-          EvalType::Hibound,
-          to_hash_eval(alpha, ply),
-          self.nodes - nodes,
-          None,
-          h,
-        ),
+        None => self
+          .mate_hash
+          .store(pos, EvalType::Hibound, ev, nodes, None, h),
         Some(m) => self.mate_hash.store(
           pos,
           EvalType::Exact,
-          to_hash_eval(alpha, ply),
-          self.nodes - nodes,
+          ev,
+          nodes,
           NonZeroU32::new(u32::from(m)),
           h,
         ),
