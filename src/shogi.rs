@@ -546,24 +546,22 @@ impl Position {
         break;
       }
       if piece::is_promoted(piece) || piece::could_unpromoted(piece, k) {
-        let m = Move {
+        if f(Move {
           from: pos,
           to: k,
           from_piece: piece,
           to_piece: piece,
-        };
-        if f(m) {
+        }) {
           return true;
         }
       }
       if piece::could_promoted(piece) && (p || cell::promotion_zone(k, self.side)) {
-        let m = Move {
+        if f(Move {
           from: pos,
           to: k,
           from_piece: piece,
           to_piece: piece + piece.signum() * piece::PROMOTED,
-        };
-        if f(m) {
+        }) {
           return true;
         }
       }
@@ -751,13 +749,12 @@ impl Position {
         if !piece::could_unpromoted(to_piece, k) {
           continue;
         }
-        let m = Move {
+        if f(Move {
           from: 0xff,
           to: k,
           from_piece: piece::NONE,
           to_piece,
-        };
-        if f(m) {
+        }) {
           return true;
         }
       }
@@ -984,8 +981,7 @@ impl Position {
     m
   }
   pub fn compute_checks(&self) -> Checks {
-    let king_pos = self.find_king_position(self.side);
-    match king_pos {
+    match self.find_king_position(self.side) {
       Some(king_pos) => self.checks(king_pos, self.side),
       None => Checks {
         blocking_cells: 0,
@@ -1232,14 +1228,16 @@ impl Position {
   pub fn is_futile_drop(&mut self, checks: &Checks, drop: &Move) -> bool {
     let attacking_piece = *checks.attacking_pieces.first().unwrap();
     let p = self.board[attacking_piece];
-    let take_move = Move {
-      from: attacking_piece,
-      to: drop.to,
-      from_piece: p,
-      to_piece: p,
-    };
     let mut u = moves::Moves::with_capacity(2);
-    u.push(self, take_move);
+    u.push(
+      self,
+      Move {
+        from: attacking_piece,
+        to: drop.to,
+        from_piece: p,
+        to_piece: p,
+      },
+    );
     if !self.is_legal() {
       u.undo(self);
       return false;
