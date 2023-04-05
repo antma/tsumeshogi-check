@@ -18,6 +18,33 @@ pub struct UndoMove {
   pub taken_piece: i8,
 }
 
+impl std::convert::From<Move> for u32 {
+  fn from(m: Move) -> u32 {
+    //7, 7, 6, 6
+    ((m.from as u32) << 19)
+      + ((m.to as u32) << 12)
+      + (((m.from_piece + 32) as u32) << 6)
+      + ((m.to_piece + 32) as u32)
+  }
+}
+
+impl std::convert::From<u32> for Move {
+  fn from(x: u32) -> Move {
+    let mut x = x;
+    let to_piece = (x & 63) as i8 - 32;
+    x >>= 6;
+    let from_piece = (x & 63) as i8 - 32;
+    x >>= 6;
+    let to = (x & 127) as usize;
+    Move {
+      from: (x >> 7) as usize,
+      to,
+      from_piece,
+      to_piece,
+    }
+  }
+}
+
 impl Move {
   pub fn is_pawn_drop(&self) -> bool {
     self.from_piece == piece::NONE && self.to_piece.abs() == piece::PAWN

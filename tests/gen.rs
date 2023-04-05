@@ -1,4 +1,5 @@
-use tsumeshogi_check::shogi::Position;
+use shogi::{moves::Move, Position};
+use tsumeshogi_check::shogi;
 
 #[test]
 fn legal_position() {
@@ -34,6 +35,9 @@ fn moves_generation() {
       pos.undo_move(&m, &u);
       let san = pos.move_to_string(&m, &moves);
       println!("move {}, {:#?}", san, m);
+      let packed_move: u32 = u32::from(m.clone());
+      println!("packed_move = {}", packed_move);
+      assert_eq!(*m, Move::from(packed_move));
       if legal {
         res.push(san);
       }
