@@ -28,6 +28,16 @@ impl std::convert::From<Move> for u32 {
   }
 }
 
+impl std::convert::From<&Move> for u32 {
+  fn from(m: &Move) -> u32 {
+    //7, 7, 6, 6
+    ((m.from as u32) << 19)
+      + ((m.to as u32) << 12)
+      + (((m.from_piece + 32) as u32) << 6)
+      + ((m.to_piece + 32) as u32)
+  }
+}
+
 impl std::convert::From<u32> for Move {
   fn from(x: u32) -> Move {
     let mut x = x;
@@ -308,13 +318,17 @@ impl Moves {
 }
 
 #[derive(Default)]
-pub struct HistoryTable(std::collections::HashMap<Move, u64>);
+pub struct HistoryTable(std::collections::HashMap<u32, u64>);
 impl HistoryTable {
   fn get(&self, m: &Move) -> u64 {
-    *self.0.get(m).unwrap_or(&0)
+    *self.0.get(&u32::from(m)).unwrap_or(&0)
   }
   pub fn increment(&mut self, m: Move) {
-    self.0.entry(m).and_modify(|e| *e += 1).or_insert(1);
+    self
+      .0
+      .entry(u32::from(m))
+      .and_modify(|e| *e += 1)
+      .or_insert(1);
   }
   pub fn sort(&self, m: &mut Vec<Move>) {
     m.sort_by_cached_key(|m| u64::MAX - self.get(m));

@@ -532,7 +532,7 @@ impl Search {
           self.nodes - nodes,
           NonZeroU32::new(u32::from(m)),
           h,
-        )
+        ),
       }
     }
     return alpha;
