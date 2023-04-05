@@ -799,24 +799,22 @@ impl Position {
       }
     }
     //knight checks
-    for t in piece::KNIGHT_MOVES.iter() {
-      let r = (king_row as isize) + t.0 * (s as isize);
-      if r < 0 || r >= 9 {
-        continue;
+    let r = (king_row as isize) - 2 * (s as isize);
+    if r >= 0 && r < 9 {
+      for t in piece::KNIGHT_MOVES_DELTA_COL.iter() {
+        let c = (king_col as isize) + (*t) * (s as isize);
+        if c < 0 || c >= 9 {
+          continue;
+        }
+        let piece = self.board[9 * r as usize + c as usize];
+        if s * piece >= 0 {
+          continue;
+        }
+        if piece.abs() != piece::KNIGHT {
+          continue;
+        }
+        return true;
       }
-      let c = (king_col as isize) + t.1 * (s as isize);
-      if c < 0 || c >= 9 {
-        continue;
-      }
-      let k = 9 * r as usize + c as usize;
-      let piece = self.board[k];
-      if s * piece >= 0 {
-        continue;
-      }
-      if piece.abs() != piece::KNIGHT {
-        continue;
-      }
-      return true;
     }
     false
   }
@@ -872,24 +870,23 @@ impl Position {
       }
     }
     //knight checks
-    for t in piece::KNIGHT_MOVES.iter() {
-      let r = (king_row as isize) + t.0 * (s as isize);
-      if r < 0 || r >= 9 {
-        continue;
+    let r = (king_row as isize) - 2 * (s as isize);
+    if r >= 0 && r < 9 {
+      for t in piece::KNIGHT_MOVES_DELTA_COL.iter() {
+        let c = (king_col as isize) + (*t) * (s as isize);
+        if c < 0 || c >= 9 {
+          continue;
+        }
+        let k = 9 * r as usize + c as usize;
+        let piece = self.board[k];
+        if s * piece >= 0 {
+          continue;
+        }
+        if piece.abs() != piece::KNIGHT {
+          continue;
+        }
+        attacking_pieces.push(k);
       }
-      let c = (king_col as isize) + t.1 * (s as isize);
-      if c < 0 || c >= 9 {
-        continue;
-      }
-      let k = 9 * r as usize + c as usize;
-      let piece = self.board[k];
-      if s * piece >= 0 {
-        continue;
-      }
-      if piece.abs() != piece::KNIGHT {
-        continue;
-      }
-      attacking_pieces.push(k);
     }
     //double checks can't be blocked
     if attacking_pieces.len() > 1 {
@@ -957,20 +954,19 @@ impl Position {
     if (drops_mask & knight_bit) == 0 {
       return m;
     }
-    for t in piece::KNIGHT_MOVES.iter() {
-      let r = (king_row as isize) - t.0 * (self.side as isize);
-      if r < 0 || r >= 9 {
-        continue;
+    let r = (king_row as isize) + 2 * (self.side as isize);
+    if r >= 0 && r < 9 {
+      for t in piece::KNIGHT_MOVES_DELTA_COL.iter() {
+        let c = (king_col as isize) - (*t) * (self.side as isize);
+        if c < 0 || c >= 9 {
+          continue;
+        }
+        let k = 9 * r as usize + c as usize;
+        if self.board[k] != piece::NONE {
+          continue;
+        }
+        m.insert(k, knight_bit);
       }
-      let c = (king_col as isize) - t.1 * (self.side as isize);
-      if c < 0 || c >= 9 {
-        continue;
-      }
-      let k = 9 * r as usize + c as usize;
-      if self.board[k] != piece::NONE {
-        continue;
-      }
-      m.insert(k, knight_bit);
     }
     m
   }
