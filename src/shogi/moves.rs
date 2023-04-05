@@ -282,9 +282,9 @@ impl Moves {
   pub fn len(&self) -> usize {
     self.moves.len()
   }
-  pub fn push(&mut self, pos: &mut Position, m: &Move) {
-    self.undos.push(pos.do_move(m));
-    self.moves.push(m.clone());
+  pub fn push(&mut self, pos: &mut Position, m: Move) {
+    self.undos.push(pos.do_move(&m));
+    self.moves.push(m);
   }
   pub fn pop(&mut self, pos: &mut Position) -> Option<Move> {
     let o = self.moves.pop();

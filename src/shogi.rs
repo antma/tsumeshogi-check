@@ -1230,14 +1230,14 @@ impl Position {
       to_piece: p,
     };
     let mut u = moves::Moves::with_capacity(2);
-    u.push(self, &take_move);
+    u.push(self, take_move);
     if !self.is_legal() {
       u.undo(self);
       return false;
     }
     let moves = self.compute_moves(&self.compute_checks());
     for m in moves {
-      u.push(self, &m);
+      u.push(self, m);
       if self.is_legal() {
         //no mate
         u.undo(self);

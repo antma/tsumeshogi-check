@@ -2,6 +2,7 @@ use crate::shogi;
 use moves::{Move, Moves, UndoMove};
 use shogi::{moves, Checks, Position};
 use std::collections::HashMap;
+use std::num::NonZeroU32;
 
 use log::debug;
 
@@ -45,8 +46,8 @@ struct SearchStats {
 
 #[derive(Debug)]
 struct HashSlotValue {
-  best_move: Option<Move>,
   nodes: u64,
+  best_move: Option<NonZeroU32>,
   lo_ev: i16,
   hi_ev: i16,
   h: u8,
@@ -62,41 +63,6 @@ enum EvalType {
 fn validate_eval(ev: i16) -> bool {
   let ev = ev.abs();
   ev.abs() <= EVAL_MATE || ev == EVAL_INF
-}
-
-#[allow(dead_code)]
-impl HashSlotValue {
-  fn set_exact_eval(&mut self, ev: i16) {
-    self.lo_ev = ev;
-    self.hi_ev = ev;
-  }
-  fn update_lo_eval(&mut self, ev: i16) {
-    if self.lo_ev < ev {
-      self.lo_ev = ev;
-    }
-  }
-  fn update_hi_eval(&mut self, ev: i16) {
-    if self.hi_ev > ev {
-      self.hi_ev = ev;
-    }
-  }
-  fn update_ev(&mut self, et: &EvalType, ev: i16, h: u8) {
-    if self.h < h {
-      self.h = h;
-      self.lo_ev = -EVAL_INF;
-      self.hi_ev = EVAL_INF;
-    }
-    match *et {
-      EvalType::Lobound => self.update_lo_eval(ev),
-      EvalType::Hibound => self.update_hi_eval(ev),
-      EvalType::Exact => self.set_exact_eval(ev),
-    }
-  }
-  fn store_best_move(&mut self, best_move: &Option<Move>) {
-    if best_move.is_some() {
-      self.best_move = best_move.clone();
-    }
-  }
 }
 
 impl HashSlotValue {
@@ -120,7 +86,7 @@ impl HashSlotValue {
     }
     None
   }
-  fn new(et: EvalType, ev: i16, nodes: u64, best_move: Option<Move>, h: u8) -> Self {
+  fn new(et: EvalType, ev: i16, nodes: u64, best_move: Option<NonZeroU32>, h: u8) -> Self {
     let (lo_ev, hi_ev) = match et {
       EvalType::Lobound => (ev, EVAL_INF),
       EvalType::Hibound => (-EVAL_INF, ev),
@@ -182,7 +148,7 @@ impl MateHash {
     et: EvalType,
     ev: i16,
     nodes: u64,
-    best_move: Option<Move>,
+    best_move: Option<NonZeroU32>,
     h: u8,
   ) {
     debug!(
@@ -191,7 +157,7 @@ impl MateHash {
       pos.hash,
       et,
       ev,
-      option_move_to_kif(&best_move),
+      option_move_to_kif(&best_move.map(|x| Move::from(x.get()))),
       h
     );
     self
@@ -458,7 +424,7 @@ impl Search {
           self.stats.hash_cuts += 1;
           return ev;
         }
-        hash_best_move = q.best_move.clone();
+        hash_best_move = q.best_move.map(|x| Move::from(x.get()));
       }
     }
     let mut best_move: Option<Move> = None;
@@ -521,7 +487,7 @@ impl Search {
             EvalType::Lobound,
             to_hash_eval(alpha, ply),
             self.nodes - nodes,
-            best_move,
+            best_move.map(|m| NonZeroU32::new(u32::from(m)).unwrap()),
             h,
           );
         }
@@ -550,24 +516,23 @@ impl Search {
       return alpha;
     }
     if use_hash {
-      if best_move.is_none() {
-        self.mate_hash.store(
+      match best_move {
+        None => self.mate_hash.store(
           pos,
           EvalType::Hibound,
           to_hash_eval(alpha, ply),
           self.nodes - nodes,
-          best_move,
+          None,
           h,
-        );
-      } else {
-        self.mate_hash.store(
+        ),
+        Some(m) => self.mate_hash.store(
           pos,
           EvalType::Exact,
           to_hash_eval(alpha, ply),
           self.nodes - nodes,
-          best_move,
+          NonZeroU32::new(u32::from(m)),
           h,
-        );
+        )
       }
     }
     return alpha;
@@ -584,8 +549,8 @@ impl Search {
     let mut moves = Moves::with_capacity(self.max_depth);
     for _ in 0..self.max_depth {
       if let Some(q) = self.mate_hash.get(pos.hash) {
-        if let Some(m) = q.best_move.as_ref() {
-          moves.push(pos, m);
+        if let Some(m) = q.best_move {
+          moves.push(pos, Move::from(m.get()));
         } else {
           debug!("hash {:16x}, best_move = None", pos.hash);
           break;
@@ -619,7 +584,7 @@ impl Search {
     assert_eq!(m.len() % 2, 1);
     let mut moves = Moves::with_capacity(m.len());
     for p in m {
-      moves.push(pos, p);
+      moves.push(pos, p.clone());
     }
     let mut depth = 1;
     loop {
