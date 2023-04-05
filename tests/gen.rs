@@ -25,18 +25,13 @@ fn moves_generation() {
     let checks = pos.compute_checks();
     let moves = pos.compute_moves(&checks);
     let drops = pos.compute_drops(&checks);
-    println!("sfen = {:?}", sfen);
-    println!("moves = {:?}", moves);
-    println!("drops = {:?}", drops);
     let mut res = Vec::new();
     for m in moves.iter().chain(drops.iter()) {
       let u = pos.do_move(&m);
       let legal = pos.is_legal();
       pos.undo_move(&m, &u);
       let san = pos.move_to_string(&m, &moves);
-      println!("move {}, {:#?}", san, m);
       let packed_move: u32 = u32::from(m.clone());
-      println!("packed_move = {}", packed_move);
       assert_eq!(*m, Move::from(packed_move));
       if legal {
         res.push(san);
