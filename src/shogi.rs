@@ -579,86 +579,99 @@ impl Position {
         continue;
       }
       let w = piece::unpromote(v);
-      if v == piece::PAWN {
-        if self.enumerate_piece_move(&mut f, pos, v, -1, 0, false) {
-          return true;
-        }
-      } else if v == -piece::PAWN {
-        if self.enumerate_piece_move(&mut f, pos, v, 1, 0, false) {
-          return true;
-        }
-      } else if v == piece::LANCE {
-        if self.enumerate_piece_move(&mut f, pos, v, -1, 0, true) {
-          return true;
-        }
-      } else if v == -piece::LANCE {
-        if self.enumerate_piece_move(&mut f, pos, v, 1, 0, true) {
-          return true;
-        }
-      } else if v == piece::KNIGHT {
-        if self.enumerate_piece_move(&mut f, pos, v, -2, -1, false) {
-          return true;
-        }
-        if self.enumerate_piece_move(&mut f, pos, v, -2, 1, false) {
-          return true;
-        }
-      } else if v == -piece::KNIGHT {
-        if self.enumerate_piece_move(&mut f, pos, v, 2, -1, false) {
-          return true;
-        }
-        if self.enumerate_piece_move(&mut f, pos, v, 2, 1, false) {
-          return true;
-        }
-      } else if v == piece::SILVER {
-        for t in piece::SILVER_MOVES.iter() {
-          if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false) {
+      match v {
+        piece::PAWN => {
+          if self.enumerate_piece_move(&mut f, pos, v, -1, 0, false) {
             return true;
           }
         }
-      } else if v == -piece::SILVER {
-        for t in piece::SILVER_MOVES.iter() {
-          if self.enumerate_piece_move(&mut f, pos, v, -t.0, -t.1, false) {
+        piece::WHITE_PAWN => {
+          if self.enumerate_piece_move(&mut f, pos, v, 1, 0, false) {
             return true;
           }
         }
-      } else if v == piece::GOLD
-        || v == piece::PROMOTED_PAWN
-        || v == piece::PROMOTED_LANCE
-        || v == piece::PROMOTED_KNIGHT
-        || v == piece::PROMOTED_SILVER
-      {
-        for t in piece::GOLD_MOVES.iter() {
-          if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false) {
+        piece::LANCE => {
+          if self.enumerate_piece_move(&mut f, pos, v, -1, 0, true) {
             return true;
           }
         }
-      } else if v == -piece::GOLD
-        || v == -piece::PROMOTED_PAWN
-        || v == -piece::PROMOTED_LANCE
-        || v == -piece::PROMOTED_KNIGHT
-        || v == -piece::PROMOTED_SILVER
-      {
-        for t in piece::GOLD_MOVES.iter() {
-          if self.enumerate_piece_move(&mut f, pos, v, -t.0, -t.1, false) {
+        piece::WHITE_LANCE => {
+          if self.enumerate_piece_move(&mut f, pos, v, 1, 0, true) {
             return true;
           }
         }
-      } else if w == piece::BISHOP || w == -piece::BISHOP {
-        for t in piece::BISHOP_MOVES.iter() {
-          if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, true) {
+        piece::KNIGHT => {
+          if self.enumerate_piece_move(&mut f, pos, v, -2, -1, false) {
+            return true;
+          }
+          if self.enumerate_piece_move(&mut f, pos, v, -2, 1, false) {
             return true;
           }
         }
-      } else if w == piece::ROOK || w == -piece::ROOK {
-        for t in piece::ROOK_MOVES.iter() {
-          if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, true) {
+        piece::WHITE_KNIGHT => {
+          if self.enumerate_piece_move(&mut f, pos, v, 2, -1, false) {
+            return true;
+          }
+          if self.enumerate_piece_move(&mut f, pos, v, 2, 1, false) {
             return true;
           }
         }
-      } else if v == piece::KING || v == -piece::KING {
-        for t in piece::KING_MOVES.iter() {
-          if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false) {
-            return true;
+        piece::SILVER => {
+          for t in piece::SILVER_MOVES.iter() {
+            if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false) {
+              return true;
+            }
+          }
+        }
+        piece::WHITE_SILVER => {
+          for t in piece::SILVER_MOVES.iter() {
+            if self.enumerate_piece_move(&mut f, pos, v, -t.0, -t.1, false) {
+              return true;
+            }
+          }
+        }
+        piece::GOLD
+        | piece::PROMOTED_PAWN
+        | piece::PROMOTED_LANCE
+        | piece::PROMOTED_KNIGHT
+        | piece::PROMOTED_SILVER => {
+          for t in piece::GOLD_MOVES.iter() {
+            if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false) {
+              return true;
+            }
+          }
+        }
+        piece::WHITE_GOLD
+        | piece::WHITE_PROMOTED_PAWN
+        | piece::WHITE_PROMOTED_LANCE
+        | piece::WHITE_PROMOTED_KNIGHT
+        | piece::WHITE_PROMOTED_SILVER => {
+          for t in piece::GOLD_MOVES.iter() {
+            if self.enumerate_piece_move(&mut f, pos, v, -t.0, -t.1, false) {
+              return true;
+            }
+          }
+        }
+        piece::KING | piece::WHITE_KING => {
+          for t in piece::KING_MOVES.iter() {
+            if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false) {
+              return true;
+            }
+          }
+        }
+        _ => {
+          if w == piece::BISHOP || w == -piece::BISHOP {
+            for t in piece::BISHOP_MOVES.iter() {
+              if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, true) {
+                return true;
+              }
+            }
+          } else if w == piece::ROOK || w == -piece::ROOK {
+            for t in piece::ROOK_MOVES.iter() {
+              if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, true) {
+                return true;
+              }
+            }
           }
         }
       }
