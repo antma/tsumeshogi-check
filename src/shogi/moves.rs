@@ -91,6 +91,30 @@ impl Move {
     }
     s
   }
+  pub fn to_psn(&self, is_take: bool) -> String {
+    if self.is_drop() {
+      let mut s = piece::to_string(self.to_piece, true);
+      s.push('\'');
+      cell::push_cell_as_en_str(&mut s, self.to, false);
+      s
+    } else {
+      let mut s = piece::to_string(self.from_piece, true);
+      cell::push_cell_as_en_str(&mut s, self.from, false);
+      s.push(if is_take { 'x' } else { '-' });
+      cell::push_cell_as_en_str(&mut s, self.to, false);
+      if !piece::is_promoted(self.from_piece)
+        && (cell::promotion_zone(self.from, self.to_piece)
+          || cell::promotion_zone(self.to, self.to_piece))
+      {
+        s.push(if piece::is_promoted(self.to_piece) {
+          '+'
+        } else {
+          '='
+        });
+      }
+      s
+    }
+  }
 }
 
 #[derive(Debug)]
