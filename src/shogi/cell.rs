@@ -1,10 +1,10 @@
 pub type Direction = (isize, isize);
 
 pub fn promotion_zone(cell: usize, side: i8) -> bool {
-  if side == 1 {
+  if side > 0 {
     cell < 27
   } else {
-    assert_eq!(side, -1);
+    debug_assert!(side < 0);
     cell >= 54
   }
 }

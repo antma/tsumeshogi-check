@@ -1,5 +1,5 @@
 use crate::shogi;
-use moves::{Move, Moves, UndoMove};
+use moves::{Move, Moves, PSNMove, UndoMove};
 use shogi::{moves, Checks, Position};
 use std::collections::HashMap;
 use std::num::NonZeroU32;
@@ -98,9 +98,9 @@ fn from_hash_eval(ev: i16, ply: usize) -> i16 {
   }
 }
 
-fn option_move_to_kif(o: &Option<Move>) -> String {
+fn option_move_to_psn(pos: &Position, o: &Option<Move>) -> String {
   match o.as_ref() {
-    Some(m) => m.to_kif(&None),
+    Some(m) => m.to_psn(pos.is_take(&m)),
     None => String::from("None"),
   }
 }
@@ -130,7 +130,7 @@ impl MateHash {
       pos.hash,
       et,
       ev,
-      option_move_to_kif(&best_move.map(|x| Move::from(x.get()))),
+      option_move_to_psn(pos, &best_move.map(|x| Move::from(x.get()))),
       h
     );
     self
@@ -141,7 +141,7 @@ impl MateHash {
 
 pub struct Search {
   validate_hash: ValidateHash,
-  line: Vec<Move>,
+  line: Vec<PSNMove>,
   stats: SearchStats,
   mate_hash: MateHash,
   positions_hashes: Vec<u64>,
@@ -420,7 +420,7 @@ impl Search {
         return EVAL_INF;
       }
       if self.debug_log {
-        self.line.push(m.clone());
+        self.line.push(PSNMove::new(&m, &u));
       }
       let t = self.nodes;
       let ev = -self.nega_max_search(pos, oc, ply + 1, -beta, -alpha);
@@ -428,7 +428,7 @@ impl Search {
       let t = self.nodes - t;
       debug!(
         "{}: h = {}, ev = {}, nodes = {}",
-        moves::moves_to_kif(&self.line, self.mating_side),
+        moves::moves_to_psn(&self.line),
         h,
         ev,
         t

@@ -117,6 +117,31 @@ impl Move {
   }
 }
 
+pub struct PSNMove(Move, bool);
+impl std::fmt::Display for PSNMove {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", self.0.to_psn(self.1))
+  }
+}
+impl PSNMove {
+  pub fn new(m: &Move, u: &UndoMove) -> Self {
+    PSNMove(m.clone(), u.taken_piece != piece::NONE)
+  }
+}
+
+pub fn moves_to_psn(moves: &Vec<PSNMove>) -> String {
+  let mut s = String::new();
+  for (i, m) in moves.iter().enumerate() {
+    if i > 0 {
+      s.push(' ');
+    }
+    s.push_str(&(i + 1).to_string());
+    s.push('.');
+    s.push_str(&m.to_string());
+  }
+  s
+}
+
 #[derive(Debug)]
 pub struct MoveFromStrError {
   s: String,
