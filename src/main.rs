@@ -118,9 +118,7 @@ fn process_file(
             test + 1,
             line
           );
-          //TODO: option for shorter mates
           nodes += s.nodes;
-          continue;
         }
       }
       _ => {
