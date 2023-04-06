@@ -9,6 +9,7 @@ fn tsume7() {
       "3nknB2/2G2g1G1/3p1ps2/7N1/9/9/9/9/9 b L2rbg3sn3l16p 1",
       "ln7/1k7/1pp1S4/p8/9/9/9/9/9 b RBGNrb3g3s2n3l15p 1",
       "l8/1ks+P5/1ppp5/p8/9/2P6/9/9/9 b G2SN2r2b3gs3n3l12p 1",
+      "7+R1/l1+P1kpG2/7p1/p2p1lp2/1ps2P1P1/PP1PP1P2/2pGBSN2/1s1G1K2s/L6R1 b 2NL3Pbgn 1",
     ],
     7,
   );

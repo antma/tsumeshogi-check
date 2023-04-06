@@ -23,6 +23,8 @@ fn tsume3() {
       "6+R2/1+B1k2n2/4p1Sp1/2pps1l1g/1p3PR2/2P6/1GNPP+pN2/3S5/1+lBKG4 b GNL4Psl4p 105",
       "6+R2/1+B2k1n2/4p1Sp1/2pps1l1g/1p3PR2/2P6/1GNPP+pN2/3S5/1+lBKG4 b GNL4Psl4p 105",
       "4kl+R2/1+B4n2/4p1Sp1/2pps1l1g/1p3PR2/2P6/1GNPP+pN2/3S5/1+lBKG4 b GNL4Ps4p 105",
+      "4k4/l1+P2pG2/7p1/p2p1lp2/1ps2P1P1/PP1PP1P2/2pGBSN2/1s1G1K2s/L6R1 b 2NL3Prbgn 3",
+      "4+R4/l1+P2pG2/5k1p1/p2p1lp2/1ps2P1P1/PP1PP1P2/2pGBSN2/1s1G1K2s/L6R1 b 2NL3Pbgn 3",
     ],
     3,
   );
