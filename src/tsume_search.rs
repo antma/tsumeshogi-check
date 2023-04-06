@@ -6,33 +6,6 @@ use std::num::NonZeroU32;
 
 use log::debug;
 
-/*
-struct MovesLine {
-  a: Vec<String>,
-}
-
-impl MovesLine {
-  fn push(&mut self, s: String) {
-    self.a.push(s);
-  }
-  fn pop(&mut self) {
-    self.a.pop();
-  }
-}
-
-impl fmt::Display for MovesLine {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    for (i, s) in self.a.iter().enumerate() {
-      if i > 0 {
-        write!(f, " ")?;
-      }
-      write!(f, "{}. {}", i + 1, s)?;
-    }
-    Ok(())
-  }
-}
-*/
-
 #[derive(Default, Debug)]
 struct SearchStats {
   hash_cuts: u64,
@@ -281,11 +254,11 @@ impl MovesIterator {
           }
         };
         if good {
-          self.legal_moves += 1;
           if !m.is_drop() {
             self.expect_futile_drop_check = false;
           }
           if unprocessed {
+            self.legal_moves += 1;
             return Some((m, u, ochecks));
           }
         }
