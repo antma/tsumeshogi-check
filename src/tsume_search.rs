@@ -39,7 +39,7 @@ fn validate_eval(ev: i16) -> bool {
 }
 
 impl HashSlotValue {
-  fn cut(&self, alpha: i16, beta: i16, h: u8) -> Option<i16> {
+  fn cut(&self, alpha: i16, beta: i16, h: u8, ply: usize) -> Option<i16> {
     log::trace!("cut(self={:?}, alpha = {}, beta = {})", self, alpha, beta);
     debug_assert!(validate_eval(alpha), "alpha = {}", alpha);
     debug_assert!(validate_eval(beta), "beta = {}", beta);
@@ -48,13 +48,23 @@ impl HashSlotValue {
       return None;
     }
     if self.lo_ev == self.hi_ev {
-      return Some(self.lo_ev);
+      let ev = from_hash_eval(self.lo_ev, ply);
+      debug_assert!(validate_eval(ev), "ev = {}", ev);
+      return Some(ev);
     } else {
-      if self.lo_ev > -EVAL_INF && beta <= self.lo_ev {
-        return Some(beta);
+      if self.lo_ev > -EVAL_INF {
+        let ev = from_hash_eval(self.lo_ev, ply);
+        debug_assert!(validate_eval(ev), "ev = {}", ev);
+        if beta <= ev {
+          return Some(ev);
+        }
       }
-      if self.hi_ev < EVAL_INF && self.hi_ev >= alpha {
-        return Some(alpha);
+      if self.hi_ev < EVAL_INF {
+        let ev = from_hash_eval(self.hi_ev, ply);
+        debug_assert!(validate_eval(ev), "ev = {}", ev);
+        if ev >= alpha {
+          return Some(ev);
+        }
       }
     }
     None
@@ -123,19 +133,24 @@ impl MateHash {
     nodes: u64,
     best_move: Option<NonZeroU32>,
     h: u8,
+    ply: usize,
   ) {
+    debug_assert!(validate_eval(ev));
+    let hash_eval = to_hash_eval(ev, ply);
+    debug_assert!(validate_eval(hash_eval));
     debug!(
-      "store {}, hash = {:16x}, et = {:?}, ev = {}, best_move = {}, h = {}",
+      "store {}, hash = {:16x}, et = {:?}, ev = {}, best_move = {}, h = {}, ply = {}, hash_eval = {}",
       pos,
       pos.hash,
       et,
       ev,
       option_move_to_psn(pos, &best_move.map(|x| Move::from(x.get()))),
-      h
+      h, ply, hash_eval
     );
-    self
-      .0
-      .insert(pos.hash, HashSlotValue::new(et, ev, nodes, best_move, h));
+    self.0.insert(
+      pos.hash,
+      HashSlotValue::new(et, hash_eval, nodes, best_move, h),
+    );
   }
 }
 
@@ -387,8 +402,7 @@ impl Search {
     let mut hash_best_move: Option<Move> = None;
     if use_hash {
       if let Some(q) = self.mate_hash.get(hash) {
-        if let Some(ev) = q.cut(to_hash_eval(alpha, ply), to_hash_eval(beta, ply), h) {
-          let ev = from_hash_eval(ev, ply);
+        if let Some(ev) = q.cut(alpha, beta, h, ply) {
           debug_assert!(validate_eval(ev), "ev = {}", ev);
           debug!(
             "hash cutoff in position {}, hash = {:16x}, ev = {}, slot.h = {}, h = {}",
@@ -457,11 +471,12 @@ impl Search {
         if use_hash {
           self.mate_hash.store(
             pos,
-            EvalType::Lobound,
-            to_hash_eval(alpha, ply),
+            EvalType::Hibound,
+            alpha,
             self.nodes - nodes,
             best_move.map(|m| NonZeroU32::new(u32::from(m)).unwrap()),
             h,
+            ply,
           );
         }
         self.pop(ply);
@@ -480,28 +495,29 @@ impl Search {
       self.mate_hash.store(
         pos,
         EvalType::Exact,
-        to_hash_eval(alpha, ply),
+        alpha,
         self.nodes - nodes,
         None,
         u8::MAX, /* store forever */
+        ply,
       );
       self.stats.no_legal_moves_nodes += 1;
       return alpha;
     }
     if use_hash {
-      let ev = to_hash_eval(alpha, ply);
       let nodes = self.nodes - nodes;
       match best_move {
         None => self
           .mate_hash
-          .store(pos, EvalType::Hibound, ev, nodes, None, h),
+          .store(pos, EvalType::Lobound, alpha, nodes, None, h, ply),
         Some(m) => self.mate_hash.store(
           pos,
           EvalType::Exact,
-          ev,
+          alpha,
           nodes,
           NonZeroU32::new(u32::from(m)),
           h,
+          ply,
         ),
       }
     }
