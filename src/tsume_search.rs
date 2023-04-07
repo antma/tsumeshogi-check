@@ -353,7 +353,7 @@ impl Search {
     beta: i16,
   ) -> i16 {
     debug!(
-      "nega_max_search(pos: \"{}\", hash: {:16x}, ply: {}, alpha: {}, beta: {}",
+      "nega_max_search(pos: \"{}\", hash: {:16x}, ply: {}, alpha: {}, beta: {})",
       pos, pos.hash, ply, alpha, beta
     );
     debug_assert!(validate_eval(alpha), "alpha = {}", alpha);
