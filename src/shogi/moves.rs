@@ -103,6 +103,7 @@ impl Move {
       s.push(if is_take { 'x' } else { '-' });
       cell::push_cell_as_en_str(&mut s, self.to, false);
       if !piece::is_promoted(self.from_piece)
+        && piece::could_promoted(self.from_piece)
         && (cell::promotion_zone(self.from, self.to_piece)
           || cell::promotion_zone(self.to, self.to_piece))
       {
