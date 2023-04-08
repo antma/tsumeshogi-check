@@ -81,7 +81,7 @@ impl HashSlotValue {
         //Hibound
         let ev = from_hash_eval(self.hi_ev, ply);
         debug_assert!(validate_eval(ev), "ev = {}", ev);
-        if ev <= alpha + 1 {
+        if ev <= alpha {
           return Some(alpha);
         }
       }
@@ -189,6 +189,7 @@ pub struct Search {
   skip_move: Option<Move>,
   pub nodes: u64,
   max_depth: usize,
+  min_mate_eval: i16,
   mating_side: i8,
   allow_futile_drops: bool,
   debug_log: bool,
@@ -352,6 +353,7 @@ impl Search {
   fn set_max_depth(&mut self, max_depth: usize) {
     debug!("set_max_depth({})", max_depth);
     self.max_depth = max_depth;
+    self.min_mate_eval = EVAL_MATE - (max_depth - 1) as i16;
   }
   pub fn new(allow_futile_drops: bool) -> Self {
     Self {
@@ -363,6 +365,7 @@ impl Search {
       skip_move: None,
       nodes: 0,
       max_depth: 0,
+      min_mate_eval: 0,
       mating_side: 0,
       allow_futile_drops,
       debug_log: log::log_enabled!(log::Level::Debug),
@@ -536,11 +539,17 @@ impl Search {
       match best_move {
         None => self
           .mate_hash
-          .store(pos, EvalType::Hibound, alpha, nodes, None, h, ply),
+          .store(pos, EvalType::Hibound, alpha - 1, nodes, None, h, ply),
         //ev < alpha
         Some(m) => self.mate_hash.store(
           pos,
-          EvalType::Exact,
+          if alpha.abs() >= self.min_mate_eval {
+            EvalType::Exact
+          } else if sente {
+            EvalType::Lobound
+          } else {
+            EvalType::Hibound
+          },
           alpha,
           nodes,
           NonZeroU32::new(u32::from(m)),
