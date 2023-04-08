@@ -39,8 +39,25 @@ fn validate_eval(ev: i16) -> bool {
 }
 
 impl HashSlotValue {
+  fn debug_str(&self) -> String {
+    format!(
+      "HashSlotValue {{ nodes: {}, best_move: {}, lo_ev: {}, hi_ev: {}, h: {} }}",
+      self.nodes,
+      option_move_to_kif(&self.best_move),
+      self.lo_ev,
+      self.hi_ev,
+      self.h
+    )
+  }
   fn cut(&self, alpha: i16, beta: i16, h: u8, ply: usize) -> Option<i16> {
-    log::trace!("cut(self={:?}, alpha = {}, beta = {})", self, alpha, beta);
+    log::trace!(
+      "cut(self={}, alpha = {}, beta = {}, h = {}, ply = {})",
+      self.debug_str(),
+      alpha,
+      beta,
+      h,
+      ply
+    );
     debug_assert!(validate_eval(alpha), "alpha = {}", alpha);
     debug_assert!(validate_eval(beta), "beta = {}", beta);
     assert!(alpha <= beta, "alpha = {}, beta = {}", alpha, beta);
@@ -53,17 +70,19 @@ impl HashSlotValue {
       return Some(ev);
     } else {
       if self.lo_ev > -EVAL_INF {
+        //Lobound
         let ev = from_hash_eval(self.lo_ev, ply);
         debug_assert!(validate_eval(ev), "ev = {}", ev);
         if beta <= ev {
-          return Some(ev);
+          return Some(beta);
         }
       }
       if self.hi_ev < EVAL_INF {
+        //Hibound
         let ev = from_hash_eval(self.hi_ev, ply);
         debug_assert!(validate_eval(ev), "ev = {}", ev);
-        if ev >= alpha {
-          return Some(ev);
+        if ev <= alpha + 1 {
+          return Some(alpha);
         }
       }
     }
@@ -105,6 +124,13 @@ fn from_hash_eval(ev: i16, ply: usize) -> i16 {
     ev
   } else {
     ev
+  }
+}
+
+fn option_move_to_kif(o: &Option<NonZeroU32>) -> String {
+  match o.as_ref() {
+    Some(m) => Move::from(m.get()).to_kif(&None),
+    None => String::from("None"),
   }
 }
 
@@ -284,7 +310,7 @@ impl MovesIterator {
   }
 }
 
-const EVAL_INF: i16 = i16::MAX - 1;
+const EVAL_INF: i16 = i16::MAX - 2;
 const EVAL_MATE: i16 = 30000;
 
 #[derive(Default)]
@@ -469,9 +495,10 @@ impl Search {
       if alpha >= beta {
         self.stats.beta_cuts += 1;
         if use_hash {
+          //ev >= alpha
           self.mate_hash.store(
             pos,
-            EvalType::Hibound,
+            EvalType::Lobound,
             alpha,
             self.nodes - nodes,
             best_move.map(|m| NonZeroU32::new(u32::from(m)).unwrap()),
@@ -509,7 +536,8 @@ impl Search {
       match best_move {
         None => self
           .mate_hash
-          .store(pos, EvalType::Lobound, alpha, nodes, None, h, ply),
+          .store(pos, EvalType::Hibound, alpha, nodes, None, h, ply),
+        //ev < alpha
         Some(m) => self.mate_hash.store(
           pos,
           EvalType::Exact,
