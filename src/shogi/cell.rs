@@ -48,10 +48,13 @@ pub fn between(cell1: usize, cell2: usize) -> u128 {
   r
 }
 
-#[test]
-fn test_between() {
-  assert_eq!(
-    between(3, 9 * 3 + 0),
-    (1u128 << (9 * 2 + 1)) + (1u128 << (9 * 1 + 2))
-  );
+#[cfg(test)]
+mod test {
+  #[test]
+  fn test_between() {
+    assert_eq!(
+      super::between(3, 9 * 3 + 0),
+      (1u128 << (9 * 2 + 1)) + (1u128 << (9 * 1 + 2))
+    );
+  }
 }
