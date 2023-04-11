@@ -4,7 +4,7 @@ use tsumeshogi_check::tsume_search::search_ext;
 pub fn tsume_batch_test_ext(
   v: Vec<&str>,
   depth: usize,
-  ans: Option<i16>,
+  ans: Option<i32>,
   allow_futile_drops: bool,
 ) {
   let mut s = std::collections::BTreeSet::new();
@@ -27,7 +27,7 @@ pub fn tsume_batch_test_ext(
 }
 
 pub fn tsume_batch_test(v: Vec<&str>, depth: usize) {
-  tsume_batch_test_ext(v, depth, Some(depth as i16), false);
+  tsume_batch_test_ext(v, depth, Some(depth as i32), false);
 }
 
 pub fn no_tsume_batch_test(v: Vec<&str>, depth: usize) {

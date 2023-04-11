@@ -111,7 +111,7 @@ fn process_file(
     s.reset();
     match s.iterative_search(&mut pos, 1, depth) {
       Some(res) => {
-        if res < depth as i16 {
+        if res < depth as i32 {
           warn!(
             "Found faster mate in {} move(s). Test #{}, sfen: {}",
             res,
