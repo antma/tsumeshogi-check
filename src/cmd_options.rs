@@ -98,7 +98,8 @@ fn try_parse_arg_option<R: FromStr<Err = impl std::fmt::Display>, I: Iterator<It
 pub struct CMDOptions {
   pub depth: usize,
   pub depth_extend: usize,
-  pub output: String,
+  pub skip: usize,
+  pub output_filename: String,
   pub format_target: bool,
   pub level_filter: LevelFilter,
   pub args: Vec<String>,
@@ -107,11 +108,12 @@ pub struct CMDOptions {
 impl CMDOptions {
   pub fn new<I: Iterator<Item = String>>(it: I) -> Self {
     let mut depth = 0;
+    let mut skip = 0;
     let mut depth_extend = 0;
     let mut p = it.peekable();
     let mut format_target = false;
     let mut level_filter = LevelFilter::Error;
-    let mut output = String::new();
+    let mut output_filename = String::new();
     loop {
       if let Some(d) = try_parse_arg_option::<usize, _>(&mut p, "d", "depth") {
         depth = d;
@@ -121,8 +123,12 @@ impl CMDOptions {
         depth_extend = e;
         continue;
       }
+      if let Some(n) = try_parse_arg_option::<usize, _>(&mut p, "n", "skip") {
+        skip = n;
+        continue;
+      }
       if let Some(o) = try_parse_arg_option::<String, _>(&mut p, "o", "output") {
-        output = o;
+        output_filename = o;
         continue;
       }
       if try_parse_option(&mut p, "w", "warn") {
@@ -150,7 +156,8 @@ impl CMDOptions {
     CMDOptions {
       depth,
       depth_extend,
-      output,
+      skip,
+      output_filename,
       format_target,
       level_filter,
       args: p.collect(),

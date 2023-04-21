@@ -6,12 +6,13 @@ use game::Game;
 use shogi::{game, moves, Position};
 use tsume_search::Search;
 use tsumeshogi_check::cmd_options::CMDOptions;
-use tsumeshogi_check::{psn, shogi, tsume_search};
+use tsumeshogi_check::{psn, shogi, timer, tsume_search};
 
 use log::{debug, error, info, warn};
 
 const OVERWRITE_DESTINATION_FILE: bool = true;
 const BUF_SIZE: usize = 1 << 16;
+const FLUSH_INTERVAL: f64 = 10.0;
 
 fn open_destination_file(dst: &str) -> std::io::Result<File> {
   if OVERWRITE_DESTINATION_FILE {
@@ -71,12 +72,10 @@ fn get_file_format(filename: &str) -> Format {
   }
 }
 
-fn process_file(
-  filename: &str,
-  depth: usize,
-  depth_extend: usize,
-  output_filename: &str,
-) -> std::io::Result<()> {
+fn process_file(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
+  let depth = opts.depth;
+  let depth_extend = opts.depth_extend;
+  let output_filename = &opts.output_filename;
   let output_format = get_file_format(output_filename);
   let id = filename.strip_suffix(".sfen").unwrap();
   let file = File::open(filename)?;
@@ -91,15 +90,16 @@ fn process_file(
   let mut writer = writer.as_mut();
   let allow_futile_drops = false;
   let mut s = Search::new(allow_futile_drops);
+  let mut ttt = timer::Timer::new();
   for (test, line) in reader.lines().enumerate() {
     let line = line?;
+    let test = test + 1;
+    if test <= opts.skip {
+      continue;
+    }
     let pos = Position::parse_sfen(&line);
     if pos.is_err() {
-      error!(
-        "Test #{}: fail to parse SFEN. {}",
-        test + 1,
-        pos.err().unwrap()
-      );
+      error!("Test #{}: fail to parse SFEN. {}", test, pos.err().unwrap());
       continue;
     }
     let mut pos = pos.unwrap();
@@ -114,9 +114,7 @@ fn process_file(
         if res < depth as i32 {
           warn!(
             "Found faster mate in {} move(s). Test #{}, sfen: {}",
-            res,
-            test + 1,
-            line
+            res, test, line
           );
           nodes += s.nodes;
         }
@@ -124,9 +122,7 @@ fn process_file(
       _ => {
         error!(
           "Mate in {} moves is not found. Test #{}, sfen: {}",
-          depth,
-          test + 1,
-          line
+          depth, test, line
         );
         panic!("");
       }
@@ -137,7 +133,7 @@ fn process_file(
           warn!(
             "Tsume in {} moves isn't unique. Test #{}, sfen: {}, line: {}",
             t,
-            test + 1,
+            test,
             pos.to_string(),
             moves::moves_to_kif(&p, 1)
           );
@@ -150,12 +146,12 @@ fn process_file(
               pos,
               moves::moves_to_kif(&p, 1),
               id,
-              test + 1,
+              test,
               s.nodes
             )?,
             Format::Kif => {
               let mut game = Game::default();
-              game.set_header(String::from("event"), format!("{}-{}", id, test + 1));
+              game.set_header(String::from("event"), format!("{}-{}", id, test));
               game.moves = p;
               assert!(pos.side > 0);
               let s = shogi::kif::game_to_kif(&game, Some(&pos));
@@ -163,18 +159,21 @@ fn process_file(
             }
             Format::Unknown => panic!("unhandled output format"),
           }
+          if ttt.elapsed() > FLUSH_INTERVAL {
+            writer.flush()?;
+            ttt = timer::Timer::new();
+          }
         }
       } else {
         error!(
           "Can't restore PV from hash table. Test #{}, sfen: {}",
-          test + 1,
-          line
+          test, line
         );
       }
     }
     nodes += s.nodes;
-    if (test + 1) % 1000 == 0 {
-      info!("{} positions were processed.", test + 1);
+    if test % 1000 == 0 {
+      info!("{} positions were processed.", test);
     }
   }
   info!("{} nodes", nodes);
@@ -189,11 +188,11 @@ fn main() -> std::io::Result<()> {
     .format_target(opts.format_target)
     .init();
   debug!("{:?}", opts);
-  if let Some(filename) = opts.args.into_iter().next() {
+  if let Some(filename) = opts.args.iter().next() {
     if filename.ends_with(".psn") {
       process_psn(&filename)?;
     } else if filename.ends_with(".sfen") {
-      process_file(&filename, opts.depth, opts.depth_extend, &opts.output)?;
+      process_file(&filename, &opts)?;
     }
   }
   Ok(())
