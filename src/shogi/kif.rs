@@ -2,13 +2,13 @@ use super::game::Game;
 use super::piece;
 use super::Position;
 
-pub const JP_COLS: [char; 9] = [
-  '１', '２', '３', '４', '５', '６', '７', '８', '９',
-];
+use std::fs::File;
+use std::io::{BufRead, BufReader, Lines};
+use std::iter::Peekable;
 
-pub const JP_ROWS: [char; 9] = [
-  '一', '二', '三', '四', '五', '六', '七', '八', '九',
-];
+pub const JP_COLS: [char; 9] = ['１', '２', '３', '４', '５', '６', '７', '８', '９'];
+
+pub const JP_ROWS: [char; 9] = ['一', '二', '三', '四', '五', '六', '七', '八', '九'];
 
 pub fn push_cell_as_jp_str(s: &mut String, cell: usize) {
   let (row, col) = super::cell::unpack(cell);
@@ -114,4 +114,37 @@ pub fn game_to_kif(game: &Game, start_pos: Option<&Position>) -> String {
     s.push_str(&format!("{0:>4} {1}\n", game.moves.len() + 1, "投了"));
   }
   s
+}
+
+pub struct KIFFileIterator(Peekable<Lines<BufReader<File>>>);
+
+impl Iterator for KIFFileIterator {
+  type Item = Vec<String>;
+  fn next(&mut self) -> Option<Self::Item> {
+    let mut r = Vec::new();
+    while let Some(t) = self.0.peek() {
+      if t.is_err() {
+        return None;
+      }
+      let t = t.as_ref().ok().unwrap();
+      if t == "#KIF version=2.0 encoding=UTF-8" {
+        break;
+      }
+      r.push(t.clone());
+      self.0.next();
+    }
+    if r.is_empty() {
+      None
+    } else {
+      Some(r)
+    }
+  }
+}
+
+impl KIFFileIterator {
+  pub fn new(filename: &str) -> std::io::Result<Self> {
+    let file = File::open(filename)?;
+    let it = BufReader::new(file).lines().peekable();
+    Ok(Self(it))
+  }
 }
