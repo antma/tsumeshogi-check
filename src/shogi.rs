@@ -2,6 +2,7 @@ use crate::bits;
 use std::fmt;
 use std::str::FromStr;
 
+pub mod attacking_pieces;
 mod board;
 mod cell;
 pub mod game;
@@ -57,65 +58,9 @@ impl SlidingIterator {
   }
 }
 
-#[derive(Debug, PartialEq)]
-pub struct AttackingPiecesVec {
-  a: [usize; 2],
-  n: usize,
-}
-
-impl From<&[usize]> for AttackingPiecesVec {
-  fn from(v: &[usize]) -> Self {
-    let mut r = Self::default();
-    r.n = v.len();
-    assert!(r.n <= 2);
-    for (k, q) in v.iter().enumerate() {
-      r.a[k] = *q;
-    }
-    r
-  }
-}
-
-impl Default for AttackingPiecesVec {
-  fn default() -> Self {
-    Self {
-      a: [usize::MAX; 2],
-      n: 0,
-    }
-  }
-}
-
-impl AttackingPiecesVec {
-  pub fn once(x: usize) -> Self {
-    Self {
-      a: [x, usize::MAX],
-      n: 1,
-    }
-  }
-  fn push(&mut self, x: usize) {
-    self.a[self.n] = x;
-    self.n += 1;
-  }
-  fn len(&self) -> usize {
-    self.n
-  }
-  fn contains(&self, x: &usize) -> bool {
-    self.a.iter().take(self.n).find(|y| **y == *x).is_some()
-  }
-  fn is_empty(&self) -> bool {
-    self.n == 0
-  }
-  fn first(&self) -> Option<&usize> {
-    if self.n == 0 {
-      None
-    } else {
-      Some(&self.a[0])
-    }
-  }
-}
-
 pub struct Checks {
   pub blocking_cells: u128,
-  pub attacking_pieces: AttackingPiecesVec,
+  pub attacking_pieces: attacking_pieces::AttackingPieces,
   king_pos: Option<usize>,
   hash: u64,
 }
@@ -831,7 +776,7 @@ impl Position {
 
   fn checks(&self, king_pos: usize, s: i8) -> Checks {
     let (king_row, king_col) = cell::unpack(king_pos);
-    let mut attacking_pieces = AttackingPiecesVec::default();
+    let mut attacking_pieces = attacking_pieces::AttackingPieces::default();
     let mut blocking_cells = 0u128;
     for t in if s > 0 {
       piece::BLACK_DIRECTIONS.iter()
@@ -985,7 +930,7 @@ impl Position {
       Some(king_pos) => self.checks(king_pos, self.side),
       None => Checks {
         blocking_cells: 0,
-        attacking_pieces: AttackingPiecesVec::default(),
+        attacking_pieces: attacking_pieces::AttackingPieces::default(),
         king_pos: None,
         hash: self.hash,
       },
@@ -1001,7 +946,7 @@ impl Position {
       } else {
         0
       },
-      attacking_pieces: AttackingPiecesVec::once(drop.to),
+      attacking_pieces: attacking_pieces::AttackingPieces::once(drop.to),
       king_pos,
       hash: self.hash,
     }
