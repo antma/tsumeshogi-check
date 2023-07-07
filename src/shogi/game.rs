@@ -31,12 +31,12 @@ impl Game {
       "{} vs {} ({})",
       self
         .header
-        .get("black")
+        .get("sente")
         .cloned()
         .unwrap_or_else(|| UNDEFINED_STRING.to_string()),
       self
         .header
-        .get("white")
+        .get("gote")
         .cloned()
         .unwrap_or_else(|| UNDEFINED_STRING.to_string()),
       self.result().to_string()

@@ -2,9 +2,7 @@ use super::game::Game;
 use super::piece;
 use super::Position;
 
-use std::fs::File;
-use std::io::{BufRead, BufReader, Lines};
-use std::iter::Peekable;
+use super::super::io::FileIterator;
 
 pub const JP_COLS: [char; 9] = ['１', '２', '３', '４', '５', '６', '７', '８', '９'];
 
@@ -88,8 +86,8 @@ pub fn game_to_kif(game: &Game, start_pos: Option<&Position>) -> String {
     ("開始日時", "date"),
     ("棋戦", "event"),
     ("", "sfen"),
-    ("先手", "black"),
-    ("後手", "white"),
+    ("先手", "sente"),
+    ("後手", "gote"),
   ] {
     if en == "sfen" {
       if let Some(pos) = start_pos {
@@ -116,35 +114,6 @@ pub fn game_to_kif(game: &Game, start_pos: Option<&Position>) -> String {
   s
 }
 
-pub struct KIFFileIterator(Peekable<Lines<BufReader<File>>>);
-
-impl Iterator for KIFFileIterator {
-  type Item = Vec<String>;
-  fn next(&mut self) -> Option<Self::Item> {
-    let mut r = Vec::new();
-    while let Some(t) = self.0.peek() {
-      if t.is_err() {
-        return None;
-      }
-      let t = t.as_ref().ok().unwrap();
-      if t == "#KIF version=2.0 encoding=UTF-8" {
-        break;
-      }
-      r.push(t.clone());
-      self.0.next();
-    }
-    if r.is_empty() {
-      None
-    } else {
-      Some(r)
-    }
-  }
-}
-
-impl KIFFileIterator {
-  pub fn new(filename: &str) -> std::io::Result<Self> {
-    let file = File::open(filename)?;
-    let it = BufReader::new(file).lines().peekable();
-    Ok(Self(it))
-  }
+pub fn kif_file_iterator(filename: &str) -> std::io::Result<FileIterator> {
+  FileIterator::new(filename, "#KIF version=2.0 encoding=UTF-8")
 }
