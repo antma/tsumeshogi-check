@@ -15,20 +15,29 @@ impl Iterator for FileIterator {
       return None;
     }
     let mut r = Vec::new();
+    let mut lines_read = 0;
     while let Some(t) = self.it.next() {
       if t.is_err() {
         self.failed = true;
         return Some(Err(t.err().unwrap()));
       }
+      lines_read += 1;
       self.lines += 1;
       let t = t.unwrap();
       let t = t.trim();
-      if t == self.separator && self.lines > 1 {
-        break;
+      if t == self.separator {
+        if self.lines > 1 {
+          break;
+        }
+      } else {
+        r.push(t.to_owned());
       }
-      r.push(t.to_owned());
     }
-    Some(Ok(r))
+    if lines_read == 0 {
+      None
+    } else {
+      Some(Ok(r))
+    }
   }
 }
 

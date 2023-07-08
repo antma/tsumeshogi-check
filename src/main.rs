@@ -183,6 +183,56 @@ fn process_file(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
   Ok(())
 }
 
+fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
+  let kb = shogi::kif::KIFBuilder::default();
+  let depth = opts.depth;
+  let depth_extend = opts.depth_extend;
+  let output_filename = &opts.output_filename;
+  let output_format = get_file_format(output_filename);
+  if output_format == Format::Unknown {
+    error!("unknown output format for '{}'", output_filename);
+    return Ok(());
+  }
+  let mut nodes = 0;
+  let mut writer = open_destination_writer(&output_filename)?;
+  let allow_futile_drops = false;
+  let mut s = Search::new(allow_futile_drops);
+  let mut ttt = timer::Timer::new();
+  let it = shogi::kif::kif_file_iterator(filename)?;
+  for (game_no, a) in it.enumerate() {
+    if a.is_err() {
+      error!("Game #{}: {:?}", game_no + 1, a);
+      break;
+    }
+    let a = a.unwrap();
+    let g = kb.parse_kif_game(&a);
+    match g {
+      Err(err) => {
+        error!("Game #{}: {:?}", game_no + 1, err);
+        break;
+      }
+      Ok(g) => {
+        info!(
+          "Game #{}: {}, {} moves",
+          game_no + 1,
+          g.to_short_string(),
+          g.moves.len()
+        );
+        let mut pos = Position::default();
+        for mv in g.moves.iter() {
+          if pos.move_no >= 20 {}
+          pos.do_move(mv);
+        }
+      }
+    }
+    if ttt.elapsed() > FLUSH_INTERVAL {
+      writer.flush()?;
+      ttt = timer::Timer::new();
+    }
+  }
+  Ok(())
+}
+
 fn main() -> std::io::Result<()> {
   let opts = CMDOptions::new(std::env::args().skip(1));
   env_logger::builder()
@@ -195,6 +245,8 @@ fn main() -> std::io::Result<()> {
       process_psn(&filename)?;
     } else if filename.ends_with(".sfen") {
       process_file(&filename, &opts)?;
+    } else if filename.ends_with(".kif") {
+      process_kif(&filename, &opts)?;
     }
   }
   Ok(())
