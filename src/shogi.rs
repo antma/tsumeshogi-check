@@ -1170,6 +1170,22 @@ impl Position {
     }
     false
   }
+  pub fn parse_kif_move(&mut self, kif: &str, last_move: Option<Move>) -> Option<Move> {
+    let checks = self.compute_checks();
+    let moves = self.compute_moves(&checks);
+    for m in moves {
+      if kif == m.to_kif(&last_move) {
+        return Some(m);
+      }
+    }
+    let drops = self.compute_drops(&checks);
+    for m in drops {
+      if kif == m.to_kif(&last_move) {
+        return Some(m);
+      }
+    }
+    None
+  }
   pub fn is_futile_drop(&mut self, checks: &Checks, drop: &Move) -> bool {
     let attacking_piece = *checks.attacking_pieces.first().unwrap();
     let p = self.board[attacking_piece];
