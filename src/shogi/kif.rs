@@ -3,10 +3,44 @@ use super::piece;
 use super::Position;
 
 use super::super::io::FileIterator;
+use std::collections::HashMap;
 
 pub const JP_COLS: [char; 9] = ['１', '２', '３', '４', '５', '６', '７', '８', '９'];
 
 pub const JP_ROWS: [char; 9] = ['一', '二', '三', '四', '五', '六', '七', '八', '九'];
+
+pub struct KIFBuilder {
+  jp: HashMap<&'static str, &'static str>,
+  en: HashMap<&'static str, &'static str>,
+}
+
+impl Default for KIFBuilder {
+  fn default() -> Self {
+    let mut jp = HashMap::new();
+    let mut en = HashMap::new();
+    for (s_jp, s_en) in vec![
+      ("開始日時", "date"),
+      ("棋戦", "event"),
+      ("先手", "sente"),
+      ("後手", "gote"),
+      ("持ち時間", "control"),
+      ("手合割", "handicap"),
+    ] {
+      jp.insert(s_jp, s_en);
+      en.insert(s_en, s_jp);
+    }
+    Self { jp, en }
+  }
+}
+
+impl KIFBuilder {
+  fn jp_to_en(&self, word: &str) -> Option<&'static str> {
+    self.jp.get(&word).map(|p| *p)
+  }
+  fn en_to_jp(&self, word: &str) -> Option<&'static str> {
+    self.en.get(&word).map(|p| *p)
+  }
+}
 
 pub fn push_cell_as_jp_str(s: &mut String, cell: usize) {
   let (row, col) = super::cell::unpack(cell);
@@ -80,40 +114,111 @@ pub fn position_to_kif(s: &mut String, pos: &Position) {
   }
 }
 
-pub fn game_to_kif(game: &Game, start_pos: Option<&Position>) -> String {
-  let mut s = String::new();
-  for (jp, en) in vec![
-    ("開始日時", "date"),
-    ("棋戦", "event"),
-    ("", "sfen"),
-    ("先手", "sente"),
-    ("後手", "gote"),
-  ] {
-    if en == "sfen" {
-      if let Some(pos) = start_pos {
-        position_to_kif(&mut s, pos);
+impl KIFBuilder {
+  pub fn game_to_kif(&self, game: &Game, start_pos: Option<&Position>) -> String {
+    let mut s = String::new();
+    for en in vec![
+      "date", "event", "sfen", "control", "handicap", "sente", "gote",
+    ] {
+      if en == "sfen" {
+        if let Some(pos) = start_pos {
+          position_to_kif(&mut s, pos);
+        }
+      } else {
+        if let Some(t) = game.header.get(en) {
+          if let Some(jp) = self.en_to_jp(en) {
+            s.push_str(&format!("{}：{}\n", jp, t));
+          }
+        }
       }
-      continue;
     }
-    if let Some(t) = game.header.get(en) {
-      s.push_str(&format!("{}：{}\n", jp, t));
+    s.push_str("手数----指手---------消費時間--\n");
+    let mut last_move = None;
+    for (i, m) in game.moves.iter().enumerate() {
+      s.push_str(&format!("{0:>4} {1}\n", i + 1, m.to_kif(&last_move)));
+      last_move = Some(m.clone());
     }
+    if let Some(_) = game.header.get("checkmate") {
+      s.push_str(&format!("{0:>4} {1}\n", game.moves.len() + 1, "詰み"));
+    }
+    if let Some(_) = game.header.get("resignation") {
+      s.push_str(&format!("{0:>4} {1}\n", game.moves.len() + 1, "投了"));
+    }
+    s
   }
-  s.push_str("手数----指手---------消費時間--\n");
-  let mut last_move = None;
-  for (i, m) in game.moves.iter().enumerate() {
-    s.push_str(&format!("{0:>4} {1}\n", i + 1, m.to_kif(&last_move)));
-    last_move = Some(m.clone());
-  }
-  if let Some(_) = game.header.get("checkmate") {
-    s.push_str(&format!("{0:>4} {1}\n", game.moves.len() + 1, "詰み"));
-  }
-  if let Some(_) = game.header.get("resignation") {
-    s.push_str(&format!("{0:>4} {1}\n", game.moves.len() + 1, "投了"));
-  }
-  s
 }
 
 pub fn kif_file_iterator(filename: &str) -> std::io::Result<FileIterator> {
   FileIterator::new(filename, "#KIF version=2.0 encoding=UTF-8")
+}
+
+fn parse_header<'a>(s: &'a str) -> Option<(&'a str, &'a str)> {
+  s.split_once('：')
+}
+
+fn parse_move<'a>(s: &'a str, move_no: u32) -> Option<&'a str> {
+  let mut it = s.split_ascii_whitespace();
+  if let Some(s) = it.next() {
+    if s != move_no.to_string() {
+      None
+    } else {
+      it.next()
+    }
+  } else {
+    None
+  }
+}
+
+#[derive(Debug)]
+pub struct ParseKIFGameError {
+  pub msg: String,
+  pub line: String,
+}
+
+impl ParseKIFGameError {
+  fn new(line: String, msg: String) -> Self {
+    Self { msg, line }
+  }
+}
+
+impl KIFBuilder {
+  pub fn parse_kif_game(&self, a: &Vec<String>) -> std::result::Result<Game, ParseKIFGameError> {
+    let mut g = Game::default();
+    let mut st = 0;
+    let mut pos = Position::default();
+    let mut last_move = None;
+    for s in a {
+      log::debug!("st = {}, process line {}", st, s);
+      if st == 0 {
+        if s == "手数----指手---------消費時間--" {
+          st += 1;
+          continue;
+        }
+        if let Some((key, value)) = parse_header(&s) {
+          if let Some(en) = self.jp_to_en(key) {
+            g.set_header(en.to_owned(), value.to_owned());
+          }
+        } else {
+          return Err(ParseKIFGameError::new(
+            s.to_owned(),
+            "fail to parse game header (no colon delimiter?)".to_owned(),
+          ));
+        }
+      }
+      if st == 1 {
+        if let Some(kif) = parse_move(s, pos.move_no) {
+          if let Some(m) = pos.parse_kif_move(kif, last_move) {
+            pos.do_move(&m);
+            if pos.is_legal() {
+              g.moves.push(m.clone());
+              last_move = Some(m);
+              continue;
+            }
+          }
+        }
+        break;
+      }
+    }
+    Ok(g)
+  }
 }

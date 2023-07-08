@@ -33,6 +33,7 @@ fn process_psn(filename: &str) -> std::io::Result<()> {
   dst.push_str("kif");
   let mut f = open_destination_writer(&dst)?;
   let it = psn::PSNFileIterator::new(filename)?;
+  let kb = shogi::kif::KIFBuilder::default();
   for (game_no, a) in it.enumerate() {
     if a.is_err() {
       error!("Game #{}: {:?}", game_no + 1, a);
@@ -46,7 +47,7 @@ fn process_psn(filename: &str) -> std::io::Result<()> {
         break;
       }
       Ok(g) => {
-        let s = shogi::kif::game_to_kif(&g, None);
+        let s = kb.game_to_kif(&g, None);
         write!(f, "{}", s)?;
         f.flush()?;
       }
@@ -73,6 +74,7 @@ fn get_file_format(filename: &str) -> Format {
 }
 
 fn process_file(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
+  let kb = shogi::kif::KIFBuilder::default();
   let depth = opts.depth;
   let depth_extend = opts.depth_extend;
   let output_filename = &opts.output_filename;
@@ -154,7 +156,7 @@ fn process_file(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
               game.set_header(String::from("event"), format!("{}-{}", id, test));
               game.moves = p;
               assert!(pos.side > 0);
-              let s = shogi::kif::game_to_kif(&game, Some(&pos));
+              let s = kb.game_to_kif(&game, Some(&pos));
               write!(writer, "{}", s)?;
             }
             Format::Unknown => panic!("unhandled output format"),
