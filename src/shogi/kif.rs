@@ -206,16 +206,41 @@ impl KIFBuilder {
         }
       }
       if st == 1 {
+        if s == "*時間切れにて終局" {
+          g.out_of_time(pos.move_no);
+          break;
+        }
         if let Some(kif) = parse_move(s, pos.move_no) {
+          if kif == "投了" {
+            g.resign(pos.move_no);
+            break;
+          }
           if let Some(m) = pos.parse_kif_move(kif, last_move) {
             pos.do_move(&m);
             if pos.is_legal() {
               g.moves.push(m.clone());
-              last_move = Some(m);
-              continue;
+            } else {
+              st = 2;
             }
+            last_move = Some(m);
+            continue;
+          } else {
+            st = 2;
+            last_move = None;
+            continue;
           }
         }
+        break;
+      }
+      //after illegal move
+      if st == 2 {
+        if s != "*反則手にて終局" {
+          return Err(ParseKIFGameError::new(
+            s.to_owned(),
+            "expected illegal move message".to_owned(),
+          ));
+        }
+        g.illegal_move(pos.move_no);
         break;
       }
     }

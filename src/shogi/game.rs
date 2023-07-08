@@ -45,6 +45,19 @@ impl Game {
   pub fn set_header(&mut self, key: String, value: String) {
     self.header.insert(key, value);
   }
+  pub fn loss(&mut self, move_no: u32) {
+    self.set_header("result".to_owned(), (2 + (move_no % 2)).to_string());
+  }
+  pub fn resign(&mut self, move_no: u32) {
+    self.set_header("resignation".to_owned(), "true".to_owned());
+    self.loss(move_no);
+  }
+  pub fn illegal_move(&mut self, move_no: u32) {
+    self.loss(move_no);
+  }
+  pub fn out_of_time(&mut self, move_no: u32) {
+    self.loss(move_no);
+  }
   pub fn result(&self) -> GameResult {
     if let Some(t) = self.header.get("result") {
       match t.as_str() {
