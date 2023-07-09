@@ -1,5 +1,44 @@
+use std::collections::BTreeMap;
 use std::fs::File;
-use std::io::{BufRead, BufReader, Lines};
+use std::io::{BufRead, BufReader, Lines, Write};
+
+pub fn open_destination_file(filename: &str, overwrite: bool) -> std::io::Result<File> {
+  if overwrite {
+    File::create(filename)
+  } else {
+    std::fs::OpenOptions::new().create_new(true).open(filename)
+  }
+}
+
+pub struct PoolOfDestinationFiles<'a> {
+  prefix: &'a str,
+  suffix: &'a str,
+  m: BTreeMap<u32, File>,
+  overwrite: bool,
+}
+
+impl<'a> PoolOfDestinationFiles<'a> {
+  pub fn new(filename: &'a str, overwrite: bool) -> Self {
+    let (prefix, suffix) = filename.rsplit_once('.').unwrap_or((filename, ""));
+    PoolOfDestinationFiles {
+      prefix,
+      suffix,
+      overwrite,
+      m: BTreeMap::new(),
+    }
+  }
+  pub fn write_str(&mut self, x: u32, s: &str) -> std::io::Result<()> {
+    if !self.m.contains_key(&x) {
+      let f = open_destination_file(
+        &format!("{}{}.{}", self.prefix, x, self.suffix),
+        self.overwrite,
+      )?;
+      self.m.insert(x, f);
+    }
+    let w = self.m.get_mut(&x).unwrap();
+    write!(w, "{}", s)
+  }
+}
 
 pub struct FileIterator {
   it: Lines<BufReader<File>>,

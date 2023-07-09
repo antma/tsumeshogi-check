@@ -6,7 +6,7 @@ use game::Game;
 use shogi::{game, moves, Position};
 use tsume_search::Search;
 use tsumeshogi_check::cmd_options::CMDOptions;
-use tsumeshogi_check::{psn, shogi, timer, tsume_search};
+use tsumeshogi_check::{io, psn, shogi, timer, tsume_search};
 
 use log::{debug, error, info, warn};
 
@@ -14,16 +14,8 @@ const OVERWRITE_DESTINATION_FILE: bool = true;
 const BUF_SIZE: usize = 1 << 16;
 const FLUSH_INTERVAL: f64 = 10.0;
 
-fn open_destination_file(dst: &str) -> std::io::Result<File> {
-  if OVERWRITE_DESTINATION_FILE {
-    File::create(dst)
-  } else {
-    std::fs::OpenOptions::new().create_new(true).open(dst)
-  }
-}
-
 fn open_destination_writer(dst: &str) -> std::io::Result<BufWriter<File>> {
-  let f = open_destination_file(dst)?;
+  let f = io::open_destination_file(dst, OVERWRITE_DESTINATION_FILE)?;
   Ok(BufWriter::with_capacity(BUF_SIZE, f))
 }
 
@@ -194,10 +186,9 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
     return Ok(());
   }
   let mut nodes = 0;
-  let mut writer = open_destination_writer(&output_filename)?;
+  let mut writers = io::PoolOfDestinationFiles::new(&output_filename, OVERWRITE_DESTINATION_FILE);
   let allow_futile_drops = false;
   let mut s = Search::new(allow_futile_drops);
-  let mut ttt = timer::Timer::new();
   let it = shogi::kif::kif_file_iterator(filename)?;
   for (game_no, a) in it.enumerate() {
     if a.is_err() {
@@ -271,7 +262,7 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
                           game.moves = p;
                           assert!(pos.side > 0);
                           let s = kb.game_to_kif(&game, Some(&pos));
-                          write!(writer, "{}", s)?;
+                          writers.write_str(res as u32, &s)?;
                         }
                         _ => panic!("unhandled output format {:?}", output_format),
                       }
@@ -286,10 +277,6 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
           pos.do_move(mv);
         }
       }
-    }
-    if ttt.elapsed() > FLUSH_INTERVAL {
-      writer.flush()?;
-      ttt = timer::Timer::new();
     }
   }
   info!("{} nodes", nodes);
