@@ -258,10 +258,9 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
                           let gote = gote.to_owned();
                           game.set_header("sente".to_owned(), g.get_header(&sente).clone());
                           game.set_header("gote".to_owned(), g.get_header(&gote).clone());
-                          game.copy_header(&g, "event");
-                          game.copy_header(&g, "date");
-                          game.copy_header(&g, "control");
-                          game.copy_header(&g, "handicap");
+                          for key in vec!["event", "date", "location", "control", "handicap"] {
+                            game.copy_header(&g, key);
+                          }
                           game.moves = p;
                           assert!(pos.side > 0);
                           let s = kb.game_to_kif(&game, Some(&pos));

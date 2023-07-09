@@ -21,6 +21,7 @@ impl Default for KIFBuilder {
     for (s_jp, s_en) in vec![
       ("開始日時", "date"),
       ("棋戦", "event"),
+      ("場所", "location"),
       ("先手", "sente"),
       ("後手", "gote"),
       ("持ち時間", "control"),
@@ -118,7 +119,7 @@ impl KIFBuilder {
   pub fn game_to_kif(&self, game: &Game, start_pos: Option<&Position>) -> String {
     let mut s = String::new();
     for en in vec![
-      "date", "event", "sfen", "control", "handicap", "sente", "gote",
+      "date", "event", "location", "sfen", "control", "handicap", "sente", "gote",
     ] {
       if en == "sfen" {
         if let Some(pos) = start_pos {
