@@ -121,8 +121,8 @@ impl PSNFileIterator {
 
 #[derive(Debug)]
 pub struct ParsePSNGameError {
-  msg: String,
-  line: String,
+  pub msg: String,
+  pub line: String,
 }
 
 impl ParsePSNGameError {

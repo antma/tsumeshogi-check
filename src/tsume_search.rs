@@ -154,6 +154,7 @@ impl MateHash {
 }
 
 pub struct Search {
+  #[allow(dead_code)]
   validate_hash: ValidateHash,
   line: Vec<PSNMove>,
   stats: SearchStats,
@@ -290,6 +291,7 @@ const EVAL_MATE: i32 = 30000;
 #[derive(Default)]
 struct ValidateHash(HashMap<u64, String>);
 impl ValidateHash {
+  #[allow(dead_code)]
   fn check(&mut self, pos: &Position) -> bool {
     let mut fen = pos.to_string();
     if let Some((prefix, _)) = fen.rsplit_once(' ') {

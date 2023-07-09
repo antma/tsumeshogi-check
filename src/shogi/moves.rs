@@ -155,8 +155,8 @@ pub fn moves_to_psn(moves: &Vec<PSNMove>) -> String {
 
 #[derive(Debug)]
 pub struct MoveFromStrError {
-  s: String,
-  msg: String,
+  pub s: String,
+  pub msg: String,
 }
 
 impl MoveFromStrError {
