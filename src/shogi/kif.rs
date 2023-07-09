@@ -89,7 +89,7 @@ pub fn position_to_kif(s: &mut String, pos: &Position) {
   s.push_str(BOARD_DELIMETER);
   for (row, d) in JP_ROWS.iter().enumerate() {
     s.push('|');
-    for c in pos.board.iter().skip(9 * row).take(9).rev() {
+    for c in pos.board.iter().skip(9 * row).take(9) {
       if *c == 0 {
         s.push('・');
         continue;
