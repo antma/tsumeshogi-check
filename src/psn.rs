@@ -155,7 +155,7 @@ pub fn parse_psn_game(a: &Vec<String>) -> std::result::Result<Game, ParsePSNGame
           Ok(mut m) => {
             log::debug!("move = {:?}", m);
             if pos.side < 0 {
-              m.swap_side();
+              m.swap_piece_side();
             }
             if !pos.validate_move(&m) {
               return Err(ParsePSNGameError::new(

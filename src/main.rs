@@ -210,13 +210,15 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
           g.moves.len()
         );
         let mut pos = Position::default();
-        for mv in g.moves.iter() {
+        for mv in &g.moves {
           let move_no = pos.move_no;
           if move_no >= 20 {
             let swapped = pos.side < 0;
             let mut pos = pos.clone();
+            let mut cur_move = mv.clone();
             if swapped {
               pos.swap_sides();
+              cur_move.swap_side();
             }
             assert!(pos.side > 0);
             pos.move_no = 1;
@@ -224,9 +226,9 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
             match s.iterative_search(&mut pos, 1, depth) {
               Some(res) => {
                 if let Some(p) = s.get_pv_from_hash(&mut pos) {
-                  if p.first().unwrap() == mv {
+                  if *p.first().unwrap() == cur_move {
                     info!(
-                      "Tsume in {} moves was found, pos: {}, game: {}, move: {}",
+                      "Tsume in {} moves was found and played, pos: {}, game: {}, move: {}",
                       res,
                       pos.to_string(),
                       game_no + 1,
@@ -235,8 +237,9 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
                   } else {
                     if let Some(t) = s.is_unique_mate(&mut pos, &p, depth_extend) {
                       warn!(
-                        "Tsume in {} moves isn't unique, sfen: {}, game: {}, move: {}",
+                        "Tsume in {} moves isn't unique (mate in {}), sfen: {}, game: {}, move: {}",
                         t,
+                        res,
                         pos.to_string(),
                         game_no + 1,
                         move_no,

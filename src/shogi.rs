@@ -160,11 +160,6 @@ fn swap_words(x: u32) -> u32 {
   (lo << 16) + hi
 }
 
-fn mirror_row(cell: usize) -> usize {
-  let (row, col) = cell::unpack(cell);
-  9 * (8 - row) + col
-}
-
 impl Position {
   fn compute_hash(&self) -> u64 {
     compute_hash(
@@ -175,21 +170,18 @@ impl Position {
     )
   }
   pub fn swap_sides(&mut self) {
-    for col in 0..9 {
-      for row in 0..4 {
-        let i = 9 * row + col;
-        let j = 9 * (8 - row) + col;
-        let t = -self.board[i];
-        self.board[i] = -self.board[j];
-        self.board[j] = t;
-      }
-      self.board[9 * 4 + col] *= -1;
+    for i in 0..9 * 4 + 4 {
+      let j = cell::mirror(i);
+      let t = -self.board[i];
+      self.board[i] = -self.board[j];
+      self.board[j] = t;
     }
+    self.board[9 * 4 + 4] *= -1;
     let t = self.black_pockets;
     self.black_pockets = self.white_pockets;
     self.white_pockets = t;
-    let t = self.black_king_position.map(mirror_row);
-    self.black_king_position = self.white_king_position.map(mirror_row);
+    let t = self.black_king_position.map(cell::mirror);
+    self.black_king_position = self.white_king_position.map(cell::mirror);
     self.white_king_position = t;
     self.drop_masks = swap_words(self.drop_masks);
     self.nifu_masks = swap_words(self.nifu_masks);

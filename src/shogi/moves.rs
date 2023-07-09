@@ -62,9 +62,19 @@ impl Move {
   pub fn is_drop(&self) -> bool {
     self.from_piece == piece::NONE
   }
-  pub fn swap_side(&mut self) {
+  pub fn swap_piece_side(&mut self) {
     self.from_piece *= -1;
     self.to_piece *= -1;
+  }
+  fn mirror(&mut self) {
+    if !self.is_drop() {
+      self.from = cell::mirror(self.from);
+    }
+    self.to = cell::mirror(self.to);
+  }
+  pub fn swap_side(&mut self) {
+    self.mirror();
+    self.swap_piece_side();
   }
   pub fn to_kif(&self, prev_move: &Option<Move>) -> String {
     let mut s = String::with_capacity(8);

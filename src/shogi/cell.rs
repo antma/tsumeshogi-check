@@ -48,6 +48,11 @@ pub fn between(cell1: usize, cell2: usize) -> u128 {
   r
 }
 
+pub fn mirror(cell: usize) -> usize {
+  let (row, col) = unpack(cell);
+  9 * (8 - row) + (8 - col)
+}
+
 #[cfg(test)]
 mod test {
   #[test]
