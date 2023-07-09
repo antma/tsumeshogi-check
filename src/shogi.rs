@@ -13,6 +13,7 @@ pub mod piece;
 
 use moves::Move;
 
+#[derive(Clone)]
 pub struct Position {
   board: [i8; 81],
   black_pockets: [u8; 8],

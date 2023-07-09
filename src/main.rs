@@ -56,7 +56,7 @@ fn process_psn(filename: &str) -> std::io::Result<()> {
   Ok(())
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 enum Format {
   Unknown,
   Kif,
@@ -220,7 +220,69 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
         );
         let mut pos = Position::default();
         for mv in g.moves.iter() {
-          if pos.move_no >= 20 {}
+          let move_no = pos.move_no;
+          if move_no >= 20 {
+            let swapped = pos.side < 0;
+            let mut pos = pos.clone();
+            if swapped {
+              pos.swap_sides();
+            }
+            assert!(pos.side > 0);
+            pos.move_no = 1;
+            s.reset();
+            match s.iterative_search(&mut pos, 1, depth) {
+              Some(res) => {
+                if let Some(p) = s.get_pv_from_hash(&mut pos) {
+                  if p.first().unwrap() == mv {
+                    info!(
+                      "Tsume in {} moves was found, pos: {}, game: {}, move: {}",
+                      res,
+                      pos.to_string(),
+                      game_no + 1,
+                      move_no
+                    );
+                  } else {
+                    if let Some(t) = s.is_unique_mate(&mut pos, &p, depth_extend) {
+                      warn!(
+                        "Tsume in {} moves isn't unique, sfen: {}, game: {}, move: {}",
+                        t,
+                        pos.to_string(),
+                        game_no + 1,
+                        move_no,
+                      );
+                    } else {
+                      match output_format {
+                        Format::Kif => {
+                          let mut game = Game::default();
+                          //game.set_header(String::from("event"), format!("{}-{}", id, test));
+                          let (sente, gote) = if swapped {
+                            ("gote", "sente")
+                          } else {
+                            ("sente", "gote")
+                          };
+                          let sente = sente.to_owned();
+                          let gote = gote.to_owned();
+                          game.set_header("sente".to_owned(), g.get_header(&sente).clone());
+                          game.set_header("gote".to_owned(), g.get_header(&gote).clone());
+                          game.copy_header(&g, "event");
+                          game.copy_header(&g, "date");
+                          game.copy_header(&g, "control");
+                          game.copy_header(&g, "handicap");
+                          game.moves = p;
+                          assert!(pos.side > 0);
+                          let s = kb.game_to_kif(&game, Some(&pos));
+                          write!(writer, "{}", s)?;
+                        }
+                        _ => panic!("unhandled output format {:?}", output_format),
+                      }
+                    }
+                  }
+                }
+              }
+              None => (),
+            }
+            nodes += s.nodes;
+          }
           pos.do_move(mv);
         }
       }
@@ -230,6 +292,8 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
       ttt = timer::Timer::new();
     }
   }
+  info!("{} nodes", nodes);
+  s.log_stats();
   Ok(())
 }
 
