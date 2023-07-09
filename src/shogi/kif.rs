@@ -218,30 +218,30 @@ impl KIFBuilder {
           }
           if let Some(m) = pos.parse_kif_move(kif, last_move) {
             pos.do_move(&m);
+            last_move = Some(m.clone());
             if pos.is_legal() {
-              g.moves.push(m.clone());
+              g.moves.push(m);
             } else {
               st = 2;
             }
-            last_move = Some(m);
-            continue;
           } else {
-            st = 2;
             last_move = None;
-            continue;
+            st = 2;
           }
         }
-        break;
+        //for checking illegal move comment
+        continue;
       }
       //after illegal move
       if st == 2 {
+        debug_assert!(!pos.is_legal());
         if s != "*反則手にて終局" {
           return Err(ParseKIFGameError::new(
             s.to_owned(),
             "expected illegal move message".to_owned(),
           ));
         }
-        g.illegal_move(pos.move_no);
+        g.illegal_move(pos.move_no - 1);
         break;
       }
     }
