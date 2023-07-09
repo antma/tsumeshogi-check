@@ -160,6 +160,10 @@ fn swap_words(x: u32) -> u32 {
   (lo << 16) + hi
 }
 
+fn nify_mask_reverse(x: u32) -> u32 {
+  bits::Bits(x).into_iter().fold(0, |acc, i| acc + (256 >> i))
+}
+
 impl Position {
   fn compute_hash(&self) -> u64 {
     compute_hash(
@@ -184,7 +188,9 @@ impl Position {
     self.black_king_position = self.white_king_position.map(cell::mirror);
     self.white_king_position = t;
     self.drop_masks = swap_words(self.drop_masks);
-    self.nifu_masks = swap_words(self.nifu_masks);
+    let lo = self.nifu_masks & 0xffff;
+    let hi = self.nifu_masks >> 16;
+    self.nifu_masks = (nify_mask_reverse(lo) << 16) + nify_mask_reverse(hi);
     self.side *= -1;
     self.hash = self.compute_hash();
     assert_eq!(
