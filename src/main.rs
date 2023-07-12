@@ -3,8 +3,8 @@ use std::io::prelude::*;
 use std::io::{BufReader, BufWriter};
 
 use game::Game;
-use shogi::{game, moves, Position};
 use search::PV;
+use shogi::{game, moves, Position};
 use tsumeshogi_check::cmd_options::CMDOptions;
 use tsumeshogi_check::{io, psn, search, shogi, timer, tsume_search};
 
@@ -235,6 +235,7 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
   let mut s = search::Search::default();
   let it = shogi::kif::kif_file_iterator(filename)?;
   for (game_no, a) in it.enumerate() {
+    s.hashes_clear();
     if a.is_err() {
       error!("Game #{}: {:?}", game_no + 1, a);
       break;
@@ -266,6 +267,7 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
             }
             assert!(pos.side > 0);
             pos.move_no = 1;
+            s.hashes_retain(depth as u8);
             if let Some(res) = s.search(&mut pos, depth as u8) {
               match res.pv {
                 PV::None => panic!(""),

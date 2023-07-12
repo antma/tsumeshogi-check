@@ -1,3 +1,4 @@
+mod hash;
 pub mod it;
 
 use super::shogi;
@@ -5,11 +6,7 @@ use shogi::moves::Move;
 use shogi::{Checks, Position};
 use std::cmp::Ordering;
 
-#[derive(Default)]
-pub struct Search {
-  pub nodes: u64,
-}
-
+#[derive(Clone)]
 pub enum PV {
   None,
   One(Vec<Move>),
@@ -63,6 +60,7 @@ impl PV {
   }
 }
 
+#[derive(Clone)]
 pub struct SearchResult {
   pub depth: u8,
   pub pv: PV,
@@ -130,7 +128,38 @@ impl SearchResult {
   }
 }
 
+type Hash = hash::SearchHash<SearchResult>;
+
+pub struct Search {
+  sente_hash: Hash,
+  gote_hash: Hash,
+  pub nodes: u64,
+  generation: u8,
+}
+
+impl Default for Search {
+  fn default() -> Self {
+    Self {
+      sente_hash: Hash::default(),
+      gote_hash: Hash::default(),
+      nodes: 0,
+      generation: 0,
+    }
+  }
+}
+
 impl Search {
+  pub fn hashes_clear(&mut self) {
+    self.sente_hash.clear();
+    self.gote_hash.clear();
+  }
+  pub fn hashes_retain(&mut self, margin: u8) {
+    self.sente_hash.retain(self.generation, margin);
+    self.gote_hash.retain(self.generation, margin);
+  }
+  fn increment_generation(&mut self) {
+    self.generation = self.generation.wrapping_add(1);
+  }
   fn nodes_increment(&mut self) -> u64 {
     let r = self.nodes;
     self.nodes += 1;
@@ -143,6 +172,11 @@ impl Search {
     depth: u8,
   ) -> SearchResult {
     debug_assert_eq!(depth % 2, 0);
+    if let Some(q) = self.gote_hash.get(pos.hash) {
+      if q.pv.is_some() || q.depth >= depth {
+        return q.clone();
+      }
+    }
     let nodes = self.nodes_increment();
     let hash_best_move = None;
     let sente = false;
@@ -180,6 +214,7 @@ impl Search {
       }
     }
     res.nodes = self.nodes - nodes;
+    self.gote_hash.set(pos.hash, res.clone(), self.generation);
     res
   }
   fn sente_search(
@@ -189,6 +224,11 @@ impl Search {
     depth: u8,
   ) -> SearchResult {
     debug_assert_eq!(depth % 2, 1);
+    if let Some(q) = self.sente_hash.get(pos.hash) {
+      if q.pv.is_some() || q.depth >= depth {
+        return q.clone();
+      }
+    }
     let nodes = self.nodes_increment();
     let hash_best_move = None;
     let sente = true;
@@ -225,9 +265,11 @@ impl Search {
       }
     }
     res.nodes = self.nodes - nodes;
+    self.sente_hash.set(pos.hash, res.clone(), self.generation);
     res
   }
   pub fn search(&mut self, pos: &mut Position, max_depth: u8) -> Option<SearchResult> {
+    self.increment_generation();
     let hash = pos.hash;
     for depth in (1..=max_depth).step_by(2) {
       let mut ev = self.sente_search(pos, None, depth);
