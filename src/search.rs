@@ -5,9 +5,9 @@ use shogi::moves::Move;
 use shogi::{Checks, Position};
 use std::cmp::Ordering;
 
+#[derive(Default)]
 pub struct Search {
-  pos: Position,
-  nodes: u64,
+  pub nodes: u64,
 }
 
 pub enum PV {
@@ -70,6 +70,11 @@ pub struct SearchResult {
 }
 
 impl SearchResult {
+  fn reverse(&mut self) {
+    if let PV::One(v) = &mut self.pv {
+      v.reverse();
+    }
+  }
   fn new(depth: u8) -> Self {
     Self {
       depth,
@@ -110,6 +115,12 @@ impl SearchResult {
     if c != Ordering::Equal {
       return c;
     }
+    let t1 = !m1.is_drop();
+    let t2 = !m2.is_drop();
+    let c = t1.cmp(&t2);
+    if c != Ordering::Equal {
+      return c;
+    }
     let c = self.nodes.cmp(&other.nodes);
     if c != Ordering::Equal {
       //update if self.nodes < other.nodes
@@ -125,24 +136,23 @@ impl Search {
     self.nodes += 1;
     r
   }
-  fn gote_search(&mut self, ochecks: Option<Checks>, depth: u8) -> SearchResult {
+  fn gote_search(
+    &mut self,
+    pos: &mut Position,
+    ochecks: Option<Checks>,
+    depth: u8,
+  ) -> SearchResult {
     debug_assert_eq!(depth % 2, 0);
     let nodes = self.nodes_increment();
     let hash_best_move = None;
     let sente = false;
     let allow_futile_drops = true;
-    let mut it = it::MovesIterator::new(
-      &self.pos,
-      ochecks,
-      hash_best_move,
-      sente,
-      allow_futile_drops,
-    );
+    let mut it = it::MovesIterator::new(pos, ochecks, hash_best_move, sente, allow_futile_drops);
     let mut res = SearchResult::new(0);
     if depth == 0 {
       let mut mate = true;
-      while let Some((m, u, _)) = it.do_next_move(&mut self.pos) {
-        self.pos.undo_move(&m, &u);
+      while let Some((m, u, _)) = it.do_next_move(pos) {
+        pos.undo_move(&m, &u);
         mate = false;
         break;
       }
@@ -150,17 +160,18 @@ impl Search {
         res.pv = PV::One(Vec::new());
       }
     } else {
-      while let Some((m, u, oc)) = it.do_next_move(&mut self.pos) {
+      while let Some((m, u, oc)) = it.do_next_move(pos) {
         let next_depth = res.depth - 1;
-        let ev = self.sente_search(oc, next_depth);
-        self.pos.undo_move(&m, &u);
+        let ev = self.sente_search(pos, oc, next_depth);
+        pos.undo_move(&m, &u);
         if ev.pv.is_none() {
           res.depth = depth;
           res.pv = PV::None;
           break;
         }
-        if res.gote_cmp(&ev, &self.pos) == Ordering::Less {
-          res = ev;
+        if res.gote_cmp(&ev, pos) == Ordering::Less {
+          res.depth = ev.depth;
+          res.pv.update_pv(m, ev.pv);
         }
       }
       if it.legal_moves == 0 {
@@ -171,28 +182,27 @@ impl Search {
     res.nodes = self.nodes - nodes;
     res
   }
-  fn sente_search(&mut self, ochecks: Option<Checks>, depth: u8) -> SearchResult {
+  fn sente_search(
+    &mut self,
+    pos: &mut Position,
+    ochecks: Option<Checks>,
+    depth: u8,
+  ) -> SearchResult {
     debug_assert_eq!(depth % 2, 1);
     let nodes = self.nodes_increment();
     let hash_best_move = None;
     let sente = true;
     let allow_futile_drops = true;
-    let mut it = it::MovesIterator::new(
-      &self.pos,
-      ochecks,
-      hash_best_move,
-      sente,
-      allow_futile_drops,
-    );
+    let mut it = it::MovesIterator::new(pos, ochecks, hash_best_move, sente, allow_futile_drops);
     let mut res = SearchResult::new(depth);
-    while let Some((m, u, oc)) = it.do_next_move(&mut self.pos) {
+    while let Some((m, u, oc)) = it.do_next_move(pos) {
       let next_depth = if res.pv.is_many() {
         res.depth - 3
       } else {
         res.depth - 1
       };
-      let ev = self.gote_search(oc, next_depth);
-      self.pos.undo_move(&m, &u);
+      let ev = self.gote_search(pos, oc, next_depth);
+      pos.undo_move(&m, &u);
       if !ev.pv.is_some() {
         //not mated
         continue;
@@ -217,12 +227,13 @@ impl Search {
     res.nodes = self.nodes - nodes;
     res
   }
-  pub fn search(&mut self, pos: &Position, max_depth: u8) -> Option<SearchResult> {
-    self.nodes = 0;
-    self.pos = pos.clone();
+  pub fn search(&mut self, pos: &mut Position, max_depth: u8) -> Option<SearchResult> {
+    let hash = pos.hash;
     for depth in (1..=max_depth).step_by(2) {
-      let ev = self.sente_search(None, depth);
+      let mut ev = self.sente_search(pos, None, depth);
+      assert_eq!(hash, pos.hash);
       if ev.pv.is_some() {
+        ev.reverse();
         return Some(ev);
       }
     }
