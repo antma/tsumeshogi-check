@@ -3,7 +3,6 @@ use std::io::prelude::*;
 use std::io::{BufReader, BufWriter};
 
 use game::Game;
-use search::PV;
 use shogi::{game, moves, Position};
 use tsumeshogi_check::cmd_options::CMDOptions;
 use tsumeshogi_check::{io, psn, search, shogi, timer, tsume_search};
@@ -268,31 +267,29 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
             assert!(pos.side > 0);
             pos.move_no = 1;
             s.hashes_retain(depth as u8);
-            if let Some(res) = s.search(&mut pos, depth as u8) {
-              match res.pv {
-                PV::None => panic!(""),
-                PV::One(p) => {
-                  if *p.first().unwrap() == cur_move {
-                    info!(
-                      "Tsume in {} moves was found and played, pos: {}, game: {}, move: {}",
-                      res.depth,
-                      pos,
-                      game_no + 1,
-                      move_no
-                    );
-                  } else {
-                    output_stream.write_puzzle(res.depth, &g, &pos, p, swapped)?;
-                  }
-                }
-                PV::Many => {
+            let (res, pv) = s.search(&mut pos, depth as u8);
+            if res.is_some() {
+              let res = res.unwrap();
+              if let Some(p) = pv {
+                if *p.first().unwrap() == cur_move {
                   info!(
-                    "Tsume in {} moves isn't unique, sfen: {}, game: {}, move: {}",
-                    res.depth,
+                    "Tsume in {} moves was found and played, pos: {}, game: {}, move: {}",
+                    res,
                     pos,
                     game_no + 1,
-                    move_no,
+                    move_no
                   );
+                } else {
+                  output_stream.write_puzzle(res, &g, &pos, p, swapped)?;
                 }
+              } else {
+                info!(
+                  "Tsume in {} moves isn't unique, sfen: {}, game: {}, move: {}",
+                  res,
+                  pos,
+                  game_no + 1,
+                  move_no,
+                );
               }
             }
           }

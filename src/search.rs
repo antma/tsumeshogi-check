@@ -2,101 +2,92 @@ mod hash;
 pub mod it;
 
 use super::shogi;
-use shogi::moves::Move;
+use shogi::moves::{Move, Moves};
 use shogi::{Checks, Position};
 use std::cmp::Ordering;
 
 #[derive(Clone)]
-pub enum PV {
+pub enum BestMove {
   None,
-  One(Vec<Move>),
+  One(Move),
   Many,
 }
 
-impl PV {
+impl BestMove {
   fn is_none(&self) -> bool {
     match *self {
-      PV::None => true,
+      BestMove::None => true,
       _ => false,
     }
   }
   fn is_one(&self) -> bool {
     match *self {
-      PV::One(_) => true,
+      BestMove::One(_) => true,
       _ => false,
     }
   }
   fn is_many(&self) -> bool {
     match *self {
-      PV::Many => true,
+      BestMove::Many => true,
       _ => false,
     }
   }
   fn is_some(&self) -> bool {
     match *self {
-      PV::None => false,
+      BestMove::None => false,
       _ => true,
     }
   }
-  fn update_pv(&mut self, m: Move, pv: PV) {
-    if self.is_some() {
-      *self = PV::Many;
-    } else {
-      match pv {
-        PV::None => panic!(""),
-        PV::One(mut v) => {
-          v.push(m);
-          *self = PV::One(v);
+  fn update_best_move(&mut self, m: Move, bm: BestMove) {
+    let x = {
+      if self.is_some() {
+        BestMove::Many
+      } else {
+        match bm {
+          BestMove::None => panic!(""),
+          BestMove::One(_) => BestMove::One(m),
+          BestMove::Many => BestMove::Many,
         }
-        PV::Many => *self = PV::Many,
       }
-    }
+    };
+    *self = x;
   }
-  fn last(&self) -> Option<&Move> {
+  fn get_move(&self) -> Option<&Move> {
     match self {
-      PV::One(v) => v.last(),
+      BestMove::One(ref v) => Some(v),
       _ => None,
     }
   }
 }
 
 #[derive(Clone)]
-pub struct SearchResult {
-  pub depth: u8,
-  pub pv: PV,
+struct SearchResult {
+  depth: u8,
+  best_move: BestMove,
   nodes: u64,
 }
 
 impl SearchResult {
-  fn reverse(&mut self) {
-    if let PV::One(v) = &mut self.pv {
-      v.reverse();
-    }
-  }
   fn new(depth: u8) -> Self {
     Self {
       depth,
-      pv: PV::None,
+      best_move: BestMove::None,
       nodes: 0,
     }
   }
-  #[allow(dead_code)]
-  fn is_mated(&self) -> bool {
-    self.depth == 0 && self.pv.is_some()
-  }
   fn gote_cmp(&self, other: &SearchResult, pos: &Position) -> Ordering {
-    if self.pv.is_none() {
+    if self.best_move.is_none() {
       //update
       return Ordering::Less;
     }
-    debug_assert!(other.pv.is_some());
+    debug_assert!(other.best_move.is_some());
     let c = self.depth.cmp(&other.depth);
     if c != Ordering::Equal {
       //update if self.depth < other.depth
       return c;
     }
-    let o1 = self.pv.is_one();
-    let o2 = other.pv.is_one();
+    let o1 = self.best_move.is_one();
+    let o2 = other.best_move.is_one();
     let c = o1.cmp(&o2);
     if c != Ordering::Equal {
       //update if other.pv.is_one() and self.pv.is_many()
@@ -105,8 +96,8 @@ impl SearchResult {
     if !o1 {
       return Ordering::Equal;
     }
-    let m1 = self.pv.last().unwrap();
-    let m2 = other.pv.last().unwrap();
+    let m1 = self.best_move.get_move().unwrap();
+    let m2 = other.best_move.get_move().unwrap();
     let t1 = pos.is_take(m1);
     let t2 = pos.is_take(m2);
     let c = t1.cmp(&t2);
@@ -173,7 +164,7 @@ impl Search {
   ) -> SearchResult {
     debug_assert_eq!(depth % 2, 0);
     if let Some(q) = self.gote_hash.get(pos.hash) {
-      if q.pv.is_some() || q.depth >= depth {
+      if q.best_move.is_some() || q.depth >= depth {
         return q.clone();
       }
     }
@@ -191,26 +182,26 @@ impl Search {
         break;
       }
       if mate {
-        res.pv = PV::One(Vec::new());
+        res.best_move = BestMove::One(Move::default());
       }
     } else {
       while let Some((m, u, oc)) = it.do_next_move(pos) {
         let next_depth = res.depth - 1;
         let ev = self.sente_search(pos, oc, next_depth);
         pos.undo_move(&m, &u);
-        if ev.pv.is_none() {
+        if ev.best_move.is_none() {
           res.depth = depth;
-          res.pv = PV::None;
+          res.best_move = BestMove::None;
           break;
         }
         if res.gote_cmp(&ev, pos) == Ordering::Less {
           res.depth = ev.depth;
-          res.pv.update_pv(m, ev.pv);
+          res.best_move.update_best_move(m, ev.best_move);
         }
       }
       if it.legal_moves == 0 {
         res.depth = 0;
-        res.pv = PV::One(Vec::new());
+        res.best_move = BestMove::One(Move::default());
       }
     }
     res.nodes = self.nodes - nodes;
@@ -225,7 +216,7 @@ impl Search {
   ) -> SearchResult {
     debug_assert_eq!(depth % 2, 1);
     if let Some(q) = self.sente_hash.get(pos.hash) {
-      if q.pv.is_some() || q.depth >= depth {
+      if q.best_move.is_some() || q.depth >= depth {
         return q.clone();
       }
     }
@@ -236,14 +227,14 @@ impl Search {
     let mut it = it::MovesIterator::new(pos, ochecks, hash_best_move, sente, allow_futile_drops);
     let mut res = SearchResult::new(depth);
     while let Some((m, u, oc)) = it.do_next_move(pos) {
-      let next_depth = if res.pv.is_many() {
+      let next_depth = if res.best_move.is_many() {
         res.depth - 3
       } else {
         res.depth - 1
       };
       let ev = self.gote_search(pos, oc, next_depth);
       pos.undo_move(&m, &u);
-      if !ev.pv.is_some() {
+      if !ev.best_move.is_some() {
         //not mated
         continue;
       }
@@ -255,12 +246,12 @@ impl Search {
       let mate_in = ev.depth + 1;
       if res.depth > mate_in {
         res.depth = mate_in;
-        res.pv = PV::None;
+        res.best_move = BestMove::None;
       } else {
         debug_assert_eq!(res.depth, mate_in);
       }
-      res.pv.update_pv(m, ev.pv);
-      if res.depth == 1 && res.pv.is_many() {
+      res.best_move.update_best_move(m, ev.best_move);
+      if res.depth == 1 && res.best_move.is_many() {
         break;
       }
     }
@@ -268,17 +259,47 @@ impl Search {
     self.sente_hash.set(pos.hash, res.clone(), self.generation);
     res
   }
-  pub fn search(&mut self, pos: &mut Position, max_depth: u8) -> Option<SearchResult> {
+  fn extract_pv_from_hash(&self, pos: &mut Position, depth: usize) -> Vec<Move> {
+    let mut r = Moves::with_capacity(depth);
+    loop {
+      let o = if pos.side > 0 {
+        self.sente_hash.get(pos.hash)
+      } else {
+        self.gote_hash.get(pos.hash)
+      };
+      if let Some(p) = o {
+        if p.best_move.is_one() {
+          let m = p.best_move.get_move().unwrap();
+          r.push(pos, m.clone());
+          continue;
+        }
+      }
+      break;
+    }
+    r.undo(pos);
+    r.only_moves()
+  }
+  pub fn search(&mut self, pos: &mut Position, max_depth: u8) -> (Option<u8>, Option<Vec<Move>>) {
     self.increment_generation();
     let hash = pos.hash;
     for depth in (1..=max_depth).step_by(2) {
-      let mut ev = self.sente_search(pos, None, depth);
+      let ev = self.sente_search(pos, None, depth);
       assert_eq!(hash, pos.hash);
-      if ev.pv.is_some() {
+      if ev.best_move.is_some() {
+        if ev.best_move.is_one() {
+          return (
+            Some(ev.depth),
+            Some(self.extract_pv_from_hash(pos, depth as usize)),
+          );
+        } else {
+          return (Some(ev.depth), None);
+        }
+        /*
         ev.reverse();
         return Some(ev);
+        */
       }
     }
-    None
+    (None, None)
   }
 }
