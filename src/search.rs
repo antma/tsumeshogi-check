@@ -244,13 +244,12 @@ impl Search {
         //mate by pawn drop (illegal)
         continue;
       }
-      debug_assert!(ev.depth <= next_depth);
       let mate_in = ev.depth + 1;
       if res.depth > mate_in {
         res.depth = mate_in;
         res.best_move = BestMove::None;
-      } else {
-        debug_assert_eq!(res.depth, mate_in);
+      } else if res.depth < mate_in {
+        continue;
       }
       res.best_move.update_best_move(m, ev.best_move);
       if res.depth == 1 && res.best_move.is_many() {
