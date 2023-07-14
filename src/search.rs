@@ -185,15 +185,17 @@ impl Search {
         res.best_move = BestMove::One(Move::default());
       }
     } else {
+      let next_depth = depth - 1;
       while let Some((m, u, oc)) = it.do_next_move(pos) {
-        let next_depth = res.depth - 1;
-        let ev = self.sente_search(pos, oc, next_depth);
+        let mut ev = self.sente_search(pos, oc, next_depth);
+        debug_assert_eq!(ev.depth % 2, 1);
         pos.undo_move(&m, &u);
         if ev.best_move.is_none() {
           res.depth = depth;
           res.best_move = BestMove::None;
           break;
         }
+        ev.depth += 1;
         if res.gote_cmp(&ev, pos) == Ordering::Less {
           res.depth = ev.depth;
           res.best_move.update_best_move(m, ev.best_move);
@@ -280,6 +282,7 @@ impl Search {
     r.only_moves()
   }
   pub fn search(&mut self, pos: &mut Position, max_depth: u8) -> (Option<u8>, Option<Vec<Move>>) {
+    log::debug!("search(pos: {}, max_depth: {})", pos, max_depth);
     assert!(pos.side > 0);
     self.increment_generation();
     let hash = pos.hash;
