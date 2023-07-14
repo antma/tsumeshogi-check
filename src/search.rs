@@ -292,10 +292,7 @@ impl Search {
         if ev.best_move.is_one() {
           let pv = self.extract_pv_from_hash(pos, depth as usize);
           assert_eq!(hash, pos.hash);
-          return (
-            Some(ev.depth),
-            Some(pv),
-          );
+          return (Some(ev.depth), Some(pv));
         } else {
           return (Some(ev.depth), None);
         }
