@@ -123,11 +123,12 @@ impl SearchResult {
   }
 }
 
-type Hash = hash::SearchHash<SearchResult>;
+type SenteHash = hash::SearchHash<SearchResult>;
+type GoteHash = hash::SearchHash<(SearchResult, Option<Move>)>;
 
 pub struct Search {
-  sente_hash: Hash,
-  gote_hash: Hash,
+  sente_hash: SenteHash,
+  gote_hash: GoteHash,
   pub nodes: u64,
   generation: u8,
 }
@@ -135,8 +136,8 @@ pub struct Search {
 impl Default for Search {
   fn default() -> Self {
     Self {
-      sente_hash: Hash::default(),
-      gote_hash: Hash::default(),
+      sente_hash: SenteHash::default(),
+      gote_hash: GoteHash::default(),
       nodes: 0,
       generation: 0,
     }
@@ -167,17 +168,19 @@ impl Search {
     depth: u8,
   ) -> SearchResult {
     debug_assert_eq!(depth % 2, 0);
-    if let Some(q) = self.gote_hash.get(pos.hash) {
+    let mut hash_best_move = None;
+    if let Some((q, m)) = self.gote_hash.get(pos.hash) {
       if q.best_move.is_some() || q.depth >= depth {
         return q.clone();
       }
+      hash_best_move = m.clone();
     }
     let nodes = self.nodes_increment();
-    let hash_best_move = None;
     let sente = false;
     let allow_futile_drops = false;
     let mut it = it::MovesIterator::new(pos, ochecks, hash_best_move, sente, allow_futile_drops);
     let mut res = SearchResult::new(0);
+    hash_best_move = None;
     if depth == 0 {
       let mut mate = true;
       while let Some((m, u, _)) = it.do_next_move(pos) {
@@ -197,6 +200,7 @@ impl Search {
         if ev.best_move.is_none() {
           res.depth = depth;
           res.best_move = BestMove::None;
+          hash_best_move = Some(m);
           break;
         }
         ev.depth += 1;
@@ -211,7 +215,7 @@ impl Search {
       }
     }
     res.nodes = self.nodes - nodes;
-    self.gote_hash.set(pos.hash, res.clone(), self.generation);
+    self.gote_hash.set(pos.hash, (res.clone(), hash_best_move), self.generation);
     res
   }
   fn sente_search(
@@ -270,7 +274,7 @@ impl Search {
       let o = if pos.side > 0 {
         self.sente_hash.get(pos.hash)
       } else {
-        self.gote_hash.get(pos.hash)
+        self.gote_hash.get(pos.hash).map(|p| &p.0)
       };
       if let Some(p) = o {
         if let Some(m) = p.get_move() {
