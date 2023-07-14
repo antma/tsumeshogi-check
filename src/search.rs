@@ -171,7 +171,7 @@ impl Search {
     let nodes = self.nodes_increment();
     let hash_best_move = None;
     let sente = false;
-    let allow_futile_drops = true;
+    let allow_futile_drops = false;
     let mut it = it::MovesIterator::new(pos, ochecks, hash_best_move, sente, allow_futile_drops);
     let mut res = SearchResult::new(0);
     if depth == 0 {
@@ -268,7 +268,7 @@ impl Search {
         self.gote_hash.get(pos.hash)
       };
       if let Some(p) = o {
-        if p.best_move.is_one() {
+        if p.depth > 0 && p.best_move.is_one() {
           let m = p.best_move.get_move().unwrap();
           r.push(pos, m.clone());
           continue;
@@ -280,6 +280,7 @@ impl Search {
     r.only_moves()
   }
   pub fn search(&mut self, pos: &mut Position, max_depth: u8) -> (Option<u8>, Option<Vec<Move>>) {
+    assert!(pos.side > 0);
     self.increment_generation();
     let hash = pos.hash;
     for depth in (1..=max_depth).step_by(2) {
