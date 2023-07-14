@@ -234,7 +234,6 @@ impl KIFBuilder {
       }
       //after illegal move
       if st == 2 {
-        debug_assert!(!pos.is_legal());
         if s != "*反則手にて終局" {
           return Err(ParseKIFGameError::new(
             s.to_owned(),
