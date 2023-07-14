@@ -38,17 +38,15 @@ impl BestMove {
       _ => true,
     }
   }
-  fn update_best_move(&mut self, m: Move, bm: BestMove) {
-    let x = {
-      if self.is_some() {
-        BestMove::Many
-      } else {
-        match bm {
-          BestMove::None => panic!(""),
-          BestMove::One(_) => BestMove::One(m),
-          BestMove::Many => BestMove::Many,
-        }
-      }
+  fn update(&mut self, m: Move, bm: BestMove) {
+    let x = match self {
+      BestMove::None => match bm {
+        BestMove::None => panic!(""),
+        BestMove::One(_) => BestMove::One(m),
+        BestMove::Many => BestMove::Many,
+      },
+      BestMove::One(_) => BestMove::Many,
+      BestMove::Many => return,
     };
     *self = x;
   }
@@ -75,9 +73,15 @@ impl SearchResult {
       depth,
     }
   }
+  fn update_best_move(&mut self, m: Move, ev: SearchResult) {
+    self.best_move.update(m, ev.best_move);
+  }
   fn get_move(&self) -> Option<&Move> {
-    if self.depth == 0 { None }
-    else { self.best_move.get_move() }
+    if self.depth == 0 {
+      None
+    } else {
+      self.best_move.get_move()
+    }
   }
   fn gote_cmp(&self, other: &SearchResult, pos: &Position) -> Ordering {
     if self.best_move.is_none() {
@@ -206,7 +210,7 @@ impl Search {
         ev.depth += 1;
         if res.gote_cmp(&ev, pos) == Ordering::Less {
           res.depth = ev.depth;
-          res.best_move.update_best_move(m, ev.best_move);
+          res.update_best_move(m, ev);
         }
       }
       if it.legal_moves == 0 {
@@ -215,7 +219,9 @@ impl Search {
       }
     }
     res.nodes = self.nodes - nodes;
-    self.gote_hash.set(pos.hash, (res.clone(), hash_best_move), self.generation);
+    self
+      .gote_hash
+      .set(pos.hash, (res.clone(), hash_best_move), self.generation);
     res
   }
   fn sente_search(
@@ -259,7 +265,7 @@ impl Search {
       } else if res.depth < mate_in {
         continue;
       }
-      res.best_move.update_best_move(m, ev.best_move);
+      res.update_best_move(m, ev);
       if res.depth == 1 && res.best_move.is_many() {
         break;
       }
