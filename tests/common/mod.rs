@@ -1,3 +1,5 @@
+use std::convert::TryFrom;
+use tsumeshogi_check::search;
 use tsumeshogi_check::shogi::Position;
 use tsumeshogi_check::tsume_search::search_ext;
 
@@ -19,6 +21,18 @@ pub fn tsume_batch_test_ext(
     assert_eq!(
       search_ext(pos, depth, allow_futile_drops),
       ans,
+      "test #{}, sfen: {}",
+      test + 1,
+      sfen
+    );
+    let mut pos = Position::parse_sfen(&sfen).unwrap();
+    if pos.side < 0 {
+      pos.swap_sides();
+    }
+    let mut s = search::Search::default();
+    assert_eq!(
+      s.search(&mut pos, depth as u8).0,
+      ans.map(|i| u8::try_from(i).unwrap()),
       "test #{}, sfen: {}",
       test + 1,
       sfen
