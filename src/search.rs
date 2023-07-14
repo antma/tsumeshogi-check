@@ -291,17 +291,15 @@ impl Search {
       assert_eq!(hash, pos.hash);
       if ev.best_move.is_some() {
         if ev.best_move.is_one() {
+          let pv = self.extract_pv_from_hash(pos, depth as usize);
+          assert_eq!(hash, pos.hash);
           return (
             Some(ev.depth),
-            Some(self.extract_pv_from_hash(pos, depth as usize)),
+            Some(pv),
           );
         } else {
           return (Some(ev.depth), None);
         }
-        /*
-        ev.reverse();
-        return Some(ev);
-        */
       }
     }
     (None, None)
