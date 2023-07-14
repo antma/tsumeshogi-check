@@ -62,18 +62,22 @@ impl BestMove {
 
 #[derive(Clone)]
 struct SearchResult {
-  depth: u8,
   best_move: BestMove,
   nodes: u64,
+  depth: u8,
 }
 
 impl SearchResult {
   fn new(depth: u8) -> Self {
     Self {
-      depth,
       best_move: BestMove::None,
       nodes: 0,
+      depth,
     }
+  }
+  fn get_move(&self) -> Option<&Move> {
+    if self.depth == 0 { None }
+    else { self.best_move.get_move() }
   }
   fn gote_cmp(&self, other: &SearchResult, pos: &Position) -> Ordering {
     if self.best_move.is_none() {
@@ -96,8 +100,8 @@ impl SearchResult {
     if !o1 {
       return Ordering::Equal;
     }
-    let m1 = self.best_move.get_move().unwrap();
-    let m2 = other.best_move.get_move().unwrap();
+    let m1 = self.get_move().unwrap();
+    let m2 = other.get_move().unwrap();
     let t1 = pos.is_take(m1);
     let t2 = pos.is_take(m2);
     let c = t1.cmp(&t2);
@@ -269,8 +273,7 @@ impl Search {
         self.gote_hash.get(pos.hash)
       };
       if let Some(p) = o {
-        if p.depth > 0 && p.best_move.is_one() {
-          let m = p.best_move.get_move().unwrap();
+        if let Some(m) = p.get_move() {
           r.push(pos, m.clone());
           continue;
         }
