@@ -9,7 +9,7 @@ use std::cmp::Ordering;
 #[derive(Clone)]
 pub enum BestMove {
   None,
-  One(Move),
+  One(u32),
   Many,
 }
 
@@ -42,7 +42,7 @@ impl BestMove {
     let x = match self {
       BestMove::None => match bm {
         BestMove::None => panic!(""),
-        BestMove::One(_) => BestMove::One(m),
+        BestMove::One(_) => BestMove::One(u32::from(m)),
         BestMove::Many => BestMove::Many,
       },
       BestMove::One(_) => BestMove::Many,
@@ -50,9 +50,9 @@ impl BestMove {
     };
     *self = x;
   }
-  fn get_move(&self) -> Option<&Move> {
+  fn get_move(&self) -> Option<Move> {
     match self {
-      BestMove::One(ref v) => Some(v),
+      BestMove::One(v) => Some(Move::from(*v)),
       _ => None,
     }
   }
@@ -76,7 +76,7 @@ impl SearchResult {
   fn update_best_move(&mut self, m: Move, ev: SearchResult) {
     self.best_move.update(m, ev.best_move);
   }
-  fn get_move(&self) -> Option<&Move> {
+  fn get_move(&self) -> Option<Move> {
     if self.depth == 0 {
       None
     } else {
@@ -106,8 +106,8 @@ impl SearchResult {
     }
     let m1 = self.get_move().unwrap();
     let m2 = other.get_move().unwrap();
-    let t1 = pos.is_take(m1);
-    let t2 = pos.is_take(m2);
+    let t1 = pos.is_take(&m1);
+    let t2 = pos.is_take(&m2);
     let c = t1.cmp(&t2);
     if c != Ordering::Equal {
       return c;
@@ -139,6 +139,7 @@ pub struct Search {
 
 impl Default for Search {
   fn default() -> Self {
+    log::debug!("sizeof(SearchResult)={}",std::mem::size_of::<SearchResult>());
     Self {
       sente_hash: SenteHash::default(),
       gote_hash: GoteHash::default(),
@@ -193,7 +194,7 @@ impl Search {
         break;
       }
       if mate {
-        res.best_move = BestMove::One(Move::default());
+        res.best_move = BestMove::One(0);
       }
     } else {
       let next_depth = depth - 1;
@@ -215,7 +216,7 @@ impl Search {
       }
       if it.legal_moves == 0 {
         res.depth = 0;
-        res.best_move = BestMove::One(Move::default());
+        res.best_move = BestMove::One(0);
       }
     }
     res.nodes = self.nodes - nodes;
