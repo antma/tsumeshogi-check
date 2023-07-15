@@ -1,148 +1,27 @@
 mod hash;
 pub mod it;
+mod result;
 
 use super::shogi;
+use hash::SearchHash;
+use result::{BestMove, SearchResult};
 use shogi::moves::{Move, Moves};
 use shogi::{Checks, Position};
 use std::cmp::Ordering;
 
-#[derive(Clone)]
-pub enum BestMove {
-  None,
-  One(u32),
-  Many,
-}
-
-impl BestMove {
-  fn is_none(&self) -> bool {
-    match *self {
-      BestMove::None => true,
-      _ => false,
-    }
-  }
-  fn is_one(&self) -> bool {
-    match *self {
-      BestMove::One(_) => true,
-      _ => false,
-    }
-  }
-  fn is_many(&self) -> bool {
-    match *self {
-      BestMove::Many => true,
-      _ => false,
-    }
-  }
-  fn is_some(&self) -> bool {
-    match *self {
-      BestMove::None => false,
-      _ => true,
-    }
-  }
-  fn update(&mut self, m: Move, bm: BestMove) {
-    let x = match self {
-      BestMove::None => match bm {
-        BestMove::None => panic!(""),
-        BestMove::One(_) => BestMove::One(u32::from(m)),
-        BestMove::Many => BestMove::Many,
-      },
-      BestMove::One(_) => BestMove::Many,
-      BestMove::Many => return,
-    };
-    *self = x;
-  }
-  fn get_move(&self) -> Option<Move> {
-    match self {
-      BestMove::One(v) => Some(Move::from(*v)),
-      _ => None,
-    }
-  }
-}
-
-#[derive(Clone)]
-struct SearchResult {
-  best_move: BestMove,
-  nodes: u64,
-  depth: u8,
-}
-
-impl SearchResult {
-  fn new(depth: u8) -> Self {
-    Self {
-      best_move: BestMove::None,
-      nodes: 0,
-      depth,
-    }
-  }
-  fn update_best_move(&mut self, m: Move, ev: SearchResult) {
-    self.best_move.update(m, ev.best_move);
-  }
-  fn get_move(&self) -> Option<Move> {
-    if self.depth == 0 {
-      None
-    } else {
-      self.best_move.get_move()
-    }
-  }
-  fn gote_cmp(&self, other: &SearchResult, pos: &Position) -> Ordering {
-    if self.best_move.is_none() {
-      //update
-      return Ordering::Less;
-    }
-    debug_assert!(other.best_move.is_some());
-    let c = self.depth.cmp(&other.depth);
-    if c != Ordering::Equal {
-      //update if self.depth < other.depth
-      return c;
-    }
-    let o1 = self.best_move.is_one();
-    let o2 = other.best_move.is_one();
-    let c = o1.cmp(&o2);
-    if c != Ordering::Equal {
-      //update if other.pv.is_one() and self.pv.is_many()
-      return c;
-    }
-    if !o1 {
-      return Ordering::Equal;
-    }
-    let m1 = self.get_move().unwrap();
-    let m2 = other.get_move().unwrap();
-    let t1 = pos.is_take(&m1);
-    let t2 = pos.is_take(&m2);
-    let c = t1.cmp(&t2);
-    if c != Ordering::Equal {
-      return c;
-    }
-    let t1 = !m1.is_drop();
-    let t2 = !m2.is_drop();
-    let c = t1.cmp(&t2);
-    if c != Ordering::Equal {
-      return c;
-    }
-    let c = self.nodes.cmp(&other.nodes);
-    if c != Ordering::Equal {
-      //update if self.nodes < other.nodes
-      return c;
-    }
-    Ordering::Equal
-  }
-}
-
-type SenteHash = hash::SearchHash<SearchResult>;
-type GoteHash = hash::SearchHash<(SearchResult, Option<Move>)>;
-
 pub struct Search {
-  sente_hash: SenteHash,
-  gote_hash: GoteHash,
+  sente_hash: SearchHash,
+  gote_hash: SearchHash,
   pub nodes: u64,
   generation: u8,
 }
 
 impl Default for Search {
   fn default() -> Self {
-    log::debug!("sizeof(SearchResult)={}",std::mem::size_of::<SearchResult>());
+    //log::debug!("sizeof(SearchResult)={}",std::mem::size_of::<SearchResult>());
     Self {
-      sente_hash: SenteHash::default(),
-      gote_hash: GoteHash::default(),
+      sente_hash: SearchHash::default(),
+      gote_hash: SearchHash::default(),
       nodes: 0,
       generation: 0,
     }
@@ -174,11 +53,11 @@ impl Search {
   ) -> SearchResult {
     debug_assert_eq!(depth % 2, 0);
     let mut hash_best_move = None;
-    if let Some((q, m)) = self.gote_hash.get(pos.hash) {
+    if let Some((q, m)) = self.gote_hash.get_gote(pos.hash) {
       if q.best_move.is_some() || q.depth >= depth {
-        return q.clone();
+        return q;
       }
-      hash_best_move = m.clone();
+      hash_best_move = m;
     }
     let nodes = self.nodes_increment();
     let sente = false;
@@ -187,13 +66,12 @@ impl Search {
     let mut res = SearchResult::new(0);
     hash_best_move = None;
     if depth == 0 {
-      let mut mate = true;
       while let Some((m, u, _)) = it.do_next_move(pos) {
         pos.undo_move(&m, &u);
-        mate = false;
+        hash_best_move = Some(m);
         break;
       }
-      if mate {
+      if hash_best_move.is_none() {
         res.best_move = BestMove::One(0);
       }
     } else {
@@ -222,7 +100,7 @@ impl Search {
     res.nodes = self.nodes - nodes;
     self
       .gote_hash
-      .set(pos.hash, (res.clone(), hash_best_move), self.generation);
+      .insert_gote(pos.hash, &res, hash_best_move, self.generation);
     res
   }
   fn sente_search(
@@ -232,9 +110,9 @@ impl Search {
     depth: u8,
   ) -> SearchResult {
     debug_assert_eq!(depth % 2, 1);
-    if let Some(q) = self.sente_hash.get(pos.hash) {
+    if let Some(q) = self.sente_hash.get_sente(pos.hash) {
       if q.best_move.is_some() || q.depth >= depth {
-        return q.clone();
+        return q;
       }
     }
     let nodes = self.nodes_increment();
@@ -272,16 +150,18 @@ impl Search {
       }
     }
     res.nodes = self.nodes - nodes;
-    self.sente_hash.set(pos.hash, res.clone(), self.generation);
+    self
+      .sente_hash
+      .insert_sente(pos.hash, &res, self.generation);
     res
   }
   fn extract_pv_from_hash(&self, pos: &mut Position, depth: usize) -> Vec<Move> {
     let mut r = Moves::with_capacity(depth);
     loop {
       let o = if pos.side > 0 {
-        self.sente_hash.get(pos.hash)
+        self.sente_hash.get_sente(pos.hash)
       } else {
-        self.gote_hash.get(pos.hash).map(|p| &p.0)
+        self.gote_hash.get_gote(pos.hash).map(|p| p.0)
       };
       if let Some(p) = o {
         if let Some(m) = p.get_move() {
