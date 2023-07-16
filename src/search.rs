@@ -1,5 +1,6 @@
 mod hash;
-pub mod it;
+mod history;
+mod it;
 mod result;
 
 use super::shogi;
@@ -12,6 +13,8 @@ use std::cmp::Ordering;
 pub struct Search {
   sente_hash: SearchHash,
   gote_hash: SearchHash,
+  gote_history_global_tables: Vec<history::HistoryTable>,
+  gote_history_local_tables: Vec<history::HistoryTable>,
   pub nodes: u64,
   generation: u8,
 }
@@ -22,6 +25,8 @@ impl Default for Search {
     Self {
       sente_hash: SearchHash::default(),
       gote_hash: SearchHash::default(),
+      gote_history_global_tables: Vec::new(),
+      gote_history_local_tables: Vec::new(),
       nodes: 0,
       generation: 0,
     }
@@ -60,9 +65,8 @@ impl Search {
       hash_best_move = m;
     }
     let nodes = self.nodes_increment();
-    let sente = false;
     let allow_futile_drops = false;
-    let mut it = it::MovesIterator::new(pos, ochecks, hash_best_move, sente, allow_futile_drops);
+    let mut it = it::GoteMovesIterator::new(pos, ochecks, hash_best_move, allow_futile_drops);
     let mut res = SearchResult::new(0);
     hash_best_move = None;
     if depth == 0 {
@@ -116,10 +120,7 @@ impl Search {
       }
     }
     let nodes = self.nodes_increment();
-    let hash_best_move = None;
-    let sente = true;
-    let allow_futile_drops = true;
-    let mut it = it::MovesIterator::new(pos, ochecks, hash_best_move, sente, allow_futile_drops);
+    let mut it = it::SenteMovesIterator::new(pos, ochecks);
     let mut res = SearchResult::new(depth);
     while let Some((m, u, oc)) = it.do_next_move(pos) {
       let next_depth = if res.best_move.is_many() {

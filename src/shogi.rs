@@ -1250,9 +1250,9 @@ impl Position {
         .contains(&m.from)
     }
   }
-  pub fn reorder_takes_to_front(&self, moves: &mut Vec<Move>) {
+  pub fn reorder_takes_to_front(&self, moves: &mut [Move]) -> usize {
     if moves.is_empty() {
-      return;
+      return 0;
     }
     let mut i = 0;
     let mut j = moves.len() - 1;
@@ -1264,6 +1264,7 @@ impl Position {
         j -= 1;
       }
     }
+    i
   }
 }
 
