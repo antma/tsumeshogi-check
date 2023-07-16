@@ -5,6 +5,7 @@ mod result;
 
 use super::shogi;
 use hash::SearchHash;
+use history::HistoryTable;
 use result::{BestMove, SearchResult};
 use shogi::moves::{Move, Moves};
 use shogi::{Checks, Position};
@@ -13,8 +14,8 @@ use std::cmp::Ordering;
 pub struct Search {
   sente_hash: SearchHash,
   gote_hash: SearchHash,
-  gote_history_global_tables: Vec<history::HistoryTable>,
-  gote_history_local_tables: Vec<history::HistoryTable>,
+  gote_history_global_tables: Vec<HistoryTable>,
+  gote_history_local_tables: Vec<HistoryTable>,
   pub nodes: u64,
   generation: u8,
 }
@@ -45,6 +46,26 @@ impl Search {
   fn increment_generation(&mut self) {
     self.generation = self.generation.wrapping_add(1);
   }
+  fn history_resize(&mut self, depth: u8) {
+    let d = depth as usize / 2;
+    while d >= self.gote_history_global_tables.len() {
+      self
+        .gote_history_global_tables
+        .push(HistoryTable::default());
+      self.gote_history_local_tables.push(HistoryTable::default());
+    }
+    assert_eq!(
+      self.gote_history_global_tables.len(),
+      self.gote_history_local_tables.len()
+    );
+  }
+  fn update_global_history(&mut self) {
+    for i in 0..self.gote_history_global_tables.len() {
+      let mut t = history::HistoryTable::default();
+      std::mem::swap(&mut t, &mut self.gote_history_local_tables[i]);
+      self.gote_history_global_tables[i].merge(t);
+    }
+  }
   fn nodes_increment(&mut self) -> u64 {
     let r = self.nodes;
     self.nodes += 1;
@@ -69,8 +90,12 @@ impl Search {
     let mut it = it::GoteMovesIterator::new(pos, ochecks, hash_best_move, allow_futile_drops);
     let mut res = SearchResult::new(0);
     hash_best_move = None;
+    let d = depth as usize / 2;
     if depth == 0 {
-      while let Some((m, u, _)) = it.do_next_move(pos) {
+      while let Some((m, u, _)) = it.do_next_move(pos, |mv| {
+        let x = u32::from(mv);
+        self.gote_history_global_tables[d].get(x) * self.gote_history_local_tables[d].get(x)
+      }) {
         pos.undo_move(&m, &u);
         hash_best_move = Some(m);
         break;
@@ -80,15 +105,24 @@ impl Search {
       }
     } else {
       let next_depth = depth - 1;
-      while let Some((m, u, oc)) = it.do_next_move(pos) {
+      while let Some((m, u, oc)) = it.do_next_move(pos, |mv| {
+        let x = u32::from(mv);
+        self.gote_history_global_tables[d].get(x) * self.gote_history_local_tables[d].get(x)
+      }) {
         let mut ev = self.sente_search(pos, oc, next_depth);
         debug_assert_eq!(ev.depth % 2, 1);
         pos.undo_move(&m, &u);
         if ev.best_move.is_none() {
           res.depth = depth;
           res.best_move = BestMove::None;
+          if !m.is_drop() {
+            self.gote_history_local_tables[d].success(u32::from(&m));
+          }
           hash_best_move = Some(m);
           break;
+        }
+        if !m.is_drop() {
+          self.gote_history_local_tables[d].fail(u32::from(&m));
         }
         ev.depth += 1;
         if res.gote_cmp(&ev, pos) == Ordering::Less {
@@ -181,9 +215,11 @@ impl Search {
     self.increment_generation();
     let hash = pos.hash;
     for depth in (1..=max_depth).step_by(2) {
+      self.history_resize(depth);
       let ev = self.sente_search(pos, None, depth);
       assert_eq!(hash, pos.hash);
       if ev.best_move.is_some() {
+        self.update_global_history();
         if ev.best_move.is_one() {
           let pv = self.extract_pv_from_hash(pos, depth as usize);
           assert_eq!(hash, pos.hash);
@@ -193,6 +229,7 @@ impl Search {
         }
       }
     }
+    self.update_global_history();
     (None, None)
   }
 }

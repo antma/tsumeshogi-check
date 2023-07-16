@@ -1,5 +1,3 @@
-//use crate::shogi::moves::Move;
-
 struct HistoryEntry {
   success: u64,
   total: u64,
@@ -43,5 +41,17 @@ impl HistoryTable {
         success: 1,
         total: 1,
       });
+  }
+  pub fn merge(&mut self, other: Self) {
+    for (key, value) in other.0 {
+      self
+        .0
+        .entry(key)
+        .and_modify(|e| {
+          e.success += value.success;
+          e.total += value.total;
+        })
+        .or_insert(value);
+    }
   }
 }

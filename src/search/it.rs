@@ -29,9 +29,10 @@ impl SenteMovesIterator {
     self.moves = pos.compute_drops_with_check()
   }
   pub fn new(pos: &Position, ochecks: Option<Checks>) -> Self {
+    let checks = ochecks.unwrap_or_else(|| pos.compute_checks());
     Self {
-      moves: Vec::new(),
-      checks: ochecks.unwrap_or_else(|| pos.compute_checks()),
+      moves: pos.compute_moves(&checks),
+      checks,
       k: 0,
       state: 0,
       legal_moves: 0,
@@ -83,11 +84,23 @@ impl SenteMovesIterator {
   }
 }
 
+fn sort_by_history<F: Fn(&Move) -> f64>(a: &mut [Move], history: &F) {
+  let mut b = a
+    .iter()
+    .map(|v| (v.clone(), history(v)))
+    .collect::<Vec<_>>();
+  b.sort_by(|x, y| y.1.partial_cmp(&x.1).unwrap());
+  for (u, v) in a.iter_mut().zip(b.into_iter()) {
+    *u = v.0;
+  }
+}
+
 impl GoteMovesIterator {
-  fn compute_moves(&mut self, pos: &Position) {
+  fn compute_moves<F: Fn(&Move) -> f64>(&mut self, pos: &Position, history: &F) {
     self.moves = pos.compute_moves(&self.checks);
     let i = pos.reorder_takes_to_front(&mut self.moves);
     self.takes = i;
+    sort_by_history(&mut self.moves[0..i], history);
   }
   fn compute_drops(&mut self, pos: &Position) {
     self.moves = pos.compute_drops(&self.checks);
@@ -109,9 +122,13 @@ impl GoteMovesIterator {
       expect_futile_drop_check: !allow_futile_drops,
     }
   }
-  fn next(&mut self, pos: &mut Position) -> Option<(Move, bool)> {
+  fn next<F: Fn(&Move) -> f64>(&mut self, pos: &mut Position, history: &F) -> Option<(Move, bool)> {
     loop {
       if self.k < self.moves.len() {
+        if self.state == 1 && self.k == self.takes {
+          let n = self.moves.len();
+          sort_by_history(&mut self.moves[self.takes..n], history);
+        }
         let r = self.moves[self.k].clone();
         self.k += 1;
         if let Some(t) = self.best_move.as_ref() {
@@ -126,14 +143,18 @@ impl GoteMovesIterator {
       self.state += 1;
       self.k = 0;
       match self.state {
-        1 => self.compute_moves(pos),
+        1 => self.compute_moves(pos, history),
         2 => self.compute_drops(pos),
         _ => break None,
       }
     }
   }
-  pub fn do_next_move(&mut self, pos: &mut Position) -> Option<(Move, UndoMove, Option<Checks>)> {
-    while let Some((m, unprocessed)) = self.next(pos) {
+  pub fn do_next_move<F: Fn(&Move) -> f64>(
+    &mut self,
+    pos: &mut Position,
+    history: F,
+  ) -> Option<(Move, UndoMove, Option<Checks>)> {
+    while let Some((m, unprocessed)) = self.next(pos, &history) {
       let u = pos.do_move(&m);
       let legal = if m.is_drop() {
         debug_assert!(pos.is_legal());
