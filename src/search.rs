@@ -17,6 +17,7 @@ pub struct Search {
   gote_history_global_tables: Vec<HistoryTable>,
   gote_history_local_tables: Vec<HistoryTable>,
   pub nodes: u64,
+  hash_nodes: u64,
   generation: u8,
 }
 
@@ -29,6 +30,7 @@ impl Default for Search {
       gote_history_global_tables: Vec::new(),
       gote_history_local_tables: Vec::new(),
       nodes: 0,
+      hash_nodes: 0,
       generation: 0,
     }
   }
@@ -81,11 +83,13 @@ impl Search {
     let mut hash_best_move = None;
     if let Some((q, m)) = self.gote_hash.get_gote(pos.hash) {
       if q.best_move.is_some() || q.depth >= depth {
+        self.hash_nodes += q.nodes;
         return q;
       }
       hash_best_move = m;
     }
     let nodes = self.nodes_increment();
+    let hash_nodes = self.hash_nodes;
     let allow_futile_drops = false;
     let mut it = it::GoteMovesIterator::new(pos, ochecks, hash_best_move, allow_futile_drops);
     let mut res = SearchResult::new(0);
@@ -135,7 +139,7 @@ impl Search {
         res.best_move = BestMove::One(0);
       }
     }
-    res.nodes = self.nodes - nodes;
+    res.nodes = (self.nodes - nodes) + (self.hash_nodes - hash_nodes);
     self
       .gote_hash
       .insert_gote(pos.hash, &res, hash_best_move, self.generation);
@@ -150,10 +154,12 @@ impl Search {
     debug_assert_eq!(depth % 2, 1);
     if let Some(q) = self.sente_hash.get_sente(pos.hash) {
       if q.best_move.is_some() || q.depth >= depth {
+        self.hash_nodes += q.nodes;
         return q;
       }
     }
     let nodes = self.nodes_increment();
+    let hash_nodes = self.hash_nodes;
     let mut it = it::SenteMovesIterator::new(pos, ochecks);
     let mut res = SearchResult::new(depth);
     while let Some((m, u, oc)) = it.do_next_move(pos) {
@@ -184,7 +190,7 @@ impl Search {
         break;
       }
     }
-    res.nodes = self.nodes - nodes;
+    res.nodes = (self.nodes - nodes) + (self.hash_nodes - hash_nodes);
     self
       .sente_hash
       .insert_sente(pos.hash, &res, self.generation);
