@@ -41,3 +41,13 @@ fn moves_generation() {
     assert_eq!(ans, res);
   }
 }
+
+#[test]
+fn reorder_takes_to_front() {
+  let pos = Position::parse_sfen("k8/9/9/4p4/9/3N5/9/B8/K3R4 b - 1").unwrap();
+  let checks = pos.compute_checks();
+  let mut moves = pos.compute_moves(&checks);
+  assert_eq!(pos.reorder_takes_to_front(&mut moves), 3);
+  assert!(moves.iter().take(3).all(|m| pos.is_take(&m)));
+  assert!(moves.iter().skip(3).all(|m| !pos.is_take(&m)));
+}
