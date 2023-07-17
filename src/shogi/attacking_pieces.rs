@@ -1,10 +1,8 @@
-use std::collections::BTreeSet;
-
 #[derive(Debug, PartialEq)]
 
 pub enum AttackingPieces {
   TinyArray([usize; 2], usize),
-  TreeSet(BTreeSet<usize>),
+  Bitset(u128),
 }
 
 impl Default for AttackingPieces {
@@ -23,7 +21,7 @@ impl From<&[usize]> for AttackingPieces {
       }
       AttackingPieces::TinyArray(a, n)
     } else {
-      AttackingPieces::TreeSet(v.iter().cloned().collect())
+      AttackingPieces::Bitset(v.iter().fold(0, |acc, x| acc | (1u128 << (*x))))
     }
   }
 }
@@ -32,7 +30,7 @@ impl AttackingPieces {
   pub fn len(&self) -> usize {
     match self {
       AttackingPieces::TinyArray(_, n) => *n,
-      AttackingPieces::TreeSet(s) => s.len(),
+      AttackingPieces::Bitset(s) => s.count_ones() as usize,
     }
   }
   pub fn once(x: usize) -> Self {
@@ -45,20 +43,19 @@ impl AttackingPieces {
           a[*n] = x;
           *n += 1;
         } else {
-          let mut s: BTreeSet<usize> = a.iter().cloned().collect();
-          s.insert(x);
-          *self = AttackingPieces::TreeSet(s);
+          *self =
+            AttackingPieces::Bitset(a.iter().fold(1u128 << x, |acc, x| acc | (1u128 << (*x))));
         }
       }
-      AttackingPieces::TreeSet(s) => {
-        s.insert(x);
+      AttackingPieces::Bitset(s) => {
+        *s |= 1u128 << x;
       }
     }
   }
   pub fn contains(&self, x: &usize) -> bool {
     match self {
       AttackingPieces::TinyArray(a, n) => a.iter().take(*n).any(|y| *y == *x),
-      AttackingPieces::TreeSet(s) => s.contains(x),
+      AttackingPieces::Bitset(s) => (s & (1u128 << x)) != 0,
     }
   }
   pub fn is_empty(&self) -> bool {
@@ -67,16 +64,16 @@ impl AttackingPieces {
       _ => false,
     }
   }
-  pub fn first(&self) -> Option<&usize> {
+  pub fn first(&self) -> Option<usize> {
     match self {
       AttackingPieces::TinyArray(a, n) => {
         if *n == 0 {
           None
         } else {
-          a.first()
+          a.first().cloned()
         }
       }
-      AttackingPieces::TreeSet(s) => s.first(),
+      AttackingPieces::Bitset(s) => Some(s.trailing_zeros() as usize),
     }
   }
 }

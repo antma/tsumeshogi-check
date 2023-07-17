@@ -1009,7 +1009,7 @@ impl Position {
               false
             },
             SlidingIterator::new(
-              *checks.attacking_pieces.first().unwrap(),
+              checks.attacking_pieces.first().unwrap(),
               checks.king_pos.unwrap(),
               0x7fff_ffff,
             ),
@@ -1035,7 +1035,7 @@ impl Position {
         });
       }
       1 => {
-        let p = *checks.attacking_pieces.first().unwrap();
+        let p = checks.attacking_pieces.first().unwrap();
         self.enumerate_simple_moves(|m| {
           let b = checks.blocking_cell(m.to);
           if (m.from_piece.abs() == piece::KING && !b) || b || m.to == p {
@@ -1186,7 +1186,7 @@ impl Position {
     None
   }
   pub fn is_futile_drop(&mut self, checks: &Checks, drop: &Move) -> bool {
-    let attacking_piece = *checks.attacking_pieces.first().unwrap();
+    let attacking_piece = checks.attacking_pieces.first().unwrap();
     let p = self.board[attacking_piece];
     let mut u = moves::Moves::with_capacity(2);
     u.push(

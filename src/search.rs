@@ -24,6 +24,7 @@ pub struct Search {
 impl Default for Search {
   fn default() -> Self {
     //log::debug!("sizeof(SearchResult)={}",std::mem::size_of::<SearchResult>());
+    //log::debug!("sizeof(AttackingPieces)={}", std::mem::size_of::<shogi::attacking_pieces::AttackingPieces>());
     Self {
       sente_hash: SearchHash::default(),
       gote_hash: SearchHash::default(),
