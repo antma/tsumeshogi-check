@@ -229,6 +229,7 @@ impl<'a> OutputStream<'a> {
 }
 
 fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
+  let tt = timer::Timer::new();
   let depth = opts.depth;
   let mut output_stream = OutputStream::new(&opts.output_filename).unwrap();
   let mut s = search::Search::default();
@@ -299,6 +300,7 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
     }
   }
   info!("{} nodes", s.nodes);
+  info!("{:.3} nps", s.nodes as f64 / tt.elapsed());
   //s.log_stats();
   Ok(())
 }

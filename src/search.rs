@@ -153,12 +153,15 @@ impl Search {
     depth: u8,
   ) -> SearchResult {
     debug_assert_eq!(depth % 2, 1);
-    if let Some(q) = self.sente_hash.get_sente(pos.hash) {
+    let none_depth = if let Some(q) = self.sente_hash.get_sente(pos.hash) {
       if q.best_move.is_some() || q.depth >= depth {
         self.hash_nodes += q.nodes;
         return q;
       }
-    }
+      q.depth + 2
+    } else {
+      2
+    };
     let nodes = self.nodes_increment();
     let hash_nodes = self.hash_nodes;
     let mut it = it::SenteMovesIterator::new(pos, ochecks);
@@ -187,7 +190,7 @@ impl Search {
         continue;
       }
       res.update_best_move(m, ev);
-      if res.depth == 1 && res.best_move.is_many() {
+      if res.best_move.is_many() && none_depth >= res.depth {
         break;
       }
     }
