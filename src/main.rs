@@ -50,6 +50,7 @@ struct OutputStream<'a> {
   kb: shogi::kif::KIFBuilder,
   writers: io::PoolOfDestinationFiles<'a>,
   output_format: Format,
+  puzzles: u32,
 }
 
 impl<'a> OutputStream<'a> {
@@ -68,6 +69,7 @@ impl<'a> OutputStream<'a> {
       kb,
       writers,
       output_format,
+      puzzles: 0,
     })
   }
   fn write_puzzle(
@@ -79,6 +81,7 @@ impl<'a> OutputStream<'a> {
     swapped: bool,
     nodes: u64,
   ) -> std::io::Result<()> {
+    self.puzzles += 1;
     match self.output_format {
       Format::Kif => {
         let mut game = Game::default();
@@ -193,15 +196,14 @@ fn process_file(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
     }
     //nodes += s.nodes;
     if test % 1000 == 0 {
-      info!("{} positions were processed.", test);
+      info!("{} positions were processed, {} puzzles", test, output_stream.puzzles);
     }
   }
-  info!("{} nodes", s.nodes);
+  info!("{} puzzles, {} nodes", output_stream.puzzles, s.nodes);
   info!("{:.3} nps", s.nodes as f64 / tt.elapsed());
   //s.log_stats();
   Ok(())
 }
-
 
 fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
   let tt = timer::Timer::new();
