@@ -80,6 +80,66 @@ impl SearchHashValue {
   }
 }
 
+#[test]
+fn test_search_hash_value() {
+  for sr in vec![
+    SearchResult {
+      best_move: BestMove::One(123),
+      nodes: 321,
+      depth: 1,
+    },
+    SearchResult {
+      best_move: BestMove::Many,
+      nodes: 321,
+      depth: 1,
+    },
+    SearchResult {
+      best_move: BestMove::None,
+      nodes: 321,
+      depth: 1,
+    },
+  ] {
+    let h = SearchHashValue::new_sente(&sr, 1);
+    assert_eq!(h.to_sente_result(), sr);
+  }
+  let king = crate::shogi::piece::KING;
+  let m = Move {
+    from: 0,
+    to: 10,
+    from_piece: king,
+    to_piece: king,
+  };
+  for (sr, cm) in vec![
+    (
+      SearchResult {
+        best_move: BestMove::One(u32::from(&m)),
+        nodes: 321,
+        depth: 2,
+      },
+      None,
+    ),
+    (
+      SearchResult {
+        best_move: BestMove::Many,
+        nodes: 321,
+        depth: 1,
+      },
+      None,
+    ),
+    (
+      SearchResult {
+        best_move: BestMove::None,
+        nodes: 321,
+        depth: 1,
+      },
+      Some(m),
+    ),
+  ] {
+    let h = SearchHashValue::new_gote(&sr, cm.clone(), 1);
+    assert_eq!(h.to_gote_result(), (sr, cm));
+  }
+}
+
 pub struct SearchHash(HashMap<u64, SearchHashValue>);
 
 impl Default for SearchHash {
