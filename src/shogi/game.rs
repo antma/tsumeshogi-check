@@ -48,8 +48,8 @@ impl Game {
       self.set_header(key, value.clone());
     }
   }
-  pub fn get_header(&self, key: &String) -> &String {
-    self.header.get(key).unwrap()
+  pub fn get_header(&self, key: &String) -> Option<&String> {
+    self.header.get(key)
   }
   pub fn set_header(&mut self, key: String, value: String) {
     self.header.insert(key, value);
