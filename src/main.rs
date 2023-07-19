@@ -174,7 +174,10 @@ fn process_file(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
     if res.is_some() {
       let res = res.unwrap();
       if res < depth as u8 {
-        warn!("Found faster mate in {} move(s). Test #{}, sfen: {}", res, test, line);
+        warn!(
+          "Found faster mate in {} move(s). Test #{}, sfen: {}",
+          res, test, line
+        );
       }
       if let Some(p) = pv {
         let swapped = false;
@@ -183,9 +186,7 @@ fn process_file(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
       } else {
         warn!(
           "Tsume in {} moves isn't unique. Test #{}, sfen: {}",
-          res,
-          test,
-          pos,
+          res, test, pos,
         );
       }
     } else {
@@ -196,7 +197,10 @@ fn process_file(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
     }
     //nodes += s.nodes;
     if test % 1000 == 0 {
-      info!("{} positions were processed, {} puzzles", test, output_stream.puzzles);
+      info!(
+        "{} positions were processed, {} puzzles",
+        test, output_stream.puzzles
+      );
     }
   }
   info!("{} puzzles, {} nodes", output_stream.puzzles, s.nodes);
