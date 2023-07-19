@@ -22,9 +22,6 @@ pub struct GoteMovesIterator {
 }
 
 impl SenteMovesIterator {
-  fn compute_moves(&mut self, pos: &Position) {
-    self.moves = pos.compute_moves(&self.checks)
-  }
   fn compute_drops(&mut self, pos: &Position) {
     self.moves = pos.compute_drops_with_check()
   }
@@ -45,13 +42,14 @@ impl SenteMovesIterator {
         self.k += 1;
         break Some(r);
       }
-      self.moves.clear();
       self.state += 1;
       self.k = 0;
       match self.state {
-        1 => self.compute_moves(pos),
-        2 => self.compute_drops(pos),
-        _ => break None,
+        1 => self.compute_drops(pos),
+        _ => {
+          self.moves.clear();
+          break None;
+        }
       }
     }
   }
@@ -190,5 +188,23 @@ impl GoteMovesIterator {
       pos.undo_move(&m, &u);
     }
     return None;
+  }
+}
+
+#[test]
+fn test_sente_iterator_unique() {
+  let mut pos = Position::parse_sfen(
+    "lnn5l/2g1S1+Bp1/bp1pk3p/pP1g2p2/4s4/P1R2PP1P/2KP2g2/2S2+r3/LN1G4L b P5pns 1",
+  )
+  .unwrap();
+  let mut it = SenteMovesIterator::new(&pos, None);
+  let mut s = std::collections::BTreeSet::new();
+  while let Some((m, u, _)) = it.do_next_move(&mut pos) {
+    assert!(
+      s.insert(u32::from(&m)),
+      "duplicate move {}",
+      shogi::moves::PSNMove::new(&m, &u)
+    );
+    pos.undo_move(&m, &u);
   }
 }
