@@ -137,13 +137,15 @@ impl GoteMovesIterator {
         }
         break Some((r, true));
       }
-      self.moves.clear();
       self.state += 1;
       self.k = 0;
       match self.state {
         1 => self.compute_moves(pos, history),
         2 => self.compute_drops(pos),
-        _ => break None,
+        _ => {
+          self.moves.clear();
+          break None;
+        }
       }
     }
   }
