@@ -263,7 +263,7 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
                     move_no
                   );
                 } else {
-                  output_stream.write_puzzle(res, &g, &pos, p, swapped, nodes - s.nodes)?;
+                  output_stream.write_puzzle(res, &g, &pos, p, swapped, s.nodes - nodes)?;
                 }
               } else {
                 info!(
