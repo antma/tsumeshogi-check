@@ -115,6 +115,14 @@ impl Search {
         self.gote_history_global_tables[d].get(x) * self.gote_history_local_tables[d].get(x)
       }) {
         let mut ev = self.sente_search(pos, oc, next_depth);
+        log::debug!(
+          "self.sente_search({}, next_depth: {}) = {:?} after move {}.{}",
+          pos,
+          next_depth,
+          ev,
+          pos.move_no - 1,
+          shogi::moves::PSNMove::new(&m, &u),
+        );
         debug_assert_eq!(ev.depth % 2, 1);
         pos.undo_move(&m, &u);
         if ev.best_move.is_none() {
@@ -153,6 +161,7 @@ impl Search {
     depth: u8,
   ) -> SearchResult {
     debug_assert_eq!(depth % 2, 1);
+    log::debug!("entering sente_search(pos:{}, depth: {})", pos, depth);
     let none_depth = if let Some(q) = self.sente_hash.get_sente(pos.hash) {
       if q.best_move.is_some() || q.depth >= depth {
         self.hash_nodes += q.nodes;
@@ -173,6 +182,14 @@ impl Search {
         res.depth - 1
       };
       let ev = self.gote_search(pos, oc, next_depth);
+      log::debug!(
+        "self.gote_search({}, next_depth: {}) = {:?} after move {}.{}",
+        pos,
+        next_depth,
+        ev,
+        pos.move_no - 1,
+        shogi::moves::PSNMove::new(&m, &u),
+      );
       pos.undo_move(&m, &u);
       if !ev.best_move.is_some() {
         //not mated
@@ -225,6 +242,7 @@ impl Search {
     self.increment_generation();
     let hash = pos.hash;
     for depth in (1..=max_depth).step_by(2) {
+      log::debug!("depth = {}", depth);
       self.history_resize(depth);
       let ev = self.sente_search(pos, None, depth);
       assert_eq!(hash, pos.hash);
