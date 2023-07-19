@@ -2,7 +2,7 @@ use crate::shogi::moves::Move;
 use crate::shogi::Position;
 use std::cmp::Ordering;
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum BestMove {
   None,
   One(u32),
@@ -54,7 +54,7 @@ impl BestMove {
   }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SearchResult {
   pub best_move: BestMove,
   pub nodes: u64,
