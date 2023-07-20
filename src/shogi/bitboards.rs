@@ -1,6 +1,6 @@
 use super::cell::Direction;
 
-fn dir_to_usize(d: &Direction) -> usize {
+pub fn dir_to_usize(d: &Direction) -> usize {
   let k = 3 * d.0 + d.1 + 4;
   (if k > 4 { k - 1 } else { k }) as _
 }

@@ -33,7 +33,7 @@ pub fn delta_direction(cell1: usize, cell2: usize) -> Direction {
   let (delta_row, delta_col) = delta(cell1, cell2);
   (delta_row.signum(), delta_col.signum())
 }
-pub fn between(cell1: usize, cell2: usize) -> u128 {
+pub fn between_naive(cell1: usize, cell2: usize) -> u128 {
   let mut r = 0u128;
   let (delta_row, delta_col) = delta_direction(cell1, cell2);
   let delta = 9 * delta_row as isize + delta_col;
@@ -46,6 +46,12 @@ pub fn between(cell1: usize, cell2: usize) -> u128 {
     r |= 1u128 << k;
   }
   r
+}
+pub fn between(cell1: usize, cell2: usize) -> u128 {
+  use super::consts::SLIDING_MASKS;
+  let d = delta_direction(cell1, cell2);
+  let k = super::bitboards::dir_to_usize(&d);
+  SLIDING_MASKS[8 * cell1 + k] ^ SLIDING_MASKS[8 * cell2 + k] ^ (1u128 << cell1)
 }
 
 pub fn mirror(cell: usize) -> usize {
