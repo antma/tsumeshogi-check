@@ -22,6 +22,7 @@ pub struct Position {
   white_pockets: [u8; 8],
   black_king_position: Option<usize>,
   white_king_position: Option<usize>,
+  all_pieces: u128,
   pub hash: u64,
   pub move_no: u32,
   drop_masks: u32,
@@ -195,6 +196,7 @@ impl Position {
     self.nifu_masks = (nify_mask_reverse(lo) << 16) + nify_mask_reverse(hi);
     self.side *= -1;
     self.hash = self.compute_hash();
+    self.all_pieces = board::compute_all_pieces(&self.board);
     assert_eq!(
       self.black_king_position,
       board::find_king_position(&self.board, 1)
@@ -451,6 +453,7 @@ impl Position {
       white_pockets,
       black_king_position: board::find_king_position(&board, 1),
       white_king_position: board::find_king_position(&board, -1),
+      all_pieces: board::compute_all_pieces(&board),
       hash,
       drop_masks: compute_drops_mask(&black_pockets) | (compute_drops_mask(&white_pockets) << 16),
       nifu_masks,
@@ -709,49 +712,38 @@ impl Position {
   }
   fn attacked(&self, king_pos: usize, s: i8) -> bool {
     let (king_row, king_col) = cell::unpack(king_pos);
-    for t in if s > 0 {
-      piece::BLACK_DIRECTIONS.iter()
+    for (i, (flags, p)) in if s > 0 {
+      piece::BLACK_DIRECTIONS_FLAGS.iter()
     } else {
-      piece::WHITE_DIRECTIONS.iter()
-    } {
-      let mut row = king_row;
-      let mut col = king_col;
-      let mut cells = 0;
-      let q = loop {
-        let r = (row as isize) + t.0;
-        if r < 0 || r >= 9 {
-          break None;
-        }
-        let c = (col as isize) + t.1;
-        if c < 0 || c >= 9 {
-          break None;
-        }
-        row = r as usize;
-        col = c as usize;
-        let k = 9 * row + col;
+      piece::WHITE_DIRECTIONS_FLAGS.iter()
+    }
+    .zip(consts::SLIDING_MASKS.iter().skip(8 * king_pos))
+    .enumerate()
+    {
+      let b = *p & self.all_pieces;
+      if b != 0 {
+        let k = if i < 4 {
+          bitboards::last(b)
+        } else {
+          bitboards::first(b)
+        };
         let piece = self.board[k];
         let t = s * piece;
+        debug_assert_ne!(t, 0);
         if t < 0 {
-          break Some(piece);
-        } else if t == 0 {
-          cells |= 1u128 << k;
-        } else {
-          break None;
-        }
-      };
-      match q {
-        Some(piece) => {
-          let p = piece.abs();
-          let b = if cells == 0 {
-            piece::is_near_dir(p, t.2)
+          let pa = piece.abs();
+          let (row, col) = cell::unpack(k);
+          let ok = if (king_row as isize - row as isize).abs() <= 1
+            && (king_col as isize - col as isize).abs() <= 1
+          {
+            piece::is_near_dir(pa, *flags)
           } else {
-            piece::is_sliding_dir(p, t.2)
+            piece::is_sliding_dir(pa, *flags)
           };
-          if b {
+          if ok {
             return true;
           }
         }
-        _ => (),
       }
     }
     //knight checks
@@ -1059,7 +1051,9 @@ impl Position {
     r
   }
   pub fn do_move(&mut self, m: &Move) -> moves::UndoMove {
+    //debug_assert_eq!(self.all_pieces, board::compute_all_pieces(&self.board), "all pieces validation failed before doing {:?}", m);
     let u = moves::UndoMove {
+      all_pieces: self.all_pieces,
       hash: self.hash,
       drop_masks: self.drop_masks,
       nifu_masks: self.nifu_masks,
@@ -1073,6 +1067,7 @@ impl Position {
       } else if m.to_piece == -piece::KING {
         self.white_king_position = Some(m.to);
       }
+      self.all_pieces ^= 1u128 << m.from;
     } else {
       if m.to_piece > 0 {
         self.hash ^=
@@ -1110,12 +1105,15 @@ impl Position {
         }
         self.hash ^= hash::get_black_pocket_hash(-p, self.black_pockets[(-p) as usize]);
       }
+    } else {
+      self.all_pieces ^= 1u128 << m.to;
     }
     self.board[m.to] = m.to_piece;
     self.hash ^= hash::get_piece_hash(m.to_piece, m.to);
     self.move_no += 1;
     self.side *= -1;
     self.hash = !self.hash;
+    //debug_assert_eq!(self.all_pieces, board::compute_all_pieces(&self.board), "all pieces validation failed after doing {:?}", m);
     debug_assert!(
       self.validate_hash(),
       "hash validation failed after doing {:?}",
@@ -1124,6 +1122,7 @@ impl Position {
     u
   }
   pub fn undo_move(&mut self, m: &Move, u: &moves::UndoMove) {
+    self.all_pieces = u.all_pieces;
     self.hash = u.hash;
     self.drop_masks = u.drop_masks;
     self.nifu_masks = u.nifu_masks;

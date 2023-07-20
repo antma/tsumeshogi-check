@@ -32,3 +32,11 @@ pub fn compute_hash(board: &[i8]) -> u64 {
     .filter(|(_, &p)| p != piece::NONE)
     .fold(0, |acc, (cell, p)| acc ^ hash::get_piece_hash(*p, cell))
 }
+
+pub fn compute_all_pieces(board: &[i8]) -> u128 {
+  board
+    .iter()
+    .enumerate()
+    .filter(|(_, p)| **p != piece::NONE)
+    .fold(0, |acc, (i, _)| acc ^ (1u128 << i))
+}
