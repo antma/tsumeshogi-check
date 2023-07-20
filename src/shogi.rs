@@ -3,8 +3,10 @@ use std::fmt;
 use std::str::FromStr;
 
 pub mod attacking_pieces;
+mod bitboards;
 mod board;
 mod cell;
+mod consts;
 pub mod game;
 mod hash;
 pub mod kif;
