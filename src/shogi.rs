@@ -766,57 +766,44 @@ impl Position {
     }
     false
   }
-
   fn checks(&self, king_pos: usize, s: i8) -> Checks {
-    let (king_row, king_col) = cell::unpack(king_pos);
     let mut attacking_pieces = attacking_pieces::AttackingPieces::default();
     let mut blocking_cells = 0u128;
-    for t in if s > 0 {
-      piece::BLACK_DIRECTIONS.iter()
+    for (i, (flags, p)) in if s > 0 {
+      piece::BLACK_DIRECTIONS_FLAGS.iter()
     } else {
-      piece::WHITE_DIRECTIONS.iter()
-    } {
-      let mut row = king_row;
-      let mut col = king_col;
-      let mut cells = 0;
-      let q = loop {
-        let r = (row as isize) + t.0;
-        if r < 0 || r >= 9 {
-          break None;
-        }
-        let c = (col as isize) + t.1;
-        if c < 0 || c >= 9 {
-          break None;
-        }
-        row = r as usize;
-        col = c as usize;
-        let k = 9 * row + col;
+      piece::WHITE_DIRECTIONS_FLAGS.iter()
+    }
+    .zip(consts::SLIDING_MASKS.iter().skip(8 * king_pos))
+    .enumerate()
+    {
+      let b = *p & self.all_pieces;
+      if b != 0 {
+        let k = if i < 4 {
+          bitboards::last(b)
+        } else {
+          bitboards::first(b)
+        };
         let piece = self.board[k];
         let t = s * piece;
+        debug_assert_ne!(t, 0);
         if t < 0 {
-          break Some((k, piece));
-        } else if t == 0 {
-          cells |= 1u128 << k;
-        } else {
-          break None;
-        }
-      };
-      match q {
-        Some((k, piece)) => {
-          let p = piece.abs();
-          let b = if cells == 0 {
-            piece::is_near_dir(p, t.2)
+          let pa = piece.abs();
+          let cells = *p ^ consts::SLIDING_MASKS[8 * k + i] ^ (1u128 << k);
+          if cells == 0 {
+            if piece::is_near_dir(pa, *flags) {
+              attacking_pieces.push(k);
+            }
           } else {
-            piece::is_sliding_dir(p, t.2)
+            if piece::is_sliding_dir(pa, *flags) {
+              attacking_pieces.push(k);
+              blocking_cells |= cells;
+            }
           };
-          if b {
-            attacking_pieces.push(k);
-            blocking_cells |= cells;
-          }
         }
-        _ => (),
       }
     }
+    let (king_row, king_col) = cell::unpack(king_pos);
     //knight checks
     let r = (king_row as isize) - 2 * (s as isize);
     if r >= 0 && r < 9 {
