@@ -193,6 +193,54 @@ impl GoteMovesIterator {
   }
 }
 
+#[cfg(test)]
+fn perft_sente(pos: &mut Position, v: &mut [u32], ochecks: Option<Checks>, depth: usize) {
+  v[depth] += 1;
+  let next_depth = depth + 1;
+  if next_depth >= v.len() {
+    return;
+  }
+  let mut it = SenteMovesIterator::new(pos, ochecks);
+  while let Some((m, u, oc)) = it.do_next_move(pos) {
+    perft_gote(pos, v, oc, next_depth);
+    pos.undo_move(&m, &u);
+  }
+}
+
+#[cfg(test)]
+fn perft_gote(pos: &mut Position, v: &mut [u32], ochecks: Option<Checks>, depth: usize) {
+  v[depth] += 1;
+  let next_depth = depth + 1;
+  if next_depth >= v.len() {
+    return;
+  }
+  let allow_futile_drops = false;
+  let mut it = GoteMovesIterator::new(pos, ochecks, None, allow_futile_drops);
+  while let Some((m, u, oc)) = it.do_next_move(pos, |_| 0.0) {
+    perft_sente(pos, v, oc, next_depth);
+    pos.undo_move(&m, &u);
+  }
+}
+
+#[cfg(test)]
+fn perft(sfen: &str, depth: usize) -> Vec<u32> {
+  let mut v = vec![0; depth];
+  let mut pos = Position::parse_sfen(sfen).unwrap();
+  perft_sente(&mut pos, &mut v, None, 0);
+  v
+}
+
+#[test]
+fn test_perft() {
+  assert_eq!(
+    perft(
+      "G1+R4nl/2l+B1+N3/7pp/pgkpp1s2/1P1n1Pp2/g3P2RP/5+p3/2p3s1K/+b6NL b G2sl6p 1",
+      5
+    ),
+    vec![1, 7, 22, 159, 654]
+  );
+}
+
 #[test]
 fn test_sente_iterator_unique() {
   let mut pos = Position::parse_sfen(
