@@ -140,6 +140,7 @@ impl Search {
         ev.depth += 1;
         if res.gote_cmp(&ev, pos) == Ordering::Less {
           res.depth = ev.depth;
+          res.best_move = BestMove::None;
           res.update_best_move(m, ev);
         }
       }

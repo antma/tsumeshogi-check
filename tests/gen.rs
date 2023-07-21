@@ -20,6 +20,7 @@ fn moves_generation() {
       vec!["K7b", "K7c", "K7d", "K8d", "K9d", "P9b+", "P9b="],
     ),
     ("k8/+P8/1K7/9/9/9/9/9/9 w 2r2b4g4s4n4l17p 1", vec![]),
+    ("l5Gll/6SGk/2n1+N3p/p1p3ppL/7G1/P1P2P3/4SS3/2+p4K1/+rP2P1R2 w 2BGS2N5P2p 2", vec!["Kx2b", "Lx2b"]),
   ] {
     let mut pos = Position::parse_sfen(&sfen).unwrap();
     let checks = pos.compute_checks();

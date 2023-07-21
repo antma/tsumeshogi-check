@@ -766,6 +766,62 @@ impl Position {
     }
     false
   }
+  fn attacking_pieces(&self, king_pos: usize, s: i8) -> attacking_pieces::AttackingPieces {
+    let mut attacking_pieces = attacking_pieces::AttackingPieces::default();
+    for (i, (flags, p)) in if s > 0 {
+      piece::BLACK_DIRECTIONS_FLAGS.iter()
+    } else {
+      piece::WHITE_DIRECTIONS_FLAGS.iter()
+    }
+    .zip(consts::SLIDING_MASKS.iter().skip(8 * king_pos))
+    .enumerate()
+    {
+      let b = *p & self.all_pieces;
+      if b != 0 {
+        let k = if i < 4 {
+          bitboards::last(b)
+        } else {
+          bitboards::first(b)
+        };
+        let piece = self.board[k];
+        let t = s * piece;
+        debug_assert_ne!(t, 0);
+        if t < 0 {
+          let pa = piece.abs();
+          let cells = *p ^ consts::SLIDING_MASKS[8 * k + i] ^ (1u128 << k);
+          let ok = if cells == 0 {
+            piece::is_near_dir(pa, *flags)
+          } else {
+            piece::is_sliding_dir(pa, *flags)
+          };
+          if ok {
+            attacking_pieces.push(k);
+          }
+        }
+      }
+    }
+    let (king_row, king_col) = cell::unpack(king_pos);
+    //knight checks
+    let r = (king_row as isize) - 2 * (s as isize);
+    if r >= 0 && r < 9 {
+      for t in piece::KNIGHT_MOVES_DELTA_COL.iter() {
+        let c = (king_col as isize) + (*t) * (s as isize);
+        if c < 0 || c >= 9 {
+          continue;
+        }
+        let k = 9 * r as usize + c as usize;
+        let piece = self.board[k];
+        if s * piece >= 0 {
+          continue;
+        }
+        if piece.abs() != piece::KNIGHT {
+          continue;
+        }
+        attacking_pieces.push(k);
+      }
+    }
+    attacking_pieces
+  }
   fn checks(&self, king_pos: usize, s: i8) -> Checks {
     let mut attacking_pieces = attacking_pieces::AttackingPieces::default();
     let mut blocking_cells = 0u128;
@@ -1004,38 +1060,84 @@ impl Position {
     }
     r
   }
+  fn compute_moves_after_nonblocking_check(&self, attacking_piece: Option<usize>) -> Vec<Move> {
+    let mut r = Vec::new();
+    let king = self.side * piece::KING;
+    if let Some(pos) = if king > 0 {
+      self.black_king_position.as_ref()
+    } else {
+      self.white_king_position.as_ref()
+    } {
+      let mut func_add = |m| {
+        r.push(m);
+        false
+      };
+      for t in piece::KING_MOVES.iter() {
+        self.enumerate_piece_move(&mut func_add, *pos, king, t.0, t.1, false);
+      }
+    }
+    if let Some(to) = attacking_piece {
+      let pz_to = cell::promotion_zone(to, self.side);
+      for from in self.attacking_pieces(to, -self.side) {
+        let piece = self.board[from];
+        if piece == king {
+          continue;
+        }
+        debug_assert_eq!(piece.signum(), self.side);
+        if piece::is_promoted(piece) || piece::could_unpromoted(piece, to) {
+          r.push(Move {
+            from,
+            to,
+            from_piece: piece,
+            to_piece: piece,
+          });
+        }
+        if piece::could_promoted(piece) && (pz_to || cell::promotion_zone(from, self.side)) {
+          r.push(Move {
+            from,
+            to,
+            from_piece: piece,
+            to_piece: piece + piece.signum() * piece::PROMOTED,
+          });
+        }
+      }
+    }
+    r
+  }
   pub fn compute_moves(&self, checks: &Checks) -> Vec<Move> {
     debug_assert!(self.validate_checks(checks));
-    let mut r = Vec::new();
     match checks.attacking_pieces.len() {
       0 => {
         //no check
+        let mut r = Vec::new();
         self.enumerate_simple_moves(|m| {
           r.push(m);
           false
         });
+        r
       }
       1 => {
         let p = checks.attacking_pieces.first().unwrap();
-        self.enumerate_simple_moves(|m| {
-          let b = checks.blocking_cell(m.to);
-          if (m.from_piece.abs() == piece::KING && !b) || b || m.to == p {
-            r.push(m);
-          }
-          false
-        });
+        if checks.blocking_cells == 0 {
+          self.compute_moves_after_nonblocking_check(Some(p))
+        } else {
+          let mut r = Vec::new();
+          self.enumerate_simple_moves(|m| {
+            let b = checks.blocking_cell(m.to);
+            if (m.from_piece.abs() == piece::KING && !b) || b || m.to == p {
+              r.push(m);
+            }
+            false
+          });
+          r
+        }
       }
       2 => {
-        self.enumerate_simple_moves(|m| {
-          if m.from_piece.abs() == piece::KING {
-            r.push(m);
-          }
-          false
-        });
+        //TODO: special case for enumerate_king_moves
+        self.compute_moves_after_nonblocking_check(None)
       }
       _ => panic!("too many attacking pieces"),
     }
-    r
   }
   pub fn do_move(&mut self, m: &Move) -> moves::UndoMove {
     //debug_assert_eq!(self.all_pieces, board::compute_all_pieces(&self.board), "all pieces validation failed before doing {:?}", m);
