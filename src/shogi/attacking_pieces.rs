@@ -5,6 +5,31 @@ pub enum AttackingPieces {
   Bitset(u128),
 }
 
+impl Iterator for AttackingPieces {
+  type Item = usize;
+  fn next(&mut self) -> Option<Self::Item> {
+    match self {
+      AttackingPieces::TinyArray(a, n) => {
+        if *n == 0 {
+          None
+        } else {
+          *n -= 1;
+          Some(a[*n])
+        }
+      }
+      AttackingPieces::Bitset(b) => {
+        if *b == 0 {
+          None
+        } else {
+          let k = super::bitboards::first(*b);
+          *b ^= 1u128 << k;
+          Some(k)
+        }
+      }
+    }
+  }
+}
+
 impl Default for AttackingPieces {
   fn default() -> Self {
     AttackingPieces::TinyArray([usize::MAX; 2], 0)
