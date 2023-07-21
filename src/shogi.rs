@@ -1124,7 +1124,7 @@ impl Position {
           let mut r = Vec::new();
           self.enumerate_simple_moves(|m| {
             let b = checks.blocking_cell(m.to);
-            if (m.from_piece.abs() == piece::KING && !b) || b || m.to == p {
+            if (m.from_piece.abs() != piece::KING) == b || m.to == p {
               r.push(m);
             }
             false
