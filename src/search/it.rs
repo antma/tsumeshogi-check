@@ -25,8 +25,8 @@ impl SenteMovesIterator {
   fn compute_drops(&mut self, pos: &Position) {
     self.moves = pos.compute_drops_with_check()
   }
-  pub fn new(pos: &Position, ochecks: Option<Checks>) -> Self {
-    let checks = ochecks.unwrap_or_else(|| pos.compute_checks());
+  pub fn new(pos: &Position) -> Self {
+    let checks = pos.compute_checks();
     Self {
       moves: pos.compute_moves(&checks),
       checks,
@@ -53,7 +53,7 @@ impl SenteMovesIterator {
       }
     }
   }
-  pub fn do_next_move(&mut self, pos: &mut Position) -> Option<(Move, UndoMove, Option<Checks>)> {
+  pub fn do_next_move(&mut self, pos: &mut Position) -> Option<(Move, UndoMove, Checks)> {
     while let Some(m) = self.next(pos) {
       let u = pos.do_move(&m);
       let legal = if m.is_drop() && !self.checks.is_check() {
@@ -63,17 +63,14 @@ impl SenteMovesIterator {
         pos.is_legal()
       };
       if legal {
-        let (good, ochecks) = {
-          let c = if m.is_drop() {
-            pos.compute_checks_after_drop_with_check(&m)
-          } else {
-            pos.compute_checks()
-          };
-          (c.is_check(), Some(c))
+        let checks = if m.is_drop() {
+          pos.compute_checks_after_drop_with_check(&m)
+        } else {
+          pos.compute_checks()
         };
-        if good {
+        if checks.is_check() {
           self.legal_moves += 1;
-          return Some((m, u, ochecks));
+          return Some((m, u, checks));
         }
       }
       pos.undo_move(&m, &u);
@@ -103,15 +100,10 @@ impl GoteMovesIterator {
   fn compute_drops(&mut self, pos: &Position) {
     self.moves = pos.compute_drops(&self.checks);
   }
-  pub fn new(
-    pos: &Position,
-    ochecks: Option<Checks>,
-    best_move: Option<Move>,
-    allow_futile_drops: bool,
-  ) -> Self {
+  pub fn new(checks: Checks, best_move: Option<Move>, allow_futile_drops: bool) -> Self {
     Self {
       moves: best_move.clone().into_iter().collect(),
-      checks: ochecks.unwrap_or_else(|| pos.compute_checks()),
+      checks,
       best_move: best_move,
       k: 0,
       takes: usize::MAX,
@@ -153,7 +145,7 @@ impl GoteMovesIterator {
     &mut self,
     pos: &mut Position,
     history: F,
-  ) -> Option<(Move, UndoMove, Option<Checks>)> {
+  ) -> Option<(Move, UndoMove)> {
     while let Some((m, unprocessed)) = self.next(pos, &history) {
       let u = pos.do_move(&m);
       let legal = if m.is_drop() {
@@ -163,28 +155,23 @@ impl GoteMovesIterator {
         pos.is_legal()
       };
       if legal {
-        let (good, ochecks) = {
-          if self.k == 1
-            && self.state == 2
-            && self.expect_futile_drop_check
-            && pos.is_futile_drop(&self.checks, &m)
-          {
-            self.k = self.moves.len();
-            pos.undo_move(&m, &u);
-            return None;
-          } else {
-            self.expect_futile_drop_check = false;
-            (true, None)
-          }
-        };
-        if good {
-          if !m.is_drop() {
-            self.expect_futile_drop_check = false;
-          }
-          if unprocessed {
-            self.legal_moves += 1;
-            return Some((m, u, ochecks));
-          }
+        if self.k == 1
+          && self.state == 2
+          && self.expect_futile_drop_check
+          && pos.is_futile_drop(&self.checks, &m)
+        {
+          self.k = self.moves.len();
+          pos.undo_move(&m, &u);
+          return None;
+        } else {
+          self.expect_futile_drop_check = false;
+        }
+        if !m.is_drop() {
+          self.expect_futile_drop_check = false;
+        }
+        if unprocessed {
+          self.legal_moves += 1;
+          return Some((m, u));
         }
       }
       pos.undo_move(&m, &u);
@@ -194,13 +181,13 @@ impl GoteMovesIterator {
 }
 
 #[cfg(test)]
-fn perft_sente(pos: &mut Position, v: &mut [u32], ochecks: Option<Checks>, depth: usize) {
+fn perft_sente(pos: &mut Position, v: &mut [u32], depth: usize) {
   v[depth] += 1;
   let next_depth = depth + 1;
   if next_depth >= v.len() {
     return;
   }
-  let mut it = SenteMovesIterator::new(pos, ochecks);
+  let mut it = SenteMovesIterator::new(pos);
   while let Some((m, u, oc)) = it.do_next_move(pos) {
     perft_gote(pos, v, oc, next_depth);
     pos.undo_move(&m, &u);
@@ -208,16 +195,16 @@ fn perft_sente(pos: &mut Position, v: &mut [u32], ochecks: Option<Checks>, depth
 }
 
 #[cfg(test)]
-fn perft_gote(pos: &mut Position, v: &mut [u32], ochecks: Option<Checks>, depth: usize) {
+fn perft_gote(pos: &mut Position, v: &mut [u32], checks: Checks, depth: usize) {
   v[depth] += 1;
   let next_depth = depth + 1;
   if next_depth >= v.len() {
     return;
   }
   let allow_futile_drops = false;
-  let mut it = GoteMovesIterator::new(pos, ochecks, None, allow_futile_drops);
-  while let Some((m, u, oc)) = it.do_next_move(pos, |_| 0.0) {
-    perft_sente(pos, v, oc, next_depth);
+  let mut it = GoteMovesIterator::new(checks, None, allow_futile_drops);
+  while let Some((m, u)) = it.do_next_move(pos, |_| 0.0) {
+    perft_sente(pos, v, next_depth);
     pos.undo_move(&m, &u);
   }
 }
@@ -226,7 +213,7 @@ fn perft_gote(pos: &mut Position, v: &mut [u32], ochecks: Option<Checks>, depth:
 fn perft(sfen: &str, depth: usize) -> Vec<u32> {
   let mut v = vec![0; depth];
   let mut pos = Position::parse_sfen(sfen).unwrap();
-  perft_sente(&mut pos, &mut v, None, 0);
+  perft_sente(&mut pos, &mut v, 0);
   v
 }
 
@@ -247,7 +234,7 @@ fn test_sente_iterator_unique() {
     "lnn5l/2g1S1+Bp1/bp1pk3p/pP1g2p2/4s4/P1R2PP1P/2KP2g2/2S2+r3/LN1G4L b P5pns 1",
   )
   .unwrap();
-  let mut it = SenteMovesIterator::new(&pos, None);
+  let mut it = SenteMovesIterator::new(&pos);
   let mut s = std::collections::BTreeSet::new();
   while let Some((m, u, _)) = it.do_next_move(&mut pos) {
     assert!(
