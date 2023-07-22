@@ -1335,8 +1335,7 @@ impl Position {
         return false;
       }
       self
-        .checks(m.to, -self.side)
-        .attacking_pieces
+        .attacking_pieces(m.to, -self.side)
         .contains(&m.from)
     }
   }
