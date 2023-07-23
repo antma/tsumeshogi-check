@@ -1,4 +1,3 @@
-use super::direction;
 pub fn promotion_zone(cell: usize, side: i8) -> bool {
   if side > 0 {
     cell < 27
@@ -26,8 +25,7 @@ pub fn to_string(cell: usize) -> String {
 
 pub fn between(cell1: usize, cell2: usize) -> u128 {
   use super::consts::SLIDING_MASKS;
-  let d = direction::delta_direction(cell2, cell1);
-  let k = direction::to_usize(&d);
+  let k = super::direction::delta_direction_no(cell2, cell1);
   SLIDING_MASKS[8 * cell1 + k] ^ SLIDING_MASKS[8 * cell2 + k] ^ (1u128 << cell1)
 }
 

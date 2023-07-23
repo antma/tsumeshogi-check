@@ -711,6 +711,38 @@ impl Position {
     }
     false
   }
+  fn attacked_by_sliding_piece_in_given_direction_no(
+    &self,
+    king_pos: usize,
+    s: i8,
+    i: usize,
+  ) -> bool {
+    let flags = if s > 0 {
+      piece::BLACK_DIRECTIONS_FLAGS[i]
+    } else {
+      piece::WHITE_DIRECTIONS_FLAGS[i]
+    };
+    let p = consts::SLIDING_MASKS[8 * king_pos + i];
+    let b = p & self.all_pieces;
+    if b == 0 {
+      return false;
+    }
+    let k = if i < 4 {
+      bitboards::last(b)
+    } else {
+      bitboards::first(b)
+    };
+    let piece = self.board[k];
+    let t = s * piece;
+    debug_assert_ne!(t, 0);
+    if t < 0 {
+      let pa = piece.abs();
+      if piece::is_sliding_dir(pa, flags) {
+        return true;
+      }
+    }
+    false
+  }
   fn attacked(&self, king_pos: usize, s: i8) -> bool {
     let (king_row, king_col) = cell::unpack(king_pos);
     for (i, (flags, p)) in if s > 0 {
@@ -986,6 +1018,24 @@ impl Position {
       attacking_pieces: attacking_pieces::AttackingPieces::once(drop.to),
       king_pos,
       hash: self.hash,
+    }
+  }
+  pub fn is_legal_after_move_in_checkless_position(&self, m: &Move) -> bool {
+    //could be used in the special case then there is no check in position before move m
+    let s = -self.side;
+    let king_pos = self.find_king_position(s);
+    match king_pos {
+      Some(king_pos) => {
+        if m.from_piece == piece::KING * s {
+          return self.is_legal();
+        }
+        if let Some(i) = direction::try_to_find_delta_direction_no(king_pos, m.from) {
+          !self.attacked_by_sliding_piece_in_given_direction_no(king_pos, s, i)
+        } else {
+          true
+        }
+      }
+      None => true,
     }
   }
   pub fn is_legal(&self) -> bool {

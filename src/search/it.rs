@@ -56,9 +56,13 @@ impl SenteMovesIterator {
   pub fn do_next_move(&mut self, pos: &mut Position) -> Option<(Move, UndoMove, Checks)> {
     while let Some(m) = self.next(pos) {
       let u = pos.do_move(&m);
-      let legal = if m.is_drop() && !self.checks.is_check() {
-        debug_assert!(pos.is_legal());
-        true
+      let legal = if !self.checks.is_check() {
+        if m.is_drop() {
+          debug_assert!(pos.is_legal());
+          true
+        } else {
+          pos.is_legal_after_move_in_checkless_position(&m)
+        }
       } else {
         pos.is_legal()
       };
