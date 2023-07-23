@@ -7,6 +7,7 @@ mod bitboards;
 mod board;
 mod cell;
 mod consts;
+mod direction;
 pub mod game;
 mod hash;
 pub mod kif;
@@ -52,7 +53,7 @@ impl Iterator for SlidingIterator {
 
 impl SlidingIterator {
   fn new(attacking_piece: usize, king_pos: usize, drops_mask: u32) -> Self {
-    let (delta_row, delta_col) = cell::delta_direction(king_pos, attacking_piece);
+    let (delta_row, delta_col) = direction::delta_direction(king_pos, attacking_piece);
     SlidingIterator {
       delta: 9 * delta_row + delta_col,
       last: king_pos,
@@ -1334,9 +1335,7 @@ impl Position {
       if self.board[m.from] != m.from_piece || m.from == m.to {
         return false;
       }
-      self
-        .attacking_pieces(m.to, -self.side)
-        .contains(&m.from)
+      self.attacking_pieces(m.to, -self.side).contains(&m.from)
     }
   }
   pub fn reorder_takes_to_front(&self, moves: &mut [Move]) -> usize {

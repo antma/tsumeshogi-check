@@ -1,4 +1,4 @@
-use super::cell::Direction;
+use super::direction::Direction;
 pub const PIECE_TO_CHAR: &str = "plnsgbrk";
 pub const NONE: i8 = 0;
 pub const PAWN: i8 = 1;
