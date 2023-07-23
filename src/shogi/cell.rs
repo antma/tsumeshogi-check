@@ -24,18 +24,18 @@ pub fn to_string(cell: usize) -> String {
   s
 }
 
-fn delta(cell1: usize, cell2: usize) -> Direction {
-  let (row1, col1) = unpack(cell1);
-  let (row2, col2) = unpack(cell2);
-  (row1 as isize - row2 as isize, col1 as isize - col2 as isize)
+fn delta(from: usize, to: usize) -> Direction {
+  let (row1, col1) = unpack(from);
+  let (row2, col2) = unpack(to);
+  (row2 as isize - row1 as isize, col2 as isize - col1 as isize)
 }
-pub fn delta_direction(cell1: usize, cell2: usize) -> Direction {
-  let (delta_row, delta_col) = delta(cell1, cell2);
+pub fn delta_direction(from: usize, to: usize) -> Direction {
+  let (delta_row, delta_col) = delta(from, to);
   (delta_row.signum(), delta_col.signum())
 }
 pub fn between(cell1: usize, cell2: usize) -> u128 {
   use super::consts::SLIDING_MASKS;
-  let d = delta_direction(cell1, cell2);
+  let d = delta_direction(cell2, cell1);
   let k = super::bitboards::dir_to_usize(&d);
   SLIDING_MASKS[8 * cell1 + k] ^ SLIDING_MASKS[8 * cell2 + k] ^ (1u128 << cell1)
 }

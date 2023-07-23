@@ -52,7 +52,7 @@ impl Iterator for SlidingIterator {
 
 impl SlidingIterator {
   fn new(attacking_piece: usize, king_pos: usize, drops_mask: u32) -> Self {
-    let (delta_row, delta_col) = cell::delta_direction(attacking_piece, king_pos);
+    let (delta_row, delta_col) = cell::delta_direction(king_pos, attacking_piece);
     SlidingIterator {
       delta: 9 * delta_row + delta_col,
       last: king_pos,
