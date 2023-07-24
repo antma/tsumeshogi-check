@@ -1343,7 +1343,13 @@ impl Position {
       u.undo(self);
       return false;
     }
-    let moves = self.compute_moves(&self.compute_checks());
+    let checks = Checks {
+      blocking_cells: 0,
+      attacking_pieces: attacking_pieces::AttackingPieces::once(drop.to),
+      king_pos: self.find_king_position(self.side),
+      hash: self.hash,
+    };
+    let moves = self.compute_moves(&checks);
     for m in moves {
       u.push(self, m);
       if self.is_legal() {
