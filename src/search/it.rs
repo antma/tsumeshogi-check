@@ -60,23 +60,23 @@ impl SenteMovesIterator {
   pub fn do_next_move(&mut self, pos: &mut Position) -> Option<(Move, UndoMove, Checks)> {
     while let Some(m) = self.next(pos) {
       let u = pos.do_move(&m);
-      let legal = if !self.checks.is_check() {
-        if m.is_drop() {
-          debug_assert!(pos.is_legal());
-          true
-        } else {
-          pos.is_legal_after_move_in_checkless_position(&m)
-        }
+      let checks = if m.is_drop() {
+        pos.compute_checks_after_drop_with_check(&m)
       } else {
-        pos.is_legal()
+        pos.compute_checks_after_move(&m)
       };
-      if legal {
-        let checks = if m.is_drop() {
-          pos.compute_checks_after_drop_with_check(&m)
+      if checks.is_check() {
+        let legal = if !self.checks.is_check() {
+          if m.is_drop() {
+            debug_assert!(pos.is_legal());
+            true
+          } else {
+            pos.is_legal_after_move_in_checkless_position(&m)
+          }
         } else {
-          pos.compute_checks_after_move(&m)
+          pos.is_legal()
         };
-        if checks.is_check() {
+        if legal {
           self.legal_moves += 1;
           return Some((m, u, checks));
         }
