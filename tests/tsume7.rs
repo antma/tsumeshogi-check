@@ -17,8 +17,3 @@ fn tsume7() {
     7,
   );
 }
-
-#[test]
-fn with_futil_drop() {
-  common::tsume_batch_test_ext(vec!["4r2nk/6+Pbl/9/6L2/9/9/9/9/9 b B 1"], 7, Some(7), true);
-}

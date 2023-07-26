@@ -1,5 +1,5 @@
+use tsumeshogi_check::search;
 use tsumeshogi_check::shogi::Position;
-use tsumeshogi_check::tsume_search::Search;
 mod common;
 
 #[test]
@@ -57,31 +57,14 @@ fn swap_sides() {
 }
 
 #[test]
-fn recover_pv() {
-  let mut pos = Position::parse_sfen(
-    "2R4nl/6g2/S2+B2s1+P/2gppppp1/1kpsnP3/LN1PS4/1PG1P1N2/3K3R1/1+p3+b2L b LPg5p 125",
-  )
-  .unwrap();
-  let hash = pos.hash;
-  let allow_futile_drops = false;
-  let mut s = Search::new(allow_futile_drops);
-  assert_eq!(s.iterative_search(&mut pos, 1, 3), Some(3));
-  assert_eq!(hash, pos.hash);
-  let pv = s.get_pv_from_hash(&mut pos);
-  assert_eq!(hash, pos.hash);
-  assert!(pv.is_some());
-}
-
-#[test]
 fn unique_mate() {
   let mut pos =
     Position::parse_sfen("+N7l/9/2GSppS2/p5p+Rp/7l1/1PP1k4/P1SP2NP1/2GK2S2/LN1B1G3 b RN3Pbgl5p 1")
       .unwrap();
-  let allow_futile_drops = false;
-  let mut s = Search::new(allow_futile_drops);
-  assert_eq!(s.iterative_search(&mut pos, 1, 3), Some(3));
-  let pv = s.get_pv_from_hash(&mut pos).unwrap();
-  s.is_unique_mate(&mut pos, &pv, 2);
+  let mut s = search::Search::default();
+  let ans = s.search(&mut pos, 3);
+  assert_eq!(ans.0, Some(3));
+  assert!(ans.1.is_some());
 }
 
 //futile drops
