@@ -855,6 +855,75 @@ impl Position {
     }
     attacking_pieces
   }
+  fn checks_after_move(&self, king_pos: usize, s: i8, m: &Move) -> Checks {
+    let mut attacking_pieces = attacking_pieces::AttackingPieces::default();
+    let mut blocking_cells = 0u128;
+    let mut set = Vec::with_capacity(2);
+    if !m.is_drop() {
+      set.push(m.from);
+    }
+    set.push(m.to);
+    let mut used = 0u32;
+    for c in set {
+      if let Some(i) = direction::try_to_find_delta_direction_no(king_pos, c) {
+        let bit = 1 << i;
+        if (used & bit) != 0 {
+          continue;
+        }
+        used += bit;
+        let flags = if s > 0 {
+          piece::BLACK_DIRECTIONS_FLAGS[i]
+        } else {
+          piece::WHITE_DIRECTIONS_FLAGS[i]
+        };
+        let p = consts::SLIDING_MASKS[8 * king_pos + i];
+        let b = p & self.all_pieces;
+        if b != 0 {
+          let k = if i < 4 {
+            bitboards::last(b)
+          } else {
+            bitboards::first(b)
+          };
+          let piece = self.board[k];
+          let t = s * piece;
+          debug_assert_ne!(t, 0);
+          if t < 0 {
+            let pa = piece.abs();
+            let cells = p ^ consts::SLIDING_MASKS[8 * k + i] ^ (1u128 << k);
+            if cells == 0 {
+              if piece::is_near_dir(pa, flags) {
+                attacking_pieces.push(k);
+              }
+            } else {
+              if piece::is_sliding_dir(pa, flags) {
+                attacking_pieces.push(k);
+                blocking_cells |= cells;
+              }
+            };
+          }
+        }
+      }
+    }
+    if m.to_piece.abs() == piece::KNIGHT {
+      let (king_row, king_col) = cell::unpack(king_pos);
+      let (r, c) = cell::unpack(m.to);
+      if r as isize == (king_row as isize) - 2 * (s as isize)
+        && (c as isize - king_col as isize).abs() == 1
+      {
+        attacking_pieces.push(m.to);
+      }
+    }
+    //double checks can't be blocked
+    if attacking_pieces.len() > 1 {
+      blocking_cells = 0;
+    }
+    Checks {
+      attacking_pieces,
+      blocking_cells,
+      king_pos: Some(king_pos),
+      hash: self.hash,
+    }
+  }
   fn checks(&self, king_pos: usize, s: i8) -> Checks {
     let mut attacking_pieces = attacking_pieces::AttackingPieces::default();
     let mut blocking_cells = 0u128;
@@ -997,6 +1066,17 @@ impl Position {
   pub fn compute_checks(&self) -> Checks {
     match self.find_king_position(self.side) {
       Some(king_pos) => self.checks(king_pos, self.side),
+      None => Checks {
+        blocking_cells: 0,
+        attacking_pieces: attacking_pieces::AttackingPieces::default(),
+        king_pos: None,
+        hash: self.hash,
+      },
+    }
+  }
+  pub fn compute_checks_after_move(&self, m: &Move) -> Checks {
+    match self.find_king_position(self.side) {
+      Some(king_pos) => self.checks_after_move(king_pos, self.side, m),
       None => Checks {
         blocking_cells: 0,
         attacking_pieces: attacking_pieces::AttackingPieces::default(),

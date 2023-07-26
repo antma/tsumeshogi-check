@@ -109,7 +109,7 @@ impl Search {
         let x = u32::from(mv);
         self.gote_history_global_tables[d].get(x) * self.gote_history_local_tables[d].get(x)
       }) {
-        let mut ev = self.sente_search(pos, next_depth);
+        let mut ev = self.sente_search(pos, next_depth, Some(&m));
         log::debug!(
           "self.sente_search({}, next_depth: {}) = {:?} after move {}.{}",
           pos,
@@ -150,7 +150,12 @@ impl Search {
       .insert_gote(pos.hash, &res, hash_best_move, self.generation);
     res
   }
-  fn sente_search(&mut self, pos: &mut Position, depth: u8) -> SearchResult {
+  fn sente_search(
+    &mut self,
+    pos: &mut Position,
+    depth: u8,
+    last_move: Option<&Move>,
+  ) -> SearchResult {
     debug_assert_eq!(depth % 2, 1);
     log::debug!("entering sente_search(pos:{}, depth: {})", pos, depth);
     let none_depth = if let Some(q) = self.sente_hash.get_sente(pos.hash) {
@@ -164,7 +169,7 @@ impl Search {
     };
     let nodes = self.nodes_increment();
     let hash_nodes = self.hash_nodes;
-    let mut it = it::SenteMovesIterator::new(pos);
+    let mut it = it::SenteMovesIterator::new(pos, last_move);
     let mut res = SearchResult::new(depth);
     while let Some((m, u, oc)) = it.do_next_move(pos) {
       let next_depth = if res.best_move.is_many() {
@@ -235,7 +240,7 @@ impl Search {
     for depth in (1..=max_depth).step_by(2) {
       log::debug!("depth = {}", depth);
       self.history_resize(depth);
-      let ev = self.sente_search(pos, depth);
+      let ev = self.sente_search(pos, depth, None);
       assert_eq!(hash, pos.hash);
       if ev.best_move.is_some() {
         self.update_global_history();

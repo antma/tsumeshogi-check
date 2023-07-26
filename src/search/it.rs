@@ -25,8 +25,12 @@ impl SenteMovesIterator {
   fn compute_drops(&mut self, pos: &Position) {
     self.moves = pos.compute_drops_with_check()
   }
-  pub fn new(pos: &Position) -> Self {
-    let checks = pos.compute_checks();
+  pub fn new(pos: &Position, last_move: Option<&Move>) -> Self {
+    let checks = if let Some(m) = last_move {
+      pos.compute_checks_after_move(m)
+    } else {
+      pos.compute_checks()
+    };
     Self {
       moves: pos.compute_moves(&checks),
       checks,
@@ -70,7 +74,7 @@ impl SenteMovesIterator {
         let checks = if m.is_drop() {
           pos.compute_checks_after_drop_with_check(&m)
         } else {
-          pos.compute_checks()
+          pos.compute_checks_after_move(&m)
         };
         if checks.is_check() {
           self.legal_moves += 1;
@@ -185,13 +189,13 @@ impl GoteMovesIterator {
 }
 
 #[cfg(test)]
-fn perft_sente(pos: &mut Position, v: &mut [u32], depth: usize) {
+fn perft_sente(pos: &mut Position, v: &mut [u32], depth: usize, last_move: Option<&Move>) {
   v[depth] += 1;
   let next_depth = depth + 1;
   if next_depth >= v.len() {
     return;
   }
-  let mut it = SenteMovesIterator::new(pos);
+  let mut it = SenteMovesIterator::new(pos, last_move);
   while let Some((m, u, oc)) = it.do_next_move(pos) {
     perft_gote(pos, v, oc, next_depth);
     pos.undo_move(&m, &u);
@@ -208,7 +212,7 @@ fn perft_gote(pos: &mut Position, v: &mut [u32], checks: Checks, depth: usize) {
   let allow_futile_drops = false;
   let mut it = GoteMovesIterator::new(checks, None, allow_futile_drops);
   while let Some((m, u)) = it.do_next_move(pos, |_| 0.0) {
-    perft_sente(pos, v, next_depth);
+    perft_sente(pos, v, next_depth, Some(&m));
     pos.undo_move(&m, &u);
   }
 }
@@ -217,7 +221,7 @@ fn perft_gote(pos: &mut Position, v: &mut [u32], checks: Checks, depth: usize) {
 fn perft(sfen: &str, depth: usize) -> Vec<u32> {
   let mut v = vec![0; depth];
   let mut pos = Position::parse_sfen(sfen).unwrap();
-  perft_sente(&mut pos, &mut v, 0);
+  perft_sente(&mut pos, &mut v, 0, None);
   v
 }
 
@@ -238,7 +242,7 @@ fn test_sente_iterator_unique() {
     "lnn5l/2g1S1+Bp1/bp1pk3p/pP1g2p2/4s4/P1R2PP1P/2KP2g2/2S2+r3/LN1G4L b P5pns 1",
   )
   .unwrap();
-  let mut it = SenteMovesIterator::new(&pos);
+  let mut it = SenteMovesIterator::new(&pos, None);
   let mut s = std::collections::BTreeSet::new();
   while let Some((m, u, _)) = it.do_next_move(&mut pos) {
     assert!(
