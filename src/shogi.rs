@@ -573,7 +573,7 @@ impl Position {
         }
         piece::WHITE_SILVER => {
           for t in piece::SILVER_MOVES.iter() {
-            if self.enumerate_piece_move(&mut f, pos, v, -t.0, -t.1, false) {
+            if self.enumerate_piece_move(&mut f, pos, v, -t.0, t.1, false) {
               return true;
             }
           }
@@ -595,7 +595,7 @@ impl Position {
         | piece::WHITE_PROMOTED_KNIGHT
         | piece::WHITE_PROMOTED_SILVER => {
           for t in piece::GOLD_MOVES.iter() {
-            if self.enumerate_piece_move(&mut f, pos, v, -t.0, -t.1, false) {
+            if self.enumerate_piece_move(&mut f, pos, v, -t.0, t.1, false) {
               return true;
             }
           }
@@ -783,7 +783,7 @@ impl Position {
     let r = (king_row as isize) - 2 * (s as isize);
     if r >= 0 && r < 9 {
       for t in piece::KNIGHT_MOVES_DELTA_COL.iter() {
-        let c = (king_col as isize) + (*t) * (s as isize);
+        let c = (king_col as isize) + *t;
         if c < 0 || c >= 9 {
           continue;
         }
@@ -838,7 +838,7 @@ impl Position {
     let r = (king_row as isize) - 2 * (s as isize);
     if r >= 0 && r < 9 {
       for t in piece::KNIGHT_MOVES_DELTA_COL.iter() {
-        let c = (king_col as isize) + (*t) * (s as isize);
+        let c = (king_col as isize) + *t;
         if c < 0 || c >= 9 {
           continue;
         }
@@ -966,7 +966,7 @@ impl Position {
     let r = (king_row as isize) - 2 * (s as isize);
     if r >= 0 && r < 9 {
       for t in piece::KNIGHT_MOVES_DELTA_COL.iter() {
-        let c = (king_col as isize) + (*t) * (s as isize);
+        let c = (king_col as isize) + *t;
         if c < 0 || c >= 9 {
           continue;
         }
@@ -1050,7 +1050,7 @@ impl Position {
     let r = (king_row as isize) + 2 * (self.side as isize);
     if r >= 0 && r < 9 {
       for t in piece::KNIGHT_MOVES_DELTA_COL.iter() {
-        let c = (king_col as isize) - (*t) * (self.side as isize);
+        let c = (king_col as isize) + *t;
         if c < 0 || c >= 9 {
           continue;
         }
