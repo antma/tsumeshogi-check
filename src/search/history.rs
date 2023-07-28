@@ -9,6 +9,15 @@ impl HistoryEntry {
   }
 }
 
+impl Default for HistoryEntry {
+  fn default() -> Self {
+    HistoryEntry {
+      success: 1,
+      total: 1,
+    }
+  }
+}
+
 #[derive(Default)]
 pub struct HistoryTable(std::collections::HashMap<u32, HistoryEntry>);
 impl HistoryTable {
@@ -27,20 +36,14 @@ impl HistoryTable {
         e.success += 1;
         e.total += 1;
       })
-      .or_insert_with(|| HistoryEntry {
-        success: 1,
-        total: 1,
-      });
+      .or_insert_with(HistoryEntry::default);
   }
   pub fn fail(&mut self, packed_move: u32) {
     self
       .0
       .entry(packed_move)
       .and_modify(|e| e.total += 1)
-      .or_insert_with(|| HistoryEntry {
-        success: 1,
-        total: 1,
-      });
+      .or_insert_with(HistoryEntry::default);
   }
   pub fn merge(&mut self, other: Self) {
     for (key, value) in other.0 {
