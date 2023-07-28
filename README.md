@@ -1,14 +1,13 @@
-##How to compile##
-
-###Release###
+## How to compile
+### Release
 ```
 RUSTFLAGS="-C opt-level=3 -C target-cpu=native" cargo build --release
 ```
-###Debug###
+### Debug
 ```
 cargo build
 ```
-##Usage examples##
+## Usage examples
 ```
 DEPTH=5 ./tsumeshogi-check --warn -d${DEPTH} -o out.sfen input.sfen
 ```
