@@ -8,3 +8,7 @@ edition = "2018"
 [dependencies]
 log = { version = "0.4.17", features = ["std"] }
 env_logger = { version = "0.10.0" }
+
+[[bin]]
+name = "tsumeshogi-check"
+path = "src/main.rs"
