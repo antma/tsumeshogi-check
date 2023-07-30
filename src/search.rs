@@ -3,13 +3,27 @@ mod history;
 mod it;
 mod result;
 
-use super::shogi;
+use super::{shogi, stats};
 use hash::SearchHash;
 use history::HistoryTable;
 use result::{BestMove, SearchResult};
 use shogi::moves::{Move, Moves};
 use shogi::{Checks, Position};
 use std::cmp::Ordering;
+
+#[cfg(feature = "stats")]
+#[derive(Default, Debug)]
+struct Stats {
+  sente_take_cuts: u64,
+  sente_drop_cuts: u64,
+  sente_promotion_cuts: u64,
+  mates_by_pawn_drop: u64,
+  max_hash_size: usize,
+}
+
+#[cfg(not(feature = "stats"))]
+#[derive(Default, Debug)]
+struct Stats {}
 
 pub struct Search {
   sente_hash: SearchHash,
@@ -19,6 +33,7 @@ pub struct Search {
   pub nodes: u64,
   hash_nodes: u64,
   generation: u8,
+  stats: Stats,
 }
 
 impl Default for Search {
@@ -33,6 +48,7 @@ impl Default for Search {
       nodes: 0,
       hash_nodes: 0,
       generation: 0,
+      stats: Stats::default(),
     }
   }
 }
@@ -48,6 +64,31 @@ impl Search {
   }
   fn increment_generation(&mut self) {
     self.generation = self.generation.wrapping_add(1);
+  }
+  pub fn gote_history_global_tables_len(&self) -> usize {
+    self
+      .gote_history_global_tables
+      .iter()
+      .fold(0, |acc, p| acc + p.len())
+  }
+  pub fn log_stats(&self, puzzles: u32, t: f64) {
+    if cfg!(feature = "stats") {
+      log::info!("search.stats = {:#?}", self.stats);
+      log::info!(
+        "hash capacity = {}",
+        self.sente_hash.capacity() + self.gote_hash.capacity()
+      );
+    }
+    log::info!(
+      "{} history tables items",
+      self.gote_history_global_tables_len()
+    );
+    log::info!(
+      "{} puzzles, {} nodes, {:.3} nps",
+      puzzles,
+      self.nodes,
+      self.nodes as f64 / t
+    );
   }
   fn history_resize(&mut self, depth: u8) {
     let d = depth as usize / 2;
@@ -136,7 +177,7 @@ impl Search {
         if res.gote_cmp(&ev, pos) == Ordering::Less {
           res.depth = ev.depth;
           res.best_move = BestMove::None;
-          res.update_best_move(m, ev);
+          res.update_best_move(&m, ev);
         }
       }
       if it.legal_moves == 0 {
@@ -193,6 +234,7 @@ impl Search {
       }
       if ev.depth == 0 && m.is_pawn_drop() {
         //mate by pawn drop (illegal)
+        stats::incr!(self.stats.mates_by_pawn_drop);
         continue;
       }
       let mate_in = ev.depth + 1;
@@ -202,8 +244,15 @@ impl Search {
       } else if res.depth < mate_in {
         continue;
       }
-      res.update_best_move(m, ev);
+      res.update_best_move(&m, ev);
       if res.best_move.is_many() && none_depth >= res.depth {
+        if u.is_take() {
+          stats::incr!(self.stats.sente_take_cuts);
+        } else if m.is_drop() {
+          stats::incr!(self.stats.sente_drop_cuts);
+        } else if m.is_promotion() {
+          stats::incr!(self.stats.sente_promotion_cuts);
+        }
         break;
       }
     }
@@ -241,6 +290,10 @@ impl Search {
       log::debug!("depth = {}", depth);
       self.history_resize(depth);
       let ev = self.sente_search(pos, depth, None);
+      stats::max!(
+        self.stats.max_hash_size,
+        self.sente_hash.len() + self.gote_hash.len()
+      );
       assert_eq!(hash, pos.hash);
       if ev.best_move.is_some() {
         self.update_global_history();

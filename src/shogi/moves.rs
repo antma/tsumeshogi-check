@@ -19,6 +19,12 @@ pub struct UndoMove {
   pub taken_piece: i8,
 }
 
+impl UndoMove {
+  pub fn is_take(&self) -> bool {
+    self.taken_piece != piece::NONE
+  }
+}
+
 impl std::convert::From<Move> for u32 {
   fn from(m: Move) -> u32 {
     //7, 7, 6, 6
@@ -62,6 +68,9 @@ impl Move {
   }
   pub fn is_drop(&self) -> bool {
     self.from_piece == piece::NONE
+  }
+  pub fn is_promotion(&self) -> bool {
+    self.from_piece != piece::NONE && self.from_piece != self.to_piece
   }
   pub fn swap_piece_side(&mut self) {
     self.from_piece *= -1;

@@ -181,4 +181,10 @@ impl SearchHash {
       .retain(|_, v| generation.wrapping_sub(v.generation) < margin);
     l - self.0.len()
   }
+  pub fn capacity(&self) -> usize {
+    self.0.capacity()
+  }
+  pub fn len(&self) -> usize {
+    self.0.len()
+  }
 }

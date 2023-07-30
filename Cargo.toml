@@ -9,6 +9,10 @@ edition = "2018"
 log = { version = "0.4.17", features = ["std"] }
 env_logger = { version = "0.10.0" }
 
+[features]
+default = []
+stats = []
+
 [[bin]]
 name = "tsumeshogi-check"
 path = "src/main.rs"

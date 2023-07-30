@@ -34,7 +34,7 @@ impl BestMove {
       _ => true,
     }
   }
-  fn update(&mut self, m: Move, bm: BestMove) {
+  fn update(&mut self, m: &Move, bm: BestMove) {
     let x = match self {
       BestMove::None => match bm {
         BestMove::None => panic!(""),
@@ -69,7 +69,7 @@ impl SearchResult {
       depth,
     }
   }
-  pub fn update_best_move(&mut self, m: Move, ev: SearchResult) {
+  pub fn update_best_move(&mut self, m: &Move, ev: SearchResult) {
     self.best_move.update(m, ev.best_move);
   }
   pub fn get_move(&self) -> Option<Move> {

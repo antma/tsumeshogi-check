@@ -203,9 +203,7 @@ fn process_file(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
       );
     }
   }
-  info!("{} puzzles, {} nodes", output_stream.puzzles, s.nodes);
-  info!("{:.3} nps", s.nodes as f64 / tt.elapsed());
-  //s.log_stats();
+  s.log_stats(output_stream.puzzles, tt.elapsed());
   Ok(())
 }
 
@@ -281,9 +279,7 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
       }
     }
   }
-  info!("{} nodes", s.nodes);
-  info!("{:.3} nps", s.nodes as f64 / tt.elapsed());
-  //s.log_stats();
+  s.log_stats(output_stream.puzzles, tt.elapsed());
   Ok(())
 }
 

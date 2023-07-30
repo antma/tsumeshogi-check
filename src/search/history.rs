@@ -21,6 +21,9 @@ impl Default for HistoryEntry {
 #[derive(Default)]
 pub struct HistoryTable(std::collections::HashMap<u32, HistoryEntry>);
 impl HistoryTable {
+  pub fn len(&self) -> usize {
+    self.0.len()
+  }
   pub fn get(&self, packed_move: u32) -> f64 {
     self
       .0

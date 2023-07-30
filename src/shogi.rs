@@ -1263,15 +1263,11 @@ impl Position {
           r
         }
       }
-      2 => {
-        //TODO: special case for enumerate_king_moves
-        self.compute_moves_after_nonblocking_check(None)
-      }
+      2 => self.compute_moves_after_nonblocking_check(None),
       _ => panic!("too many attacking pieces"),
     }
   }
   pub fn do_move(&mut self, m: &Move) -> moves::UndoMove {
-    //debug_assert_eq!(self.all_pieces, board::compute_all_pieces(&self.board), "all pieces validation failed before doing {:?}", m);
     let u = moves::UndoMove {
       all_pieces: self.all_pieces,
       hash: self.hash,
@@ -1333,7 +1329,6 @@ impl Position {
     self.move_no += 1;
     self.side *= -1;
     self.hash = !self.hash;
-    //debug_assert_eq!(self.all_pieces, board::compute_all_pieces(&self.board), "all pieces validation failed after doing {:?}", m);
     debug_assert!(
       self.validate_hash(),
       "hash validation failed after doing {:?}",
