@@ -19,19 +19,19 @@ impl Default for HistoryEntry {
 }
 
 #[derive(Default)]
-pub struct HistoryTable(std::collections::HashMap<u32, HistoryEntry>);
+struct HistoryTable(std::collections::HashMap<u32, HistoryEntry>);
 impl HistoryTable {
-  pub fn len(&self) -> usize {
+  fn len(&self) -> usize {
     self.0.len()
   }
-  pub fn get(&self, packed_move: u32) -> f64 {
+  fn get(&self, packed_move: u32) -> f64 {
     self
       .0
       .get(&packed_move)
       .map(HistoryEntry::get)
       .unwrap_or(1.0f64)
   }
-  pub fn success(&mut self, packed_move: u32) {
+  fn success(&mut self, packed_move: u32) {
     self
       .0
       .entry(packed_move)
@@ -41,14 +41,14 @@ impl HistoryTable {
       })
       .or_insert_with(HistoryEntry::default);
   }
-  pub fn fail(&mut self, packed_move: u32) {
+  fn fail(&mut self, packed_move: u32) {
     self
       .0
       .entry(packed_move)
       .and_modify(|e| e.total += 1)
       .or_insert_with(HistoryEntry::default);
   }
-  pub fn merge(&mut self, other: Self) {
+  fn merge(&mut self, other: Self) {
     for (key, value) in other.0 {
       self
         .0
@@ -59,5 +59,30 @@ impl HistoryTable {
         })
         .or_insert(value);
     }
+  }
+}
+
+#[derive(Default)]
+pub struct History {
+  local: HistoryTable,
+  global: HistoryTable,
+}
+
+impl History {
+  pub fn len(&self) -> usize {
+    self.global.len() + self.local.len()
+  }
+  pub fn get(&self, packed_move: u32) -> f64 {
+    self.local.get(packed_move) * self.global.get(packed_move)
+  }
+  pub fn success(&mut self, packed_move: u32) {
+    self.local.success(packed_move)
+  }
+  pub fn fail(&mut self, packed_move: u32) {
+    self.local.fail(packed_move)
+  }
+  pub fn merge(&mut self) {
+    let local = std::mem::take(&mut self.local);
+    self.global.merge(local);
   }
 }

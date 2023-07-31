@@ -1,3 +1,4 @@
+use super::history::History;
 use crate::shogi;
 use shogi::moves::{Move, UndoMove};
 use shogi::{Checks, Position};
@@ -87,10 +88,10 @@ impl SenteMovesIterator {
   }
 }
 
-fn sort_by_history<F: Fn(&Move) -> f64>(a: &mut [Move], history: &F) {
+fn sort_by_history(a: &mut [Move], history: &History) {
   let mut b = a
     .iter()
-    .map(|v| (v.clone(), history(v)))
+    .map(|v| (v.clone(), history.get(u32::from(v))))
     .collect::<Vec<_>>();
   b.sort_by(|x, y| y.1.partial_cmp(&x.1).unwrap());
   for (u, v) in a.iter_mut().zip(b.into_iter()) {
@@ -99,7 +100,7 @@ fn sort_by_history<F: Fn(&Move) -> f64>(a: &mut [Move], history: &F) {
 }
 
 impl GoteMovesIterator {
-  fn compute_moves<F: Fn(&Move) -> f64>(&mut self, pos: &Position, history: &F) {
+  fn compute_moves(&mut self, pos: &Position, history: &History) {
     self.moves = pos.compute_moves(&self.checks);
     let i = pos.reorder_takes_to_front(&mut self.moves);
     self.takes = i;
@@ -120,7 +121,7 @@ impl GoteMovesIterator {
       expect_futile_drop_check: !allow_futile_drops,
     }
   }
-  fn next<F: Fn(&Move) -> f64>(&mut self, pos: &mut Position, history: &F) -> Option<(Move, bool)> {
+  fn next(&mut self, pos: &mut Position, history: &History) -> Option<(Move, bool)> {
     loop {
       if self.k < self.moves.len() {
         if self.state == 1 && self.k == self.takes {
@@ -149,12 +150,12 @@ impl GoteMovesIterator {
       }
     }
   }
-  pub fn do_next_move<F: Fn(&Move) -> f64>(
+  pub fn do_next_move(
     &mut self,
     pos: &mut Position,
-    history: F,
+    history: &History,
   ) -> Option<(Move, UndoMove)> {
-    while let Some((m, unprocessed)) = self.next(pos, &history) {
+    while let Some((m, unprocessed)) = self.next(pos, history) {
       let u = pos.do_move(&m);
       let legal = if m.is_drop() {
         debug_assert!(pos.is_legal());
@@ -189,7 +190,13 @@ impl GoteMovesIterator {
 }
 
 #[cfg(test)]
-fn perft_sente(pos: &mut Position, v: &mut [u32], depth: usize, last_move: Option<&Move>) {
+fn perft_sente(
+  pos: &mut Position,
+  v: &mut [u32],
+  depth: usize,
+  last_move: Option<&Move>,
+  history: &History,
+) {
   v[depth] += 1;
   let next_depth = depth + 1;
   if next_depth >= v.len() {
@@ -197,13 +204,13 @@ fn perft_sente(pos: &mut Position, v: &mut [u32], depth: usize, last_move: Optio
   }
   let mut it = SenteMovesIterator::new(pos, last_move);
   while let Some((m, u, oc)) = it.do_next_move(pos) {
-    perft_gote(pos, v, oc, next_depth);
+    perft_gote(pos, v, oc, next_depth, history);
     pos.undo_move(&m, &u);
   }
 }
 
 #[cfg(test)]
-fn perft_gote(pos: &mut Position, v: &mut [u32], checks: Checks, depth: usize) {
+fn perft_gote(pos: &mut Position, v: &mut [u32], checks: Checks, depth: usize, history: &History) {
   v[depth] += 1;
   let next_depth = depth + 1;
   if next_depth >= v.len() {
@@ -211,17 +218,18 @@ fn perft_gote(pos: &mut Position, v: &mut [u32], checks: Checks, depth: usize) {
   }
   let allow_futile_drops = false;
   let mut it = GoteMovesIterator::new(checks, None, allow_futile_drops);
-  while let Some((m, u)) = it.do_next_move(pos, |_| 0.0) {
-    perft_sente(pos, v, next_depth, Some(&m));
+  while let Some((m, u)) = it.do_next_move(pos, history) {
+    perft_sente(pos, v, next_depth, Some(&m), history);
     pos.undo_move(&m, &u);
   }
 }
 
 #[cfg(test)]
 fn perft(sfen: &str, depth: usize) -> Vec<u32> {
+  let history = History::default();
   let mut v = vec![0; depth];
   let mut pos = Position::parse_sfen(sfen).unwrap();
-  perft_sente(&mut pos, &mut v, 0, None);
+  perft_sente(&mut pos, &mut v, 0, None, &history);
   v
 }
 
