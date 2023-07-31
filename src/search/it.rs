@@ -88,23 +88,12 @@ impl SenteMovesIterator {
   }
 }
 
-fn sort_by_history(a: &mut [Move], history: &History) {
-  let mut b = a
-    .iter()
-    .map(|v| (v.clone(), history.get(u32::from(v))))
-    .collect::<Vec<_>>();
-  b.sort_by(|x, y| y.1.partial_cmp(&x.1).unwrap());
-  for (u, v) in a.iter_mut().zip(b.into_iter()) {
-    *u = v.0;
-  }
-}
-
 impl GoteMovesIterator {
   fn compute_moves(&mut self, pos: &Position, history: &History) {
     self.moves = pos.compute_moves(&self.checks);
     let i = pos.reorder_takes_to_front(&mut self.moves);
     self.takes = i;
-    sort_by_history(&mut self.moves[0..i], history);
+    history.sort(&mut self.moves[0..i]);
   }
   fn compute_drops(&mut self, pos: &Position) {
     self.moves = pos.compute_drops(&self.checks);
@@ -126,7 +115,7 @@ impl GoteMovesIterator {
       if self.k < self.moves.len() {
         if self.state == 1 && self.k == self.takes {
           let n = self.moves.len();
-          sort_by_history(&mut self.moves[self.takes..n], history);
+          history.sort(&mut self.moves[self.takes..n]);
         }
         let r = self.moves[self.k].clone();
         self.k += 1;

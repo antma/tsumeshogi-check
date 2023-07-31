@@ -68,11 +68,29 @@ pub struct History {
   global: HistoryTable,
 }
 
+struct F64(f64);
+impl PartialOrd for F64 {
+  fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    other.0.partial_cmp(&self.0)
+  }
+}
+impl Ord for F64 {
+  fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    other.0.partial_cmp(&self.0).unwrap()
+  }
+}
+impl PartialEq for F64 {
+  fn eq(&self, other: &F64) -> bool {
+    self.0 == other.0
+  }
+}
+impl Eq for F64 {}
+
 impl History {
   pub fn len(&self) -> usize {
     self.global.len() + self.local.len()
   }
-  pub fn get(&self, packed_move: u32) -> f64 {
+  fn get(&self, packed_move: u32) -> f64 {
     self.local.get(packed_move) * self.global.get(packed_move)
   }
   pub fn success(&mut self, packed_move: u32) {
@@ -84,5 +102,8 @@ impl History {
   pub fn merge(&mut self) {
     let local = std::mem::take(&mut self.local);
     self.global.merge(local);
+  }
+  pub fn sort(&self, m: &mut [crate::shogi::moves::Move]) {
+    m.sort_by_cached_key(|p| F64(self.get(u32::from(p))));
   }
 }
