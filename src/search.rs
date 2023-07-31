@@ -143,15 +143,11 @@ impl Search {
         if ev.best_move.is_none() {
           res.depth = depth;
           res.best_move = BestMove::None;
-          if !m.is_drop() {
-            self.gote_history[d].success(u32::from(&m));
-          }
+          self.gote_history[d].success(u32::from(&m));
           hash_best_move = Some(m);
           break;
         }
-        if !m.is_drop() {
-          self.gote_history[d].fail(u32::from(&m));
-        }
+        self.gote_history[d].fail(u32::from(&m));
         ev.depth += 1;
         if res.gote_cmp(&ev, pos) == Ordering::Less {
           res.depth = ev.depth;

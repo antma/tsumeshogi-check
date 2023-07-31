@@ -95,8 +95,9 @@ impl GoteMovesIterator {
     self.takes = i;
     history.sort(&mut self.moves[0..i]);
   }
-  fn compute_drops(&mut self, pos: &Position) {
+  fn compute_drops(&mut self, pos: &Position, history: &History) {
     self.moves = pos.compute_drops(&self.checks);
+    history.sort(&mut self.moves);
   }
   pub fn new(checks: Checks, best_move: Option<Move>, allow_futile_drops: bool) -> Self {
     Self {
@@ -131,7 +132,7 @@ impl GoteMovesIterator {
       self.k = 0;
       match self.state {
         1 => self.compute_moves(pos, history),
-        2 => self.compute_drops(pos),
+        2 => self.compute_drops(pos, history),
         _ => {
           self.moves.clear();
           break None;
