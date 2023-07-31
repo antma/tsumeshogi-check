@@ -184,6 +184,7 @@ impl SearchHash {
   pub fn capacity(&self) -> usize {
     self.0.capacity()
   }
+  #[cfg(feature = "stats")]
   pub fn len(&self) -> usize {
     self.0.len()
   }
