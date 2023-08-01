@@ -114,11 +114,7 @@ impl SearchResult {
     if c != Ordering::Equal {
       return c;
     }
-    let c = self.nodes.cmp(&other.nodes);
-    if c != Ordering::Equal {
-      //update if self.nodes < other.nodes
-      return c;
-    }
-    Ordering::Equal
+    //update if self.nodes < other.nodes
+    self.nodes.cmp(&other.nodes)
   }
 }
