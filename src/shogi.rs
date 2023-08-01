@@ -642,6 +642,36 @@ impl Position {
     }
     false
   }
+  fn is_discover_check_piece(&self, from: usize, king_pos: &Option<usize>) -> bool {
+    if let Some(king_pos) = king_pos {
+      if let Some(i) = direction::try_to_find_delta_direction_no(*king_pos, from) {
+        let b = consts::SLIDING_MASKS[8 * king_pos + i] & self.all_pieces;
+        debug_assert_ne!(b, 0);
+        let k = bitboards::scan(b, i);
+        if k != from {
+          return false;
+        }
+        let b = b ^ (1u128 << from);
+        if b == 0 {
+          return false;
+        }
+        let k = bitboards::scan(b, i);
+        let t = self.board[k];
+        if t * self.side < 0 {
+          return false;
+        }
+        let flags = if self.side > 0 {
+          piece::BLACK_DIRECTIONS_FLAGS[i]
+        } else {
+          piece::WHITE_DIRECTIONS_FLAGS[i]
+        };
+        if piece::is_sliding_dir(t.abs(), flags) {
+          return true;
+        }
+      }
+    }
+    false
+  }
   fn empty_cells_with_drop_mask(&self, drop_mask: u32) -> Vec<(usize, u32)> {
     self
       .board
@@ -727,11 +757,7 @@ impl Position {
     if b == 0 {
       return false;
     }
-    let k = if i < 4 {
-      bitboards::last(b)
-    } else {
-      bitboards::first(b)
-    };
+    let k = bitboards::scan(b, i);
     let piece = self.board[k];
     let t = s * piece;
     debug_assert_ne!(t, 0);
@@ -755,11 +781,7 @@ impl Position {
     {
       let b = *p & self.all_pieces;
       if b != 0 {
-        let k = if i < 4 {
-          bitboards::last(b)
-        } else {
-          bitboards::first(b)
-        };
+        let k = bitboards::scan(b, i);
         let piece = self.board[k];
         let t = s * piece;
         debug_assert_ne!(t, 0);
@@ -811,11 +833,7 @@ impl Position {
     {
       let b = *p & self.all_pieces;
       if b != 0 {
-        let k = if i < 4 {
-          bitboards::last(b)
-        } else {
-          bitboards::first(b)
-        };
+        let k = bitboards::scan(b, i);
         let piece = self.board[k];
         let t = s * piece;
         debug_assert_ne!(t, 0);
@@ -879,11 +897,7 @@ impl Position {
         let p = consts::SLIDING_MASKS[8 * king_pos + i];
         let b = p & self.all_pieces;
         if b != 0 {
-          let k = if i < 4 {
-            bitboards::last(b)
-          } else {
-            bitboards::first(b)
-          };
+          let k = bitboards::scan(b, i);
           let piece = self.board[k];
           let t = s * piece;
           debug_assert_ne!(t, 0);
@@ -937,11 +951,7 @@ impl Position {
     {
       let b = *p & self.all_pieces;
       if b != 0 {
-        let k = if i < 4 {
-          bitboards::last(b)
-        } else {
-          bitboards::first(b)
-        };
+        let k = bitboards::scan(b, i);
         let piece = self.board[k];
         let t = s * piece;
         debug_assert_ne!(t, 0);

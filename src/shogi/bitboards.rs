@@ -2,8 +2,16 @@ pub fn first(b: u128) -> usize {
   b.trailing_zeros() as _
 }
 
-pub fn last(b: u128) -> usize {
+fn last(b: u128) -> usize {
   127 - b.leading_zeros() as usize
+}
+
+pub fn scan(b: u128, direction_no: usize) -> usize {
+  if direction_no < 4 {
+    last(b)
+  } else {
+    first(b)
+  }
 }
 
 #[test]
