@@ -692,7 +692,7 @@ impl Position {
       match v.abs() {
         piece::PAWN => {
           if (opponent_king_pos as isize != pos as isize - 18 * self.side as isize
-            && !cell::promoted_pawn_attacks_king(
+            && !cell::pawn_could_attack_king_by_move_with_promotion(
               (pos as isize - 9 * self.side as isize) as usize,
               self.side,
               king_row,
@@ -718,18 +718,15 @@ impl Position {
             }
           }
         }
-        /*
         piece::KNIGHT => {
           let (knight_row, knight_col) = cell::unpack(pos);
-          if king_row as isize != knight_row as isize - 4 * self.side as isize {
-            continue;
-          }
-          let delta_col = knight_col as isize - king_col as isize;
-          if delta_col != 0 && delta_col.abs() != 2 {
+          if !cell::knight_could_attack_king_after_move(
+            knight_row, knight_col, self.side, king_row, king_col,
+          ) && !self.is_discover_check_piece(pos, opponent_king_pos)
+          {
             continue;
           }
         }
-        */
         piece::KING => {
           if !self.is_discover_check_piece(pos, opponent_king_pos) {
             continue;

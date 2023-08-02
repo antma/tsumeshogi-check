@@ -34,7 +34,12 @@ pub fn mirror(cell: usize) -> usize {
   9 * (8 - row) + (8 - col)
 }
 
-pub fn promoted_pawn_attacks_king(pawn: usize, side: i8, king_row: usize, king_col: usize) -> bool {
+pub(super) fn pawn_could_attack_king_by_move_with_promotion(
+  pawn: usize,
+  side: i8,
+  king_row: usize,
+  king_col: usize,
+) -> bool {
   if !promotion_zone(pawn, side) {
     return false;
   }
@@ -44,6 +49,38 @@ pub fn promoted_pawn_attacks_king(pawn: usize, side: i8, king_row: usize, king_c
   }
   let delta_row = row as isize - king_row as isize;
   delta_row == 0 || delta_row == (side as isize)
+}
+
+pub(super) fn knight_could_attack_king_after_move(
+  knight_row: usize,
+  knight_col: usize,
+  side: i8,
+  king_row: usize,
+  king_col: usize,
+) -> bool {
+  match (knight_row as isize - king_row as isize) * side as isize {
+    4 => {
+      let delta_col = knight_col as isize - king_col as isize;
+      delta_col == -2 || delta_col == 0 || delta_col == 2
+    }
+    2 | 3 => {
+      let delta_col = knight_col as isize - king_col as isize;
+      delta_col.abs() <= 2
+        && promotion_zone(
+          9 * (knight_row as isize - 2 * side as isize) as usize + knight_col,
+          side,
+        )
+    }
+    1 => {
+      let delta_col = knight_col as isize - king_col as isize;
+      (delta_col == -1 || delta_col == 1)
+        && promotion_zone(
+          9 * (knight_row as isize - 2 * side as isize) as usize + knight_col,
+          side,
+        )
+    }
+    _ => false,
+  }
 }
 
 #[cfg(test)]
