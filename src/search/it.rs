@@ -1,7 +1,17 @@
 use super::history::History;
-use crate::shogi;
+use crate::{shogi, stats};
 use shogi::moves::{Move, UndoMove};
 use shogi::{Checks, Position};
+
+#[cfg(feature = "stats")]
+#[derive(Default)]
+pub(super) struct Stats {
+  pub(super) skipped_moves: u32,
+}
+
+#[cfg(not(feature = "stats"))]
+#[derive(Default)]
+pub(super) struct Stats {}
 
 pub struct SenteMovesIterator {
   moves: Vec<Move>,
@@ -9,6 +19,7 @@ pub struct SenteMovesIterator {
   k: usize,
   state: u32,
   pub legal_moves: u32,
+  pub(super) stats: Stats,
 }
 
 pub struct GoteMovesIterator {
@@ -20,6 +31,7 @@ pub struct GoteMovesIterator {
   state: u32,
   pub legal_moves: u32,
   expect_futile_drop_check: bool,
+  pub(super) stats: Stats,
 }
 
 impl SenteMovesIterator {
@@ -38,6 +50,7 @@ impl SenteMovesIterator {
       k: 0,
       state: 0,
       legal_moves: 0,
+      stats: Stats::default(),
     }
   }
   fn next(&mut self, pos: &mut Position) -> Option<Move> {
@@ -82,6 +95,7 @@ impl SenteMovesIterator {
           return Some((m, u, checks));
         }
       }
+      stats::incr!(self.stats.skipped_moves);
       pos.undo_move(&m, &u);
     }
     return None;
@@ -109,6 +123,7 @@ impl GoteMovesIterator {
       state: 0,
       legal_moves: 0,
       expect_futile_drop_check: !allow_futile_drops,
+      stats: Stats::default(),
     }
   }
   fn next(&mut self, pos: &mut Position, history: &History) -> Option<(Move, bool)> {
@@ -173,6 +188,7 @@ impl GoteMovesIterator {
           return Some((m, u));
         }
       }
+      stats::incr!(self.stats.skipped_moves);
       pos.undo_move(&m, &u);
     }
     return None;

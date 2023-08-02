@@ -21,6 +21,12 @@ struct Stats {
   sente_promotion_cuts: u64,
   mates_by_pawn_drop: u64,
   max_hash_size: usize,
+  sente_skipped_moves: u64,
+  sente_skipped_moves_percent: f64,
+  sente_legal_moves: u64,
+  gote_skipped_moves: u64,
+  gote_skipped_moves_percent: f64,
+  gote_legal_moves: u64,
 }
 
 #[cfg(not(feature = "stats"))]
@@ -68,8 +74,18 @@ impl Search {
   fn gote_history_len(&self) -> usize {
     self.gote_history.iter().fold(0, |acc, p| acc + p.len())
   }
-  pub fn log_stats(&self, puzzles: u32, t: f64) {
+  pub fn log_stats(&mut self, puzzles: u32, t: f64) {
     if cfg!(feature = "stats") {
+      stats::percent!(
+        self.stats.sente_skipped_moves_percent,
+        self.stats.sente_skipped_moves,
+        self.stats.sente_skipped_moves + self.stats.sente_legal_moves
+      );
+      stats::percent!(
+        self.stats.gote_skipped_moves_percent,
+        self.stats.gote_skipped_moves,
+        self.stats.gote_skipped_moves + self.stats.gote_legal_moves
+      );
       log::info!("search.stats = {:#?}", self.stats);
       log::info!(
         "hash capacity = {}",
@@ -160,6 +176,8 @@ impl Search {
         res.best_move = BestMove::One(0);
       }
     }
+    stats::incr!(self.stats.gote_skipped_moves, it.stats.skipped_moves as u64);
+    stats::incr!(self.stats.gote_legal_moves, it.legal_moves as u64);
     res.nodes = (self.nodes - nodes) + (self.hash_nodes - hash_nodes);
     self
       .gote_hash
@@ -239,6 +257,11 @@ impl Search {
         break;
       }
     }
+    stats::incr!(
+      self.stats.sente_skipped_moves,
+      it.stats.skipped_moves as u64
+    );
+    stats::incr!(self.stats.sente_legal_moves, it.legal_moves as u64);
     res.nodes = (self.nodes - nodes) + (self.hash_nodes - hash_nodes);
     self
       .sente_hash
