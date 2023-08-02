@@ -642,35 +642,196 @@ impl Position {
     }
     false
   }
-  fn is_discover_check_piece(&self, from: usize, king_pos: &Option<usize>) -> bool {
-    if let Some(king_pos) = king_pos {
-      if let Some(i) = direction::try_to_find_delta_direction_no(*king_pos, from) {
-        let b = consts::SLIDING_MASKS[8 * king_pos + i] & self.all_pieces;
-        debug_assert_ne!(b, 0);
-        let k = bitboards::scan(b, i);
-        if k != from {
-          return false;
-        }
-        let b = b ^ (1u128 << from);
-        if b == 0 {
-          return false;
-        }
-        let k = bitboards::scan(b, i);
-        let t = self.board[k];
-        if t * self.side < 0 {
-          return false;
-        }
-        let flags = if self.side > 0 {
-          piece::BLACK_DIRECTIONS_FLAGS[i]
-        } else {
-          piece::WHITE_DIRECTIONS_FLAGS[i]
-        };
-        if piece::is_sliding_dir(t.abs(), flags) {
-          return true;
-        }
+  fn is_discover_check_piece(&self, from: usize, opponent_king_pos: usize) -> bool {
+    if let Some(i) = direction::try_to_find_delta_direction_no(opponent_king_pos, from) {
+      let b = consts::SLIDING_MASKS[8 * opponent_king_pos + i] & self.all_pieces;
+      debug_assert_ne!(b, 0);
+      let k = bitboards::scan(b, i);
+      if k != from {
+        return false;
+      }
+      let b = b ^ (1u128 << from);
+      if b == 0 {
+        return false;
+      }
+      let k = bitboards::scan(b, i);
+      let t = self.board[k];
+      if t * self.side < 0 {
+        return false;
+      }
+      let flags = if self.side < 0 {
+        piece::BLACK_DIRECTIONS_FLAGS[i]
+      } else {
+        piece::WHITE_DIRECTIONS_FLAGS[i]
+      };
+      if piece::is_sliding_dir(t.abs(), flags) {
+        return true;
       }
     }
     false
+  }
+  pub fn compute_check_candidates(&self, checks: &Checks) -> Vec<Move> {
+    if checks.is_check() {
+      return self.compute_moves(checks);
+    }
+    let mut moves = Vec::new();
+    let mut f = |mv| {
+      moves.push(mv);
+      false
+    };
+    let opponent_king_pos = self.find_king_position(-self.side);
+    if opponent_king_pos.is_none() {
+      return moves;
+    }
+    let opponent_king_pos = opponent_king_pos.unwrap();
+    let (king_row, king_col) = cell::unpack(opponent_king_pos);
+    for (pos, &v) in self.board.iter().enumerate() {
+      if self.side * v <= 0 {
+        continue;
+      }
+      match v.abs() {
+        piece::PAWN => {
+          if (opponent_king_pos as isize != pos as isize - 18 * self.side as isize
+            && !cell::promoted_pawn_attacks_king(
+              (pos as isize - 9 * self.side as isize) as usize,
+              self.side,
+              king_row,
+              king_col,
+            ))
+            && !self.is_discover_check_piece(pos, opponent_king_pos)
+          {
+            continue;
+          }
+        }
+        piece::LANCE => {
+          if (self.side > 0) != (opponent_king_pos < pos) {
+            let delta = if cell::promotion_zone(opponent_king_pos, self.side) {
+              1
+            } else {
+              0
+            };
+            let col = pos % 9;
+            if (king_col as isize - col as isize).abs() <= delta
+              && !self.is_discover_check_piece(pos, opponent_king_pos)
+            {
+              continue;
+            }
+          }
+        }
+        /*
+        piece::KNIGHT => {
+          let (knight_row, knight_col) = cell::unpack(pos);
+          if king_row as isize != knight_row as isize - 4 * self.side as isize {
+            continue;
+          }
+          let delta_col = knight_col as isize - king_col as isize;
+          if delta_col != 0 && delta_col.abs() != 2 {
+            continue;
+          }
+        }
+        */
+        piece::KING => {
+          if !self.is_discover_check_piece(pos, opponent_king_pos) {
+            continue;
+          }
+        }
+        piece::SILVER
+        | piece::GOLD
+        | piece::PROMOTED_PAWN
+        | piece::PROMOTED_LANCE
+        | piece::PROMOTED_KNIGHT
+        | piece::PROMOTED_SILVER => {
+          let (row, col) = cell::unpack(pos);
+          if (((row as isize - king_row as isize).abs() > 2)
+            || ((col as isize - king_col as isize).abs() > 2))
+            && !self.is_discover_check_piece(pos, opponent_king_pos)
+          {
+            continue;
+          }
+        }
+        _ => (),
+      }
+      let w = piece::unpromote(v);
+      match v {
+        piece::PAWN => {
+          self.enumerate_piece_move(&mut f, pos, v, -1, 0, false);
+        }
+        piece::WHITE_PAWN => {
+          self.enumerate_piece_move(&mut f, pos, v, 1, 0, false);
+        }
+        piece::LANCE => {
+          self.enumerate_piece_move(&mut f, pos, v, -1, 0, true);
+        }
+        piece::WHITE_LANCE => {
+          self.enumerate_piece_move(&mut f, pos, v, 1, 0, true);
+        }
+        piece::KNIGHT => {
+          self.enumerate_piece_move(&mut f, pos, v, -2, -1, false);
+          self.enumerate_piece_move(&mut f, pos, v, -2, 1, false);
+        }
+        piece::WHITE_KNIGHT => {
+          self.enumerate_piece_move(&mut f, pos, v, 2, -1, false);
+          self.enumerate_piece_move(&mut f, pos, v, 2, 1, false);
+        }
+        piece::SILVER => {
+          for t in piece::SILVER_MOVES.iter() {
+            self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false);
+          }
+        }
+        piece::WHITE_SILVER => {
+          for t in piece::SILVER_MOVES.iter() {
+            self.enumerate_piece_move(&mut f, pos, v, -t.0, t.1, false);
+          }
+        }
+        piece::GOLD
+        | piece::PROMOTED_PAWN
+        | piece::PROMOTED_LANCE
+        | piece::PROMOTED_KNIGHT
+        | piece::PROMOTED_SILVER => {
+          for t in piece::GOLD_MOVES.iter() {
+            self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false);
+          }
+        }
+        piece::WHITE_GOLD
+        | piece::WHITE_PROMOTED_PAWN
+        | piece::WHITE_PROMOTED_LANCE
+        | piece::WHITE_PROMOTED_KNIGHT
+        | piece::WHITE_PROMOTED_SILVER => {
+          for t in piece::GOLD_MOVES.iter() {
+            self.enumerate_piece_move(&mut f, pos, v, -t.0, t.1, false);
+          }
+        }
+        piece::KING | piece::WHITE_KING => {
+          for t in piece::KING_MOVES.iter() {
+            self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false);
+          }
+        }
+        _ => {
+          if w == piece::BISHOP || w == -piece::BISHOP {
+            for t in piece::BISHOP_MOVES.iter() {
+              self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, true);
+            }
+          } else if w == piece::ROOK || w == -piece::ROOK {
+            for t in piece::ROOK_MOVES.iter() {
+              self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, true);
+            }
+          }
+        }
+      }
+      //promoted
+      if v != w {
+        if w == piece::BISHOP || w == -piece::BISHOP {
+          for t in piece::ROOK_MOVES.iter() {
+            self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false);
+          }
+        } else if w == piece::ROOK || w == -piece::ROOK {
+          for t in piece::BISHOP_MOVES.iter() {
+            self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false);
+          }
+        }
+      }
+    }
+    moves
   }
   fn empty_cells_with_drop_mask(&self, drop_mask: u32) -> Vec<(usize, u32)> {
     self

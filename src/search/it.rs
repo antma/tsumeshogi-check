@@ -33,7 +33,7 @@ impl SenteMovesIterator {
       pos.compute_checks()
     };
     Self {
-      moves: pos.compute_moves(&checks),
+      moves: pos.compute_check_candidates(&checks),
       checks,
       k: 0,
       state: 0,
