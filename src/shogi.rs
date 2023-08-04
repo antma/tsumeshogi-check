@@ -738,11 +738,74 @@ impl Position {
           }
         }
         piece::SILVER => {
-          let (row, col) = cell::unpack(pos);
-          if (((row as isize - king_row as isize).abs() > 2)
-            || ((col as isize - king_col as isize).abs() > 2))
-            && !self.is_discover_check_piece(pos, opponent_king_pos)
-          {
+          if !self.is_discover_check_piece(pos, opponent_king_pos) {
+            let a = if self.side > 0 {
+              consts::BLACK_SILVER_MASKS[pos]
+            } else {
+              consts::WHITE_SILVER_MASKS[pos]
+            };
+            let (promoted_moves, not_promoted_moves) = if cell::promotion_zone(pos, self.side) {
+              (a, 0)
+            } else {
+              let t = a & bitboards::promotion_zone(self.side);
+              (t, a ^ t)
+            };
+            let promoted_moves = promoted_moves & consts::KING_MASKS[opponent_king_pos];
+            if promoted_moves != 0 {
+              let (b, c) = if self.side > 0 {
+                (
+                  consts::WHITE_SILVER_MASKS[opponent_king_pos],
+                  consts::WHITE_GOLD_MASKS[opponent_king_pos],
+                )
+              } else {
+                (
+                  consts::BLACK_SILVER_MASKS[opponent_king_pos],
+                  consts::BLACK_GOLD_MASKS[opponent_king_pos],
+                )
+              };
+              for k in bitboards::Bits128(promoted_moves) {
+                let t = self.board[k];
+                if t * self.side > 0 {
+                  continue;
+                }
+                let bit = 1u128 << k;
+                if (c & bit) != 0 {
+                  f(Move {
+                    from: pos,
+                    to: k,
+                    from_piece: v,
+                    to_piece: v + self.side * piece::PROMOTED,
+                  });
+                }
+                if (b & bit) != 0 {
+                  f(Move {
+                    from: pos,
+                    to: k,
+                    from_piece: v,
+                    to_piece: v,
+                  });
+                }
+              }
+            }
+            let not_promoted_moves = not_promoted_moves
+              & (if self.side > 0 {
+                consts::WHITE_SILVER_MASKS[opponent_king_pos]
+              } else {
+                consts::BLACK_SILVER_MASKS[opponent_king_pos]
+              });
+
+            for k in bitboards::Bits128(not_promoted_moves) {
+              let t = self.board[k];
+              if t * self.side > 0 {
+                continue;
+              }
+              f(Move {
+                from: pos,
+                to: k,
+                from_piece: v,
+                to_piece: v,
+              });
+            }
             continue;
           }
         }

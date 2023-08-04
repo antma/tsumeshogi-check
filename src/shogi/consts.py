@@ -55,11 +55,15 @@ p(f, 'MASKS2', [1 << (9 * (i % 9) + (i // 9)) for i in range(81)], 128)
 king_attack = []
 black_gold_attack = []
 white_gold_attack = []
+black_silver_attack = []
+white_silver_attack = []
 for row in range(9):
   for col in range(9):
     r = 0
     r2 = 0
     r3 = 0
+    r4 = 0
+    r5 = 0
     for y in range(-1, 2):
       j = row + y
       if (j < 0) or (j > 8): continue
@@ -69,19 +73,29 @@ for row in range(9):
         if (i < 0) or (i > 8): continue
         l = 9 * j + i
         bit = 1 << l
-        r += bit
+        r |= bit
         if abs(x) == 1:
-          if y != 1: r2 += bit
-          if y != -1: r3 += bit
+          if y != 1: r2 |= bit
+          if y != -1: r3 |= bit
         else:
-          r2 += bit
-          r3 += bit
+          r2 |= bit
+          r3 |= bit
+        if x == 0:
+          if y == -1: r4 |= bit
+          if y == 1: r5 |= bit
+        elif y != 0:
+          r4 |= bit
+          r5 |= bit
     king_attack.append(r)
     black_gold_attack.append(r2)
     white_gold_attack.append(r3)
+    black_silver_attack.append(r4)
+    white_silver_attack.append(r5)
 p(f, 'KING_MASKS', king_attack, 128)
 p(f, 'BLACK_GOLD_MASKS', black_gold_attack, 128)
+p(f, 'BLACK_SILVER_MASKS', black_silver_attack, 128)
 p(f, 'WHITE_GOLD_MASKS', white_gold_attack, 128)
+p(f, 'WHITE_SILVER_MASKS', white_silver_attack, 128)
 h = []
 v = []
 for s in range(9):
