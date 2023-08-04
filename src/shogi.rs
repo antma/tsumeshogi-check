@@ -737,17 +737,38 @@ impl Position {
             continue;
           }
         }
-        piece::SILVER
-        | piece::GOLD
-        | piece::PROMOTED_PAWN
-        | piece::PROMOTED_LANCE
-        | piece::PROMOTED_KNIGHT
-        | piece::PROMOTED_SILVER => {
+        piece::SILVER => {
           let (row, col) = cell::unpack(pos);
           if (((row as isize - king_row as isize).abs() > 2)
             || ((col as isize - king_col as isize).abs() > 2))
             && !self.is_discover_check_piece(pos, opponent_king_pos)
           {
+            continue;
+          }
+        }
+        piece::GOLD
+        | piece::PROMOTED_PAWN
+        | piece::PROMOTED_LANCE
+        | piece::PROMOTED_KNIGHT
+        | piece::PROMOTED_SILVER => {
+          if !self.is_discover_check_piece(pos, opponent_king_pos) {
+            let c = if self.side > 0 {
+              consts::BLACK_GOLD_MASKS[pos] & consts::WHITE_GOLD_MASKS[opponent_king_pos]
+            } else {
+              consts::WHITE_GOLD_MASKS[pos] & consts::BLACK_GOLD_MASKS[opponent_king_pos]
+            };
+            for k in bitboards::Bits128(c) {
+              let t = self.board[k];
+              if t * self.side > 0 {
+                continue;
+              }
+              f(Move {
+                from: pos,
+                to: k,
+                from_piece: v,
+                to_piece: v,
+              });
+            }
             continue;
           }
         }
