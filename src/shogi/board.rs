@@ -1,5 +1,4 @@
-use super::hash;
-use super::piece;
+use super::{consts, hash, piece};
 
 pub fn find_king_position(board: &[i8], s: i8) -> Option<usize> {
   let king = super::piece::KING * s;
@@ -33,10 +32,12 @@ pub fn compute_hash(board: &[i8]) -> u64 {
     .fold(0, |acc, (cell, p)| acc ^ hash::get_piece_hash(*p, cell))
 }
 
-pub fn compute_all_pieces(board: &[i8]) -> u128 {
+pub fn compute_all_pieces(board: &[i8]) -> (u128, u128) {
   board
     .iter()
     .enumerate()
     .filter(|(_, p)| **p != piece::NONE)
-    .fold(0, |acc, (i, _)| acc ^ (1u128 << i))
+    .fold((0, 0), |acc, (i, _)| {
+      (acc.0 ^ (1u128 << i), acc.1 ^ consts::MASKS2[i])
+    })
 }

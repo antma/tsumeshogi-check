@@ -51,6 +51,45 @@ for dy in range(-1, 2):
         go(a, k, dy, dx, y, x)
     k += 1
 p(f, 'SLIDING_MASKS', a, 128)
+p(f, 'MASKS2', [1 << (9 * (i % 9) + (i // 9)) for i in range(81)], 128)
+king_attack = []
+for row in range(9):
+  for col in range(9):
+    r = 0
+    for y in range(-1, 2):
+      j = row + y
+      if (j < 0) or (j > 8): continue
+      for x in range(-1, 2):
+        if (y == 0) and (x == 0): continue
+        i = col + x
+        if (i < 0) or (i > 8): continue
+        l = 9 * j + i
+        r += 1 << l
+    king_attack.append(r)
+p(f, 'KING_MASKS', king_attack, 128)
+h = []
+v = []
+for s in range(9):
+  for mask in range(128):
+    x = mask << 1
+    r = 0
+    for d in [-1, 1]:
+      j = s
+      while True:
+       j += d
+       if (j < 0) or (j >= 9): break
+       bit = 1 << j
+       r += bit
+       if (x & bit) != 0: break
+    h.append(r)
+    r2 = 0
+    for i in range(9):
+      bit = 1 << i
+      if (r & bit) != 0: r2 += 1 << (9 * i)
+    v.append(r2)
+
+p(f, 'ROOK_HORIZONTAL_MASKS', h, 16)
+p(f, 'ROOK_VERTICAL_MASKS', v, 128)
 
 f.close()
 

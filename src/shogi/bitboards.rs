@@ -1,3 +1,44 @@
+use super::{cell, consts};
+
+pub const BLACK_PROMOTION: u128 = (1u128 << 27) - 1;
+pub const WHITE_PROMOTION: u128 = BLACK_PROMOTION << 54;
+
+pub fn promotion_zone(side: i8) -> u128 {
+  if side > 0 {
+    BLACK_PROMOTION
+  } else {
+    WHITE_PROMOTION
+  }
+}
+
+#[derive(Clone)]
+pub struct Bits128(pub u128);
+impl Iterator for Bits128 {
+  type Item = usize;
+  fn next(&mut self) -> Option<Self::Item> {
+    if self.0 == 0 {
+      None
+    } else {
+      let i = self.0.trailing_zeros() as usize;
+      self.0 ^= 1 << i;
+      Some(i)
+    }
+  }
+}
+
+impl std::fmt::Display for Bits128 {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{{")?;
+    for (i, k) in self.clone().enumerate() {
+      if i > 0 {
+        write!(f, ", ")?
+      }
+      write!(f, "{}", cell::to_string(k))?
+    }
+    write!(f, "}}")
+  }
+}
+
 pub fn first(b: u128) -> usize {
   b.trailing_zeros() as _
 }
@@ -12,6 +53,15 @@ pub fn scan(b: u128, direction_no: usize) -> usize {
   } else {
     first(b)
   }
+}
+
+pub fn rook(pos: usize, b1: u128, b2: u128) -> u128 {
+  let (row, col) = cell::unpack(pos);
+  let s = 9 * row;
+  let i = ((b1 >> (s + 1)) & 127) as usize;
+  let j = ((b2 >> (9 * col + 1)) & 127) as usize;
+  ((consts::ROOK_HORIZONTAL_MASKS[128 * col + i] as u128) << s)
+    | (consts::ROOK_VERTICAL_MASKS[128 * row + j] << col)
 }
 
 #[test]

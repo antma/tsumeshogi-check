@@ -117,6 +117,7 @@ fn potentional_checks() {
     "1bk2+SR1l/2g4+R1/G1p1pp3/2nL2p1p/L1G1P4/p4P2P/1P+s+pS1Pb1/6S2/1+p2GK2L b 3P3N2p 1",
     "l7l/1+S3+Rgb1/2n2S2k/p1p1p1PR1/3p1p1pK/PpPPPs3/1bNS2p2/4G4/L2g3NL b 3PN2pg 1",
     "ls5nl/1p1G5/2B6/ps1p2p1+P/k8/2GP2P2/3SPPK1P/G1+l6/L4G2+p b 3P3NS4pb2r 1",
+    "l4kg1l/3gR4/2n2BnSp/2BPpP1n1/P1p3K2/2P1Pp3/1P1S1g2P/1G7/LN5+RL b 6P2Sp 1",
   ]
   .into_iter()
   .enumerate()
