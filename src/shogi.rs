@@ -25,6 +25,8 @@ pub struct Position {
   white_king_position: Option<usize>,
   all_pieces: u128,
   all_pieces2: u128,
+  all_pieces3: u128,
+  all_pieces4: u128,
   pub hash: u64,
   pub move_no: u32,
   drop_masks: u32,
@@ -198,9 +200,11 @@ impl Position {
     self.nifu_masks = (nify_mask_reverse(lo) << 16) + nify_mask_reverse(hi);
     self.side *= -1;
     self.hash = self.compute_hash();
-    let (m1, m2) = board::compute_all_pieces(&self.board);
+    let (m1, m2, m3, m4) = board::compute_all_pieces(&self.board);
     self.all_pieces = m1;
     self.all_pieces2 = m2;
+    self.all_pieces3 = m3;
+    self.all_pieces4 = m4;
     debug_assert_eq!(
       self.black_king_position,
       board::find_king_position(&self.board, 1)
@@ -451,7 +455,7 @@ impl Position {
     }
     let move_no = move_no.unwrap();
     let hash = compute_hash(&board, &black_pockets, &white_pockets, side);
-    let (all_pieces, all_pieces2) = board::compute_all_pieces(&board);
+    let (all_pieces, all_pieces2, all_pieces3, all_pieces4) = board::compute_all_pieces(&board);
     let pos = Position {
       board,
       black_pockets,
@@ -460,6 +464,8 @@ impl Position {
       white_king_position: board::find_king_position(&board, -1),
       all_pieces,
       all_pieces2,
+      all_pieces3,
+      all_pieces4,
       hash,
       drop_masks: compute_drops_mask(&black_pockets) | (compute_drops_mask(&white_pockets) << 16),
       nifu_masks,
@@ -856,10 +862,88 @@ impl Position {
             continue;
           }
         }
+        piece::PROMOTED_BISHOP => {
+          if !self.is_discover_check_piece(pos, opponent_king_pos) {
+            /*
+            println!(
+              "%1 = {}",
+              bitboards::Bits128(bitboards::bishop(pos, self.all_pieces3, self.all_pieces4))
+            );
+            */
+            let a =
+              bitboards::bishop(pos, self.all_pieces3, self.all_pieces4) | consts::KING_MASKS[pos];
+            //println!("a = {}", bitboards::Bits128(a));
+            let b = bitboards::bishop(opponent_king_pos, self.all_pieces3, self.all_pieces4)
+              | consts::KING_MASKS[opponent_king_pos];
+            //println!("b = {}", bitboards::Bits128(b));
+            for k in bitboards::Bits128(a & b) {
+              let t = self.board[k];
+              if t * self.side > 0 {
+                continue;
+              }
+              f(Move {
+                from: pos,
+                to: k,
+                from_piece: v,
+                to_piece: v,
+              });
+            }
+            continue;
+          }
+        }
         piece::ROOK => {
           if !self.is_discover_check_piece(pos, opponent_king_pos) {
             let a = bitboards::rook(pos, self.all_pieces, self.all_pieces2);
             let b = bitboards::rook(opponent_king_pos, self.all_pieces, self.all_pieces2);
+            let (promoted_moves, not_promoted_moves) = if cell::promotion_zone(pos, self.side) {
+              (a, 0)
+            } else {
+              let t = a & bitboards::promotion_zone(self.side);
+              (t, a ^ t)
+            };
+            if promoted_moves != 0 {
+              let c = consts::KING_MASKS[opponent_king_pos];
+              for k in bitboards::Bits128(promoted_moves & (b | c)) {
+                let t = self.board[k];
+                if t * self.side > 0 {
+                  continue;
+                }
+                f(Move {
+                  from: pos,
+                  to: k,
+                  from_piece: v,
+                  to_piece: v + self.side * piece::PROMOTED,
+                });
+                let bit = 1u128 << k;
+                if (b & bit) != 0 {
+                  f(Move {
+                    from: pos,
+                    to: k,
+                    from_piece: v,
+                    to_piece: v,
+                  });
+                }
+              }
+            }
+            for k in bitboards::Bits128(not_promoted_moves & b) {
+              let t = self.board[k];
+              if t * self.side > 0 {
+                continue;
+              }
+              f(Move {
+                from: pos,
+                to: k,
+                from_piece: v,
+                to_piece: v,
+              });
+            }
+            continue;
+          }
+        }
+        piece::BISHOP => {
+          if !self.is_discover_check_piece(pos, opponent_king_pos) {
+            let a = bitboards::bishop(pos, self.all_pieces3, self.all_pieces4);
+            let b = bitboards::bishop(opponent_king_pos, self.all_pieces3, self.all_pieces4);
             let (promoted_moves, not_promoted_moves) = if cell::promotion_zone(pos, self.side) {
               (a, 0)
             } else {
@@ -1598,6 +1682,8 @@ impl Position {
     let u = moves::UndoMove {
       all_pieces: self.all_pieces,
       all_pieces2: self.all_pieces2,
+      all_pieces3: self.all_pieces3,
+      all_pieces4: self.all_pieces4,
       hash: self.hash,
       drop_masks: self.drop_masks,
       nifu_masks: self.nifu_masks,
@@ -1613,6 +1699,8 @@ impl Position {
       }
       self.all_pieces ^= 1u128 << m.from;
       self.all_pieces2 ^= consts::MASKS2[m.from];
+      self.all_pieces3 ^= consts::MASKS3[m.from];
+      self.all_pieces4 ^= consts::MASKS4[m.from];
     } else {
       if m.to_piece > 0 {
         self.hash ^=
@@ -1653,6 +1741,8 @@ impl Position {
     } else {
       self.all_pieces ^= 1u128 << m.to;
       self.all_pieces2 ^= consts::MASKS2[m.to];
+      self.all_pieces3 ^= consts::MASKS3[m.to];
+      self.all_pieces4 ^= consts::MASKS4[m.to];
     }
     self.board[m.to] = m.to_piece;
     self.hash ^= hash::get_piece_hash(m.to_piece, m.to);
@@ -1669,6 +1759,8 @@ impl Position {
   pub fn undo_move(&mut self, m: &Move, u: &moves::UndoMove) {
     self.all_pieces = u.all_pieces;
     self.all_pieces2 = u.all_pieces2;
+    self.all_pieces3 = u.all_pieces3;
+    self.all_pieces4 = u.all_pieces4;
     self.hash = u.hash;
     self.drop_masks = u.drop_masks;
     self.nifu_masks = u.nifu_masks;

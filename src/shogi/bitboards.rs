@@ -64,6 +64,23 @@ pub fn rook(pos: usize, b1: u128, b2: u128) -> u128 {
     | (consts::ROOK_VERTICAL_MASKS[128 * row + j] << col)
 }
 
+pub fn bishop(pos: usize, b3: u128, b4: u128) -> u128 {
+  //println!("pos = {}", cell::to_string(pos));
+  let u = &consts::BISHOP3[pos];
+  //println!("u = {:?}", u);
+  let i = ((b3 >> u.shift) & (u.mask as u128)) as usize;
+  //println!("i = {}", i);
+  let v = &consts::BISHOP4[pos];
+  //println!("v = {:?}", v);
+  let j = ((b4 >> v.shift) & (v.mask as u128)) as usize;
+  /*
+  println!("j = {}", j);
+  println!("s1 = {}", Bits128(consts::DATA3[u.offset + i]));
+  println!("s2 = {}", Bits128(consts::DATA4[v.offset + j]));
+  */
+  consts::DATA3[u.offset + i] | consts::DATA4[v.offset + j]
+}
+
 #[test]
 fn test_first_last() {
   assert_eq!(first(1), 0);

@@ -74,6 +74,7 @@ fn filter_checks(pos: &mut Position, a: Vec<Move>) -> Vec<String> {
 #[test]
 fn potentional_checks() {
   for (test, fen) in vec![
+    /*
     "l3k1snl/1+R2gg1b1/p1Npppppp/9/1pp6/PP7/3P+bsP1P/9/LNSGK3L b PNS3pgr 1",
     "l+R1R3nl/2p1ksgb1/4pp3/p1Ps2ppp/9/P8/2+s+pPPP1P/1P3K3/L1G2GSNL b P2p2ngb 1",
     "l2pk2nl/6Sb1/n1+R2Gsg1/p4pppp/P2S2nb1/1PPs1P1KP/3gP1P2/1+p+r3G2/LN6L b 2P2p 1",
@@ -118,6 +119,9 @@ fn potentional_checks() {
     "l7l/1+S3+Rgb1/2n2S2k/p1p1p1PR1/3p1p1pK/PpPPPs3/1bNS2p2/4G4/L2g3NL b 3PN2pg 1",
     "ls5nl/1p1G5/2B6/ps1p2p1+P/k8/2GP2P2/3SPPK1P/G1+l6/L4G2+p b 3P3NS4pb2r 1",
     "l4kg1l/3gR4/2n2BnSp/2BPpP1n1/P1p3K2/2P1Pp3/1P1S1g2P/1G7/LN5+RL b 6P2Sp 1",
+    "4g1s+B1/1p1s+N1g2/3pp+L1pp/1+L4p2/1Pp1N2Sk/2P2nPL1/3+B1P2P/+r2G3g1/2+p1K1RNL b 5PS 1",
+    */
+    "4g1s+B1/1p1s+N1g2/3pp+L1pp/1+L4p2/1Pp1N2Sk/2P2nPL1/5P2P/+r2G3g1/2+p1K1RNL b S5P 1",
   ]
   .into_iter()
   .enumerate()

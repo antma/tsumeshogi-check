@@ -14,6 +14,8 @@ pub struct Move {
 pub struct UndoMove {
   pub all_pieces: u128,
   pub all_pieces2: u128,
+  pub all_pieces3: u128,
+  pub all_pieces4: u128,
   pub hash: u64,
   pub drop_masks: u32,
   pub nifu_masks: u32,

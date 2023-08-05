@@ -32,6 +32,57 @@ def rp(f, name, l):
     a.append(random.randrange(n))
   p(f, name, a, 64)
 
+def diagonal(f, diag_key, no):
+  a = list(range(81))
+  a.sort(key = diag_key)
+  masks = [None] * 81
+  data = [0]
+  data_slice = [None] * 81
+  shift = [None] * 81
+  m = [None] * 81
+  for i in range(81):
+    j = a[i]
+    masks[j] = 1 << i
+  i = 0
+  while i < 81:
+    j = i + 1
+    d = diag_key(a[i])
+    while (j < 81) and d == diag_key(a[j]): j += 1
+    l = j - i
+    print(i, d, l)
+    for k in range(i, j):
+      shift[a[k]] = i + 1
+      if l <= 2: m[a[k]] = 0
+      else: m[a[k]] = (1 << (l - 2)) - 1
+    if l == 1:
+      data_slice[a[i]] = (0, 1)
+    elif l == 2:
+      for k in range(i, j):
+        data_slice[a[k]] = (len(data), len(data) + 1)
+        data.append((1 << a[k]) ^ (1 << a[i]) ^ (1 << a[i+1]))
+    else:
+      for s in range(l):
+        u = len(data)
+        for mask in range(1 << (l-2)):
+          x = mask << 1
+          r = 0
+          for d in [-1, 1]:
+            j = s
+            while True:
+              j += d
+              if (j < 0) or (j >= l): break
+              r |= 1 << a[i+j]
+              if (x & (1 << j)) != 0: break
+          data.append(r)
+        data_slice[a[i+s]] = (u, len(data))
+    i += l
+  p(f, 'MASKS' + str(no), masks, 128)
+  p(f, 'DATA' + str(no), data, 128)
+  f.write('pub const BISHOP' + str(no) + ': [RotatedBitboard; 81] = [\n')
+  for i in range(81):
+    f.write('RotatedBitboard {{offset: {}, shift: {}, mask: {}}},\n'.format(data_slice[i][0], shift[i], m[i]))
+  f.write('];\n')
+
 random.seed('Habu almost hundred titles')
 
 f.write('//Do not edit. Machine generated.\n')
@@ -119,6 +170,15 @@ for s in range(9):
 
 p(f, 'ROOK_HORIZONTAL_MASKS', h, 16)
 p(f, 'ROOK_VERTICAL_MASKS', v, 128)
+
+f.write('''pub struct RotatedBitboard {
+  pub offset: usize,
+  pub shift: usize,
+  pub mask: usize
+}
+''')
+diagonal(f, lambda i: (i // 9) + (i % 9), 3)
+diagonal(f, lambda i: 8 + (i // 9) - (i % 9), 4)
 
 f.close()
 
