@@ -681,6 +681,79 @@ impl Position {
     }
     false
   }
+  fn promoted_sliding_piece_checks<F: FnMut(Move) -> bool>(
+    &self,
+    a: u128,
+    from: usize,
+    v: i8,
+    f: &mut F,
+  ) {
+    for k in bitboards::Bits128(a) {
+      let t = self.board[k];
+      if t * self.side > 0 {
+        continue;
+      }
+      f(Move {
+        from,
+        to: k,
+        from_piece: v,
+        to_piece: v,
+      });
+    }
+  }
+  fn sliding_piece_checks<F: FnMut(Move) -> bool>(
+    &self,
+    a: u128,
+    b: u128,
+    from: usize,
+    opponent_king_pos: usize,
+    v: i8,
+    f: &mut F,
+  ) {
+    let (promoted_moves, not_promoted_moves) = if cell::promotion_zone(from, self.side) {
+      (a, 0)
+    } else {
+      let t = a & bitboards::promotion_zone(self.side);
+      (t, a ^ t)
+    };
+    if promoted_moves != 0 {
+      let c = consts::KING_MASKS[opponent_king_pos];
+      for k in bitboards::Bits128(promoted_moves & (b | c)) {
+        let t = self.board[k];
+        if t * self.side > 0 {
+          continue;
+        }
+        f(Move {
+          from,
+          to: k,
+          from_piece: v,
+          to_piece: v + self.side * piece::PROMOTED,
+        });
+        let bit = 1u128 << k;
+        if (b & bit) != 0 {
+          f(Move {
+            from,
+            to: k,
+            from_piece: v,
+            to_piece: v,
+          });
+        }
+      }
+    }
+    for k in bitboards::Bits128(not_promoted_moves & b) {
+      let t = self.board[k];
+      if t * self.side > 0 {
+        continue;
+      }
+      f(Move {
+        from,
+        to: k,
+        from_piece: v,
+        to_piece: v,
+      });
+    }
+  }
+
   pub fn compute_check_candidates(&self, checks: &Checks) -> Vec<Move> {
     if checks.is_check() {
       return self.compute_moves(checks);
@@ -847,47 +920,17 @@ impl Position {
               bitboards::rook(pos, self.all_pieces, self.all_pieces2) | consts::KING_MASKS[pos];
             let b = bitboards::rook(opponent_king_pos, self.all_pieces, self.all_pieces2)
               | consts::KING_MASKS[opponent_king_pos];
-            for k in bitboards::Bits128(a & b) {
-              let t = self.board[k];
-              if t * self.side > 0 {
-                continue;
-              }
-              f(Move {
-                from: pos,
-                to: k,
-                from_piece: v,
-                to_piece: v,
-              });
-            }
+            self.promoted_sliding_piece_checks(a & b, pos, v, &mut f);
             continue;
           }
         }
         piece::PROMOTED_BISHOP => {
           if !self.is_discover_check_piece(pos, opponent_king_pos) {
-            /*
-            println!(
-              "%1 = {}",
-              bitboards::Bits128(bitboards::bishop(pos, self.all_pieces3, self.all_pieces4))
-            );
-            */
             let a =
               bitboards::bishop(pos, self.all_pieces3, self.all_pieces4) | consts::KING_MASKS[pos];
-            //println!("a = {}", bitboards::Bits128(a));
             let b = bitboards::bishop(opponent_king_pos, self.all_pieces3, self.all_pieces4)
               | consts::KING_MASKS[opponent_king_pos];
-            //println!("b = {}", bitboards::Bits128(b));
-            for k in bitboards::Bits128(a & b) {
-              let t = self.board[k];
-              if t * self.side > 0 {
-                continue;
-              }
-              f(Move {
-                from: pos,
-                to: k,
-                from_piece: v,
-                to_piece: v,
-              });
-            }
+            self.promoted_sliding_piece_checks(a & b, pos, v, &mut f);
             continue;
           }
         }
@@ -895,48 +938,7 @@ impl Position {
           if !self.is_discover_check_piece(pos, opponent_king_pos) {
             let a = bitboards::rook(pos, self.all_pieces, self.all_pieces2);
             let b = bitboards::rook(opponent_king_pos, self.all_pieces, self.all_pieces2);
-            let (promoted_moves, not_promoted_moves) = if cell::promotion_zone(pos, self.side) {
-              (a, 0)
-            } else {
-              let t = a & bitboards::promotion_zone(self.side);
-              (t, a ^ t)
-            };
-            if promoted_moves != 0 {
-              let c = consts::KING_MASKS[opponent_king_pos];
-              for k in bitboards::Bits128(promoted_moves & (b | c)) {
-                let t = self.board[k];
-                if t * self.side > 0 {
-                  continue;
-                }
-                f(Move {
-                  from: pos,
-                  to: k,
-                  from_piece: v,
-                  to_piece: v + self.side * piece::PROMOTED,
-                });
-                let bit = 1u128 << k;
-                if (b & bit) != 0 {
-                  f(Move {
-                    from: pos,
-                    to: k,
-                    from_piece: v,
-                    to_piece: v,
-                  });
-                }
-              }
-            }
-            for k in bitboards::Bits128(not_promoted_moves & b) {
-              let t = self.board[k];
-              if t * self.side > 0 {
-                continue;
-              }
-              f(Move {
-                from: pos,
-                to: k,
-                from_piece: v,
-                to_piece: v,
-              });
-            }
+            self.sliding_piece_checks(a, b, pos, opponent_king_pos, v, &mut f);
             continue;
           }
         }
@@ -944,48 +946,7 @@ impl Position {
           if !self.is_discover_check_piece(pos, opponent_king_pos) {
             let a = bitboards::bishop(pos, self.all_pieces3, self.all_pieces4);
             let b = bitboards::bishop(opponent_king_pos, self.all_pieces3, self.all_pieces4);
-            let (promoted_moves, not_promoted_moves) = if cell::promotion_zone(pos, self.side) {
-              (a, 0)
-            } else {
-              let t = a & bitboards::promotion_zone(self.side);
-              (t, a ^ t)
-            };
-            if promoted_moves != 0 {
-              let c = consts::KING_MASKS[opponent_king_pos];
-              for k in bitboards::Bits128(promoted_moves & (b | c)) {
-                let t = self.board[k];
-                if t * self.side > 0 {
-                  continue;
-                }
-                f(Move {
-                  from: pos,
-                  to: k,
-                  from_piece: v,
-                  to_piece: v + self.side * piece::PROMOTED,
-                });
-                let bit = 1u128 << k;
-                if (b & bit) != 0 {
-                  f(Move {
-                    from: pos,
-                    to: k,
-                    from_piece: v,
-                    to_piece: v,
-                  });
-                }
-              }
-            }
-            for k in bitboards::Bits128(not_promoted_moves & b) {
-              let t = self.board[k];
-              if t * self.side > 0 {
-                continue;
-              }
-              f(Move {
-                from: pos,
-                to: k,
-                from_piece: v,
-                to_piece: v,
-              });
-            }
+            self.sliding_piece_checks(a, b, pos, opponent_king_pos, v, &mut f);
             continue;
           }
         }
