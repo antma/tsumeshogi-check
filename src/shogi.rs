@@ -459,15 +459,20 @@ impl Position {
     }
     let move_no = move_no.unwrap();
     let hash = compute_hash(&board, &black_pockets, &white_pockets, side);
-    let (all_pieces, all_pieces2, all_pieces3, all_pieces4, black_pieces, white_pieces) = board::compute_all_pieces(&board);
+    let (all_pieces, all_pieces2, all_pieces3, all_pieces4, black_pieces, white_pieces) =
+      board::compute_all_pieces(&board);
     let pos = Position {
       board,
       black_pockets,
       white_pockets,
       black_king_position: board::find_king_position(&board, 1),
       white_king_position: board::find_king_position(&board, -1),
-      all_pieces, all_pieces2, all_pieces3, all_pieces4,
-      black_pieces, white_pieces,
+      all_pieces,
+      all_pieces2,
+      all_pieces3,
+      all_pieces4,
+      black_pieces,
+      white_pieces,
       hash,
       drop_masks: compute_drops_mask(&black_pockets) | (compute_drops_mask(&white_pockets) << 16),
       nifu_masks,
@@ -535,7 +540,11 @@ impl Position {
     false
   }
   fn enumerate_simple_moves<F: FnMut(Move) -> bool>(&self, mut f: F) -> bool {
-    for pos in bitboards::Bits128(if self.side > 0 { self.black_pieces } else { self.white_pieces }) {
+    for pos in bitboards::Bits128(if self.side > 0 {
+      self.black_pieces
+    } else {
+      self.white_pieces
+    }) {
       let v = self.board[pos];
       let w = piece::unpromote(v);
       match v {
@@ -688,11 +697,13 @@ impl Position {
     v: i8,
     f: &mut F,
   ) {
-    for k in bitboards::Bits128(a) {
-      let t = self.board[k];
-      if t * self.side > 0 {
-        continue;
-      }
+    for k in bitboards::Bits128(
+      a & !(if v > 0 {
+        self.black_pieces
+      } else {
+        self.white_pieces
+      }),
+    ) {
       f(Move {
         from,
         to: k,
@@ -710,6 +721,12 @@ impl Position {
     v: i8,
     f: &mut F,
   ) {
+    let a = a
+      & !(if v > 0 {
+        self.black_pieces
+      } else {
+        self.white_pieces
+      });
     let (promoted_moves, not_promoted_moves) = if cell::promotion_zone(from, self.side) {
       (a, 0)
     } else {
@@ -719,10 +736,6 @@ impl Position {
     if promoted_moves != 0 {
       let c = consts::KING_MASKS[opponent_king_pos];
       for k in bitboards::Bits128(promoted_moves & (b | c)) {
-        let t = self.board[k];
-        if t * self.side > 0 {
-          continue;
-        }
         f(Move {
           from,
           to: k,
@@ -741,10 +754,6 @@ impl Position {
       }
     }
     for k in bitboards::Bits128(not_promoted_moves & b) {
-      let t = self.board[k];
-      if t * self.side > 0 {
-        continue;
-      }
       f(Move {
         from,
         to: k,
@@ -769,7 +778,11 @@ impl Position {
     }
     let opponent_king_pos = opponent_king_pos.unwrap();
     let (king_row, king_col) = cell::unpack(opponent_king_pos);
-    for pos in bitboards::Bits128(if self.side > 0 { self.black_pieces } else { self.white_pieces }) {
+    for pos in bitboards::Bits128(if self.side > 0 {
+      self.black_pieces
+    } else {
+      self.white_pieces
+    }) {
       let v = self.board[pos];
       match v.abs() {
         piece::PAWN => {
@@ -817,9 +830,9 @@ impl Position {
         piece::SILVER => {
           if !self.is_discover_check_piece(pos, opponent_king_pos) {
             let a = if self.side > 0 {
-              consts::BLACK_SILVER_MASKS[pos]
+              consts::BLACK_SILVER_MASKS[pos] & !self.black_pieces
             } else {
-              consts::WHITE_SILVER_MASKS[pos]
+              consts::WHITE_SILVER_MASKS[pos] & !self.white_pieces
             };
             let (promoted_moves, not_promoted_moves) = if cell::promotion_zone(pos, self.side) {
               (a, 0)
@@ -841,10 +854,6 @@ impl Position {
                 )
               };
               for k in bitboards::Bits128(promoted_moves) {
-                let t = self.board[k];
-                if t * self.side > 0 {
-                  continue;
-                }
                 let bit = 1u128 << k;
                 if (c & bit) != 0 {
                   f(Move {
@@ -872,10 +881,6 @@ impl Position {
               });
 
             for k in bitboards::Bits128(not_promoted_moves) {
-              let t = self.board[k];
-              if t * self.side > 0 {
-                continue;
-              }
               f(Move {
                 from: pos,
                 to: k,
@@ -893,15 +898,15 @@ impl Position {
         | piece::PROMOTED_SILVER => {
           if !self.is_discover_check_piece(pos, opponent_king_pos) {
             let c = if self.side > 0 {
-              consts::BLACK_GOLD_MASKS[pos] & consts::WHITE_GOLD_MASKS[opponent_king_pos]
+              consts::BLACK_GOLD_MASKS[pos]
+                & consts::WHITE_GOLD_MASKS[opponent_king_pos]
+                & !self.black_pieces
             } else {
-              consts::WHITE_GOLD_MASKS[pos] & consts::BLACK_GOLD_MASKS[opponent_king_pos]
+              consts::WHITE_GOLD_MASKS[pos]
+                & consts::BLACK_GOLD_MASKS[opponent_king_pos]
+                & !self.white_pieces
             };
             for k in bitboards::Bits128(c) {
-              let t = self.board[k];
-              if t * self.side > 0 {
-                continue;
-              }
               f(Move {
                 from: pos,
                 to: k,
