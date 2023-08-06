@@ -533,7 +533,8 @@ impl Position {
     false
   }
   fn enumerate_simple_moves<F: FnMut(Move) -> bool>(&self, mut f: F) -> bool {
-    for (pos, &v) in self.board.iter().enumerate() {
+    for pos in bitboards::Bits128(self.all_pieces) {
+      let v = self.board[pos];
       if self.side * v <= 0 {
         continue;
       }
@@ -769,7 +770,8 @@ impl Position {
     }
     let opponent_king_pos = opponent_king_pos.unwrap();
     let (king_row, king_col) = cell::unpack(opponent_king_pos);
-    for (pos, &v) in self.board.iter().enumerate() {
+    for pos in bitboards::Bits128(self.all_pieces) {
+      let v = self.board[pos];
       if self.side * v <= 0 {
         continue;
       }

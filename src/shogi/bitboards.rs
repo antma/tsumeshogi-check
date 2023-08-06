@@ -1,4 +1,5 @@
 use super::{cell, consts};
+use std::iter::{Chain, Map};
 
 pub const BLACK_PROMOTION: u128 = (1u128 << 27) - 1;
 pub const WHITE_PROMOTION: u128 = BLACK_PROMOTION << 54;
@@ -11,25 +12,37 @@ pub fn promotion_zone(side: i8) -> u128 {
   }
 }
 
-#[derive(Clone)]
-pub struct Bits128(pub u128);
-impl Iterator for Bits128 {
+pub struct Bits64(pub u64);
+impl Iterator for Bits64 {
   type Item = usize;
   fn next(&mut self) -> Option<Self::Item> {
     if self.0 == 0 {
       None
     } else {
       let i = self.0.trailing_zeros() as usize;
-      self.0 ^= 1 << i;
+      self.0 &= self.0 - 1;
       Some(i)
     }
   }
 }
 
+#[derive(Clone)]
+pub struct Bits128(pub u128);
+impl std::iter::IntoIterator for Bits128 {
+  type Item = usize;
+  type IntoIter = Chain<Bits64, Map<Bits64, fn(usize) -> usize>>;
+  fn into_iter(self) -> Self::IntoIter {
+    fn add64(x: usize) -> usize {
+      x + 64
+    }
+    Bits64((self.0 & 0xffff_ffff_ffff_ffff) as u64)
+      .chain(Bits64((self.0 >> 64) as u64).map(add64 as _))
+  }
+}
 impl std::fmt::Display for Bits128 {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "{{")?;
-    for (i, k) in self.clone().enumerate() {
+    for (i, k) in self.clone().into_iter().enumerate() {
       if i > 0 {
         write!(f, ", ")?
       }
