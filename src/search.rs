@@ -23,6 +23,8 @@ struct Stats {
   max_hash_size: usize,
   sente_skipped_moves: u64,
   sente_skipped_moves_percent: f64,
+  sente_illegal_moves: u64,
+  sente_illegal_moves_percent: f64,
   sente_legal_moves: u64,
   gote_skipped_moves: u64,
   gote_skipped_moves_percent: f64,
@@ -79,6 +81,11 @@ impl Search {
       stats::percent!(
         self.stats.sente_skipped_moves_percent,
         self.stats.sente_skipped_moves,
+        self.stats.sente_skipped_moves + self.stats.sente_legal_moves
+      );
+      stats::percent!(
+        self.stats.sente_illegal_moves_percent,
+        self.stats.sente_illegal_moves,
         self.stats.sente_skipped_moves + self.stats.sente_legal_moves
       );
       stats::percent!(
@@ -260,6 +267,10 @@ impl Search {
     stats::incr!(
       self.stats.sente_skipped_moves,
       it.stats.skipped_moves as u64
+    );
+    stats::incr!(
+      self.stats.sente_illegal_moves,
+      it.stats.illegal_moves as u64
     );
     stats::incr!(self.stats.sente_legal_moves, it.legal_moves as u64);
     res.nodes = (self.nodes - nodes) + (self.hash_nodes - hash_nodes);

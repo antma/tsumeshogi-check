@@ -7,6 +7,7 @@ use shogi::{Checks, Position};
 #[derive(Default)]
 pub(super) struct Stats {
   pub(super) skipped_moves: u32,
+  pub(super) illegal_moves: u32,
 }
 
 #[cfg(not(feature = "stats"))]
@@ -94,6 +95,7 @@ impl SenteMovesIterator {
           self.legal_moves += 1;
           return Some((m, u, checks));
         }
+        stats::incr!(self.stats.illegal_moves);
       }
       stats::incr!(self.stats.skipped_moves);
       pos.undo_move(&m, &u);
