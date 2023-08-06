@@ -27,6 +27,8 @@ pub struct Position {
   all_pieces2: u128,
   all_pieces3: u128,
   all_pieces4: u128,
+  black_pieces: u128,
+  white_pieces: u128,
   pub hash: u64,
   pub move_no: u32,
   drop_masks: u32,
@@ -200,11 +202,13 @@ impl Position {
     self.nifu_masks = (nify_mask_reverse(lo) << 16) + nify_mask_reverse(hi);
     self.side *= -1;
     self.hash = self.compute_hash();
-    let (m1, m2, m3, m4) = board::compute_all_pieces(&self.board);
-    self.all_pieces = m1;
-    self.all_pieces2 = m2;
-    self.all_pieces3 = m3;
-    self.all_pieces4 = m4;
+    let m = board::compute_all_pieces(&self.board);
+    self.all_pieces = m.0;
+    self.all_pieces2 = m.1;
+    self.all_pieces3 = m.2;
+    self.all_pieces4 = m.3;
+    self.black_pieces = m.4;
+    self.white_pieces = m.5;
     debug_assert_eq!(
       self.black_king_position,
       board::find_king_position(&self.board, 1)
@@ -455,17 +459,15 @@ impl Position {
     }
     let move_no = move_no.unwrap();
     let hash = compute_hash(&board, &black_pockets, &white_pockets, side);
-    let (all_pieces, all_pieces2, all_pieces3, all_pieces4) = board::compute_all_pieces(&board);
+    let (all_pieces, all_pieces2, all_pieces3, all_pieces4, black_pieces, white_pieces) = board::compute_all_pieces(&board);
     let pos = Position {
       board,
       black_pockets,
       white_pockets,
       black_king_position: board::find_king_position(&board, 1),
       white_king_position: board::find_king_position(&board, -1),
-      all_pieces,
-      all_pieces2,
-      all_pieces3,
-      all_pieces4,
+      all_pieces, all_pieces2, all_pieces3, all_pieces4,
+      black_pieces, white_pieces,
       hash,
       drop_masks: compute_drops_mask(&black_pockets) | (compute_drops_mask(&white_pockets) << 16),
       nifu_masks,
@@ -533,11 +535,8 @@ impl Position {
     false
   }
   fn enumerate_simple_moves<F: FnMut(Move) -> bool>(&self, mut f: F) -> bool {
-    for pos in bitboards::Bits128(self.all_pieces) {
+    for pos in bitboards::Bits128(if self.side > 0 { self.black_pieces } else { self.white_pieces }) {
       let v = self.board[pos];
-      if self.side * v <= 0 {
-        continue;
-      }
       let w = piece::unpromote(v);
       match v {
         piece::PAWN => {
@@ -770,11 +769,8 @@ impl Position {
     }
     let opponent_king_pos = opponent_king_pos.unwrap();
     let (king_row, king_col) = cell::unpack(opponent_king_pos);
-    for pos in bitboards::Bits128(self.all_pieces) {
+    for pos in bitboards::Bits128(if self.side > 0 { self.black_pieces } else { self.white_pieces }) {
       let v = self.board[pos];
-      if self.side * v <= 0 {
-        continue;
-      }
       match v.abs() {
         piece::PAWN => {
           if (opponent_king_pos as isize != pos as isize - 18 * self.side as isize
@@ -1647,6 +1643,8 @@ impl Position {
       all_pieces2: self.all_pieces2,
       all_pieces3: self.all_pieces3,
       all_pieces4: self.all_pieces4,
+      black_pieces: self.black_pieces,
+      white_pieces: self.white_pieces,
       hash: self.hash,
       drop_masks: self.drop_masks,
       nifu_masks: self.nifu_masks,
@@ -1660,7 +1658,13 @@ impl Position {
       } else if m.to_piece == -piece::KING {
         self.white_king_position = Some(m.to);
       }
-      self.all_pieces ^= 1u128 << m.from;
+      let bit = 1u128 << m.from;
+      self.all_pieces ^= bit;
+      if m.from_piece > 0 {
+        self.black_pieces ^= bit;
+      } else {
+        self.white_pieces ^= bit;
+      }
       self.all_pieces2 ^= consts::MASKS2[m.from];
       self.all_pieces3 ^= consts::MASKS3[m.from];
       self.all_pieces4 ^= consts::MASKS4[m.from];
@@ -1684,7 +1688,10 @@ impl Position {
         self.nifu_masks ^= 1u32 << (((1 + self.side as i32) << 3) + (m.to % 9) as i32);
       }
     }
+    let bit = 1u128 << m.to;
     if u.taken_piece != piece::NONE {
+      self.black_pieces ^= bit;
+      self.white_pieces ^= bit;
       self.hash ^= hash::get_piece_hash(u.taken_piece, m.to);
       if u.taken_piece.abs() == piece::PAWN {
         self.nifu_masks ^= 1u32 << (((1 - self.side as i32) << 3) + (m.to % 9) as i32);
@@ -1702,7 +1709,12 @@ impl Position {
         self.hash ^= hash::get_black_pocket_hash(-p, self.black_pockets[(-p) as usize]);
       }
     } else {
-      self.all_pieces ^= 1u128 << m.to;
+      self.all_pieces ^= bit;
+      if m.to_piece > 0 {
+        self.black_pieces ^= bit;
+      } else {
+        self.white_pieces ^= bit;
+      }
       self.all_pieces2 ^= consts::MASKS2[m.to];
       self.all_pieces3 ^= consts::MASKS3[m.to];
       self.all_pieces4 ^= consts::MASKS4[m.to];
@@ -1724,6 +1736,8 @@ impl Position {
     self.all_pieces2 = u.all_pieces2;
     self.all_pieces3 = u.all_pieces3;
     self.all_pieces4 = u.all_pieces4;
+    self.black_pieces = u.black_pieces;
+    self.white_pieces = u.white_pieces;
     self.hash = u.hash;
     self.drop_masks = u.drop_masks;
     self.nifu_masks = u.nifu_masks;
