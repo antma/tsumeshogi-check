@@ -85,6 +85,13 @@ pub fn bishop(pos: usize, b3: u128, b4: u128) -> u128 {
   consts::DATA3[u.offset + i] | consts::DATA4[v.offset + j]
 }
 
+pub fn lance(pos: usize, v: i8, b2: u128) -> u128 {
+  let (row, col) = cell::unpack(pos);
+  let j = ((b2 >> (9 * col + 1)) & 127) as usize;
+  (consts::ROOK_VERTICAL_MASKS[128 * row + j] << col)
+    & consts::SLIDING_MASKS[8 * pos + (if v > 0 { 1 } else { 6 })]
+}
+
 #[test]
 fn test_first_last() {
   assert_eq!(first(1), 0);

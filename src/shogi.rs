@@ -762,7 +762,6 @@ impl Position {
       });
     }
   }
-
   pub fn compute_check_candidates(&self, checks: &Checks) -> Vec<Move> {
     if checks.is_check() {
       return self.compute_moves(checks);
@@ -799,18 +798,58 @@ impl Position {
           }
         }
         piece::LANCE => {
-          if (self.side > 0) != (opponent_king_pos < pos) {
-            let delta = if cell::promotion_zone(opponent_king_pos, self.side) {
-              1
+          if !self.is_discover_check_piece(pos, opponent_king_pos) {
+            let (a, b, c) = if self.side > 0 {
+              (
+                bitboards::lance(pos, 1, self.all_pieces2) & !self.black_pieces,
+                bitboards::lance(opponent_king_pos, -1, self.all_pieces2),
+                consts::WHITE_GOLD_MASKS[opponent_king_pos],
+              )
             } else {
-              0
+              (
+                bitboards::lance(pos, -1, self.all_pieces2) & !self.white_pieces,
+                bitboards::lance(opponent_king_pos, -1, self.all_pieces2),
+                consts::BLACK_GOLD_MASKS[opponent_king_pos],
+              )
             };
-            let col = pos % 9;
-            if (king_col as isize - col as isize).abs() <= delta
-              && !self.is_discover_check_piece(pos, opponent_king_pos)
-            {
-              continue;
+            let (promoted_moves, not_promoted_moves) = if cell::promotion_zone(pos, self.side) {
+              (a, 0)
+            } else {
+              let t = a & bitboards::promotion_zone(self.side);
+              (t, a ^ t)
+            };
+            let promoted_moves = promoted_moves & (b | c);
+            if promoted_moves != 0 {
+              for k in bitboards::Bits128(promoted_moves) {
+                let bit = 1u128 << k;
+                if (c & bit) != 0 {
+                  f(Move {
+                    from: pos,
+                    to: k,
+                    from_piece: v,
+                    to_piece: v + self.side * piece::PROMOTED,
+                  });
+                }
+                if (b & bit) != 0 {
+                  f(Move {
+                    from: pos,
+                    to: k,
+                    from_piece: v,
+                    to_piece: v,
+                  });
+                }
+              }
             }
+            let not_promoted_moves = not_promoted_moves & b;
+            for k in bitboards::Bits128(not_promoted_moves) {
+              f(Move {
+                from: pos,
+                to: k,
+                from_piece: v,
+                to_piece: v,
+              });
+            }
+            continue;
           }
         }
         piece::KNIGHT => {
