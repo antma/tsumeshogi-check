@@ -762,6 +762,53 @@ impl Position {
       });
     }
   }
+  fn knight_checks<F: FnMut(Move) -> bool>(
+    a: u128,
+    b: u128,
+    c: u128,
+    pos: usize,
+    opponent_king_pos: usize,
+    v: i8,
+    f: &mut F,
+  ) {
+    let (promoted_moves, not_promoted_moves) = if cell::promotion_zone(pos, v) {
+      (a, 0)
+    } else {
+      let t = a & bitboards::promotion_zone(v);
+      (t, a ^ t)
+    };
+    let promoted_moves = promoted_moves & (b | c);
+    if promoted_moves != 0 {
+      for k in bitboards::Bits128(promoted_moves) {
+        let bit = 1u128 << k;
+        if (c & bit) != 0 {
+          f(Move {
+            from: pos,
+            to: k,
+            from_piece: v,
+            to_piece: piece::promote(v),
+          });
+        }
+        if (b & bit) != 0 {
+          f(Move {
+            from: pos,
+            to: k,
+            from_piece: v,
+            to_piece: v,
+          });
+        }
+      }
+    }
+    let not_promoted_moves = not_promoted_moves & b;
+    for k in bitboards::Bits128(not_promoted_moves) {
+      f(Move {
+        from: pos,
+        to: k,
+        from_piece: v,
+        to_piece: v,
+      });
+    }
+  }
   pub fn compute_check_candidates(&self, checks: &Checks) -> Vec<Move> {
     if checks.is_check() {
       return self.compute_moves(checks);
@@ -812,43 +859,7 @@ impl Position {
                 consts::BLACK_GOLD_MASKS[opponent_king_pos],
               )
             };
-            let (promoted_moves, not_promoted_moves) = if cell::promotion_zone(pos, self.side) {
-              (a, 0)
-            } else {
-              let t = a & bitboards::promotion_zone(self.side);
-              (t, a ^ t)
-            };
-            let promoted_moves = promoted_moves & (b | c);
-            if promoted_moves != 0 {
-              for k in bitboards::Bits128(promoted_moves) {
-                let bit = 1u128 << k;
-                if (c & bit) != 0 {
-                  f(Move {
-                    from: pos,
-                    to: k,
-                    from_piece: v,
-                    to_piece: v + self.side * piece::PROMOTED,
-                  });
-                }
-                if (b & bit) != 0 {
-                  f(Move {
-                    from: pos,
-                    to: k,
-                    from_piece: v,
-                    to_piece: v,
-                  });
-                }
-              }
-            }
-            let not_promoted_moves = not_promoted_moves & b;
-            for k in bitboards::Bits128(not_promoted_moves) {
-              f(Move {
-                from: pos,
-                to: k,
-                from_piece: v,
-                to_piece: v,
-              });
-            }
+            Position::knight_checks(a, b, c, pos, opponent_king_pos, v, &mut f);
             continue;
           }
         }
@@ -867,43 +878,7 @@ impl Position {
                 consts::BLACK_GOLD_MASKS[opponent_king_pos],
               )
             };
-            let (promoted_moves, not_promoted_moves) = if cell::promotion_zone(pos, self.side) {
-              (a, 0)
-            } else {
-              let t = a & bitboards::promotion_zone(self.side);
-              (t, a ^ t)
-            };
-            let promoted_moves = promoted_moves & (b | c);
-            if promoted_moves != 0 {
-              for k in bitboards::Bits128(promoted_moves) {
-                let bit = 1u128 << k;
-                if (c & bit) != 0 {
-                  f(Move {
-                    from: pos,
-                    to: k,
-                    from_piece: v,
-                    to_piece: v + self.side * piece::PROMOTED,
-                  });
-                }
-                if (b & bit) != 0 {
-                  f(Move {
-                    from: pos,
-                    to: k,
-                    from_piece: v,
-                    to_piece: v,
-                  });
-                }
-              }
-            }
-            let not_promoted_moves = not_promoted_moves & b;
-            for k in bitboards::Bits128(not_promoted_moves) {
-              f(Move {
-                from: pos,
-                to: k,
-                from_piece: v,
-                to_piece: v,
-              });
-            }
+            Position::knight_checks(a, b, c, pos, opponent_king_pos, v, &mut f);
             continue;
           }
         }

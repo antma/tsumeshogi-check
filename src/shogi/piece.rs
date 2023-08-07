@@ -78,6 +78,9 @@ pub const fn expected_number_of_pieces(abs_piece: i8) -> u32 {
     _ => 0,
   }
 }
+pub fn promote(v: i8) -> i8 {
+  v + (if v > 0 { PROMOTED } else { -PROMOTED })
+}
 pub fn unpromote(v: i8) -> i8 {
   if v >= PROMOTED {
     v - PROMOTED
