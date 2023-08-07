@@ -131,5 +131,12 @@ fn potentional_checks() {
     let r1 = filter_checks(&mut pos, l1);
     let r2 = filter_checks(&mut pos, l2);
     assert_eq!(r1, r2, "test {}, fen {}", test + 1, fen);
+    pos.swap_sides();
+    let checks = pos.compute_checks();
+    let l1 = pos.compute_check_candidates(&checks);
+    let l2 = pos.compute_moves(&checks);
+    let r1 = filter_checks(&mut pos, l1);
+    let r2 = filter_checks(&mut pos, l2);
+    assert_eq!(r1, r2, "test(swapped sides) {}, fen {}", test + 1, pos);
   }
 }

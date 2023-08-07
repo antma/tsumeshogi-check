@@ -854,7 +854,7 @@ impl Position {
             } else {
               (
                 bitboards::lance(pos, -1, self.all_pieces2) & !self.white_pieces,
-                bitboards::lance(opponent_king_pos, -1, self.all_pieces2),
+                bitboards::lance(opponent_king_pos, 1, self.all_pieces2),
                 consts::BLACK_GOLD_MASKS[opponent_king_pos],
               )
             };
