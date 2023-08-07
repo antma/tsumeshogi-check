@@ -845,7 +845,7 @@ impl Position {
         }
         piece::LANCE => {
           if !self.is_discover_check_piece(pos, opponent_king_pos) {
-            let (a, b, c) = if self.side > 0 {
+            let (a, b, c) = if v > 0 {
               (
                 bitboards::lance(pos, 1, self.all_pieces2) & !self.black_pieces,
                 bitboards::lance(opponent_king_pos, -1, self.all_pieces2),
@@ -864,7 +864,7 @@ impl Position {
         }
         piece::KNIGHT => {
           if !self.is_discover_check_piece(pos, opponent_king_pos) {
-            let (a, b, c) = if self.side > 0 {
+            let (a, b, c) = if v > 0 {
               (
                 consts::BLACK_KNIGHT_MASKS[pos] & !self.black_pieces,
                 consts::WHITE_KNIGHT_MASKS[opponent_king_pos],
@@ -881,72 +881,22 @@ impl Position {
             continue;
           }
         }
-        piece::KING => {
-          if !self.is_discover_check_piece(pos, opponent_king_pos) {
-            continue;
-          }
-        }
         piece::SILVER => {
           if !self.is_discover_check_piece(pos, opponent_king_pos) {
-            let a = if self.side > 0 {
-              consts::BLACK_SILVER_MASKS[pos] & !self.black_pieces
+            let (a, b, c) = if v > 0 {
+              (
+                consts::BLACK_SILVER_MASKS[pos] & !self.black_pieces,
+                consts::WHITE_SILVER_MASKS[opponent_king_pos],
+                consts::WHITE_GOLD_MASKS[opponent_king_pos],
+              )
             } else {
-              consts::WHITE_SILVER_MASKS[pos] & !self.white_pieces
+              (
+                consts::WHITE_SILVER_MASKS[pos] & !self.white_pieces,
+                consts::BLACK_SILVER_MASKS[opponent_king_pos],
+                consts::BLACK_GOLD_MASKS[opponent_king_pos],
+              )
             };
-            let (promoted_moves, not_promoted_moves) = if cell::promotion_zone(pos, self.side) {
-              (a, 0)
-            } else {
-              let t = a & bitboards::promotion_zone(self.side);
-              (t, a ^ t)
-            };
-            let promoted_moves = promoted_moves & consts::KING_MASKS[opponent_king_pos];
-            if promoted_moves != 0 {
-              let (b, c) = if self.side > 0 {
-                (
-                  consts::WHITE_SILVER_MASKS[opponent_king_pos],
-                  consts::WHITE_GOLD_MASKS[opponent_king_pos],
-                )
-              } else {
-                (
-                  consts::BLACK_SILVER_MASKS[opponent_king_pos],
-                  consts::BLACK_GOLD_MASKS[opponent_king_pos],
-                )
-              };
-              for k in bitboards::Bits128(promoted_moves) {
-                let bit = 1u128 << k;
-                if (c & bit) != 0 {
-                  f(Move {
-                    from: pos,
-                    to: k,
-                    from_piece: v,
-                    to_piece: piece::promote(v),
-                  });
-                }
-                if (b & bit) != 0 {
-                  f(Move {
-                    from: pos,
-                    to: k,
-                    from_piece: v,
-                    to_piece: v,
-                  });
-                }
-              }
-            }
-            let not_promoted_moves = not_promoted_moves
-              & (if self.side > 0 {
-                consts::WHITE_SILVER_MASKS[opponent_king_pos]
-              } else {
-                consts::BLACK_SILVER_MASKS[opponent_king_pos]
-              });
-
-            for k in bitboards::Bits128(not_promoted_moves) {
-              f(Move {
-                from: pos,
-                to: k,
-                from_piece: v,
-                to_piece: v,
-              });
-            }
+            Position::knight_checks(a, b, c, pos, v, &mut f);
             continue;
           }
         }
@@ -1009,6 +959,11 @@ impl Position {
             let a = bitboards::bishop(pos, self.all_pieces3, self.all_pieces4);
             let b = bitboards::bishop(opponent_king_pos, self.all_pieces3, self.all_pieces4);
             self.sliding_piece_checks(a, b, pos, opponent_king_pos, v, &mut f);
+            continue;
+          }
+        }
+        piece::KING => {
+          if !self.is_discover_check_piece(pos, opponent_king_pos) {
             continue;
           }
         }
