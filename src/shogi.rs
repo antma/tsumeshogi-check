@@ -528,7 +528,7 @@ impl Position {
           from: pos,
           to: k,
           from_piece: piece,
-          to_piece: piece + piece.signum() * piece::PROMOTED,
+          to_piece: piece::promote(piece),
         }) {
           return true;
         }
@@ -740,7 +740,7 @@ impl Position {
           from,
           to: k,
           from_piece: v,
-          to_piece: v + self.side * piece::PROMOTED,
+          to_piece: piece::promote(v),
         });
         let bit = 1u128 << k;
         if (b & bit) != 0 {
@@ -767,7 +767,6 @@ impl Position {
     b: u128,
     c: u128,
     pos: usize,
-    opponent_king_pos: usize,
     v: i8,
     f: &mut F,
   ) {
@@ -859,7 +858,7 @@ impl Position {
                 consts::BLACK_GOLD_MASKS[opponent_king_pos],
               )
             };
-            Position::knight_checks(a, b, c, pos, opponent_king_pos, v, &mut f);
+            Position::knight_checks(a, b, c, pos, v, &mut f);
             continue;
           }
         }
@@ -878,7 +877,7 @@ impl Position {
                 consts::BLACK_GOLD_MASKS[opponent_king_pos],
               )
             };
-            Position::knight_checks(a, b, c, pos, opponent_king_pos, v, &mut f);
+            Position::knight_checks(a, b, c, pos, v, &mut f);
             continue;
           }
         }
@@ -920,7 +919,7 @@ impl Position {
                     from: pos,
                     to: k,
                     from_piece: v,
-                    to_piece: v + self.side * piece::PROMOTED,
+                    to_piece: piece::promote(v),
                   });
                 }
                 if (b & bit) != 0 {
@@ -1663,7 +1662,7 @@ impl Position {
             from,
             to,
             from_piece: piece,
-            to_piece: piece + piece.signum() * piece::PROMOTED,
+            to_piece: piece::promote(piece),
           });
         }
       }
