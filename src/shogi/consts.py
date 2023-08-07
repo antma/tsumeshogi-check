@@ -4,8 +4,8 @@ import random, sys
 filename = sys.argv[0].removesuffix('.py') + '.rs'
 f = open(filename, 'w')
 
-def legal_cell(y, x):
-  return (x >= 0) and (x < 9) and (y >= 0) and (y < 9)
+def legal_coordinate(x): return (x >= 0) and (x < 9)
+def legal_cell(y, x): return legal_coordinate(x) and legal_coordinate(y)
 
 def go(a, k, dy, dx, y, x):
   idx = 8 * (9 * y + x) + k
@@ -49,7 +49,6 @@ def diagonal(f, diag_key, no):
     d = diag_key(a[i])
     while (j < 81) and d == diag_key(a[j]): j += 1
     l = j - i
-    print(i, d, l)
     for k in range(i, j):
       shift[a[k]] = i + 1
       if l <= 2: m[a[k]] = 0
@@ -108,8 +107,21 @@ black_gold_attack = []
 white_gold_attack = []
 black_silver_attack = []
 white_silver_attack = []
+black_knight_attack = []
+white_knight_attack = []
 for row in range(9):
   for col in range(9):
+    n1 = 0
+    n2 = 0
+    for delta_col in [-1, 1]:
+      c = col + delta_col
+      if not legal_coordinate(c): continue
+      r = row - 2
+      if legal_coordinate(r): n1 |= 1 << (9 * r + c)
+      r = row + 2
+      if legal_coordinate(r): n2 |= 1 << (9 * r + c)
+    black_knight_attack.append(n1)
+    white_knight_attack.append(n2)
     r = 0
     r2 = 0
     r3 = 0
@@ -117,11 +129,11 @@ for row in range(9):
     r5 = 0
     for y in range(-1, 2):
       j = row + y
-      if (j < 0) or (j > 8): continue
+      if not legal_coordinate(j): continue
       for x in range(-1, 2):
         if (y == 0) and (x == 0): continue
         i = col + x
-        if (i < 0) or (i > 8): continue
+        if not legal_coordinate(i): continue
         l = 9 * j + i
         bit = 1 << l
         r |= bit
@@ -147,6 +159,8 @@ p(f, 'BLACK_GOLD_MASKS', black_gold_attack, 128)
 p(f, 'BLACK_SILVER_MASKS', black_silver_attack, 128)
 p(f, 'WHITE_GOLD_MASKS', white_gold_attack, 128)
 p(f, 'WHITE_SILVER_MASKS', white_silver_attack, 128)
+p(f, 'BLACK_KNIGHT_MASKS', black_knight_attack, 128)
+p(f, 'WHITE_KNIGHT_MASKS', white_knight_attack, 128)
 h = []
 v = []
 for s in range(9):
@@ -157,7 +171,7 @@ for s in range(9):
       j = s
       while True:
        j += d
-       if (j < 0) or (j >= 9): break
+       if not legal_coordinate(j): break
        bit = 1 << j
        r += bit
        if (x & bit) != 0: break

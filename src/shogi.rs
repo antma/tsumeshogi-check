@@ -853,11 +853,57 @@ impl Position {
           }
         }
         piece::KNIGHT => {
-          let (knight_row, knight_col) = cell::unpack(pos);
-          if !cell::knight_could_attack_king_after_move(
-            knight_row, knight_col, self.side, king_row, king_col,
-          ) && !self.is_discover_check_piece(pos, opponent_king_pos)
-          {
+          if !self.is_discover_check_piece(pos, opponent_king_pos) {
+            let (a, b, c) = if self.side > 0 {
+              (
+                consts::BLACK_KNIGHT_MASKS[pos] & !self.black_pieces,
+                consts::WHITE_KNIGHT_MASKS[opponent_king_pos],
+                consts::WHITE_GOLD_MASKS[opponent_king_pos],
+              )
+            } else {
+              (
+                consts::WHITE_KNIGHT_MASKS[pos] & !self.white_pieces,
+                consts::BLACK_KNIGHT_MASKS[opponent_king_pos],
+                consts::BLACK_GOLD_MASKS[opponent_king_pos],
+              )
+            };
+            let (promoted_moves, not_promoted_moves) = if cell::promotion_zone(pos, self.side) {
+              (a, 0)
+            } else {
+              let t = a & bitboards::promotion_zone(self.side);
+              (t, a ^ t)
+            };
+            let promoted_moves = promoted_moves & (b | c);
+            if promoted_moves != 0 {
+              for k in bitboards::Bits128(promoted_moves) {
+                let bit = 1u128 << k;
+                if (c & bit) != 0 {
+                  f(Move {
+                    from: pos,
+                    to: k,
+                    from_piece: v,
+                    to_piece: v + self.side * piece::PROMOTED,
+                  });
+                }
+                if (b & bit) != 0 {
+                  f(Move {
+                    from: pos,
+                    to: k,
+                    from_piece: v,
+                    to_piece: v,
+                  });
+                }
+              }
+            }
+            let not_promoted_moves = not_promoted_moves & b;
+            for k in bitboards::Bits128(not_promoted_moves) {
+              f(Move {
+                from: pos,
+                to: k,
+                from_piece: v,
+                to_piece: v,
+              });
+            }
             continue;
           }
         }
