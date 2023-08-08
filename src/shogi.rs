@@ -818,6 +818,11 @@ impl Position {
       return moves;
     }
     let opponent_king_pos = opponent_king_pos.unwrap();
+    let c = if self.side > 0 {
+      consts::WHITE_GOLD_MASKS[opponent_king_pos]
+    } else {
+      consts::BLACK_GOLD_MASKS[opponent_king_pos]
+    };
     let mut f = |mv| {
       moves.push(mv);
       false
@@ -831,31 +836,29 @@ impl Position {
       let v = self.board[from];
       match v.abs() {
         piece::PAWN => {
-          if (opponent_king_pos as isize != from as isize - 18 * self.side as isize
-            && !cell::pawn_could_attack_king_by_move_with_promotion(
-              (from as isize - 9 * self.side as isize) as usize,
-              self.side,
-              king_row,
-              king_col,
-            ))
-            && !self.is_discover_check_piece(from, opponent_king_pos)
-          {
+          if !self.is_discover_check_piece(from, opponent_king_pos) {
+            let pawn_bit = 1u128 << from;
+            let king_bit = 1u128 << opponent_king_pos;
+            let (a, b) = if v > 0 {
+              ((pawn_bit >> 9) & !self.black_pieces, king_bit << 9)
+            } else {
+              ((pawn_bit << 9) & !self.white_pieces, king_bit >> 9)
+            };
+            Position::knight_checks(a, b, c, from, v, &mut f);
             continue;
           }
         }
         piece::LANCE => {
           if !self.is_discover_check_piece(from, opponent_king_pos) {
-            let (a, b, c) = if v > 0 {
+            let (a, b) = if v > 0 {
               (
                 bitboards::lance(from, 1, self.all_pieces2) & !self.black_pieces,
                 bitboards::lance(opponent_king_pos, -1, self.all_pieces2),
-                consts::WHITE_GOLD_MASKS[opponent_king_pos],
               )
             } else {
               (
                 bitboards::lance(from, -1, self.all_pieces2) & !self.white_pieces,
                 bitboards::lance(opponent_king_pos, 1, self.all_pieces2),
-                consts::BLACK_GOLD_MASKS[opponent_king_pos],
               )
             };
             Position::knight_checks(a, b, c, from, v, &mut f);
@@ -864,17 +867,15 @@ impl Position {
         }
         piece::KNIGHT => {
           if !self.is_discover_check_piece(from, opponent_king_pos) {
-            let (a, b, c) = if v > 0 {
+            let (a, b) = if v > 0 {
               (
                 consts::BLACK_KNIGHT_MASKS[from] & !self.black_pieces,
                 consts::WHITE_KNIGHT_MASKS[opponent_king_pos],
-                consts::WHITE_GOLD_MASKS[opponent_king_pos],
               )
             } else {
               (
                 consts::WHITE_KNIGHT_MASKS[from] & !self.white_pieces,
                 consts::BLACK_KNIGHT_MASKS[opponent_king_pos],
-                consts::BLACK_GOLD_MASKS[opponent_king_pos],
               )
             };
             Position::knight_checks(a, b, c, from, v, &mut f);
@@ -883,17 +884,15 @@ impl Position {
         }
         piece::SILVER => {
           if !self.is_discover_check_piece(from, opponent_king_pos) {
-            let (a, b, c) = if v > 0 {
+            let (a, b) = if v > 0 {
               (
                 consts::BLACK_SILVER_MASKS[from] & !self.black_pieces,
                 consts::WHITE_SILVER_MASKS[opponent_king_pos],
-                consts::WHITE_GOLD_MASKS[opponent_king_pos],
               )
             } else {
               (
                 consts::WHITE_SILVER_MASKS[from] & !self.white_pieces,
                 consts::BLACK_SILVER_MASKS[opponent_king_pos],
-                consts::BLACK_GOLD_MASKS[opponent_king_pos],
               )
             };
             Position::knight_checks(a, b, c, from, v, &mut f);
