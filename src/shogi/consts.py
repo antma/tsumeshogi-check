@@ -6,6 +6,20 @@ f = open(filename, 'w')
 
 def legal_coordinate(x): return (x >= 0) and (x < 9)
 def legal_cell(y, x): return legal_coordinate(x) and legal_coordinate(y)
+def unpack(i): return (i // 9, i % 9)
+def mirrory(i):
+   y, x = unpack(i)
+   return 9 * (8 - y) + x
+def mirrory_array(a):
+  b = [None] * 81
+  for i in range(81):
+    r = 0
+    x = a[i]
+    for j in range(81):
+      if (x & (1 << j)) != 0:
+        r += 1 << mirrory(j)
+    b[mirrory(i)] = r
+  return b
 
 def go(a, k, dy, dx, y, x):
   idx = 8 * (9 * y + x) + k
@@ -109,6 +123,7 @@ black_silver_attack = []
 white_silver_attack = []
 black_knight_attack = []
 white_knight_attack = []
+black_local_check_candidates = []
 for row in range(9):
   for col in range(9):
     n1 = 0
@@ -154,6 +169,31 @@ for row in range(9):
     white_gold_attack.append(r3)
     black_silver_attack.append(r4)
     white_silver_attack.append(r5)
+    r = 0
+    for y in range(-2, 3):
+      j = row + y
+      if not legal_coordinate(j): continue
+      for x in range(-2, 3):
+        if abs(y) + abs(x) == 0: continue
+        i = col + x
+        if not legal_coordinate(i): continue
+        r += 1 << (9 * j + i)
+    j = row + 4
+    if legal_coordinate(j):
+      for x in [-2, 0, 2]:
+        i = col + x
+        if legal_coordinate(i):
+          r += 1 << (9 * j + i)
+    if row < 2:
+      j = row + 3
+      for x in range(-2, 3):
+        i = col + x
+        if legal_coordinate(i):
+          r += 1 << (9 * j + i)
+    black_local_check_candidates.append(r)
+
+assert(mirrory_array(black_gold_attack) == white_gold_attack)
+assert(mirrory_array(black_silver_attack) == white_silver_attack)
 p(f, 'KING_MASKS', king_attack, 128)
 p(f, 'BLACK_GOLD_MASKS', black_gold_attack, 128)
 p(f, 'BLACK_SILVER_MASKS', black_silver_attack, 128)
@@ -161,6 +201,8 @@ p(f, 'WHITE_GOLD_MASKS', white_gold_attack, 128)
 p(f, 'WHITE_SILVER_MASKS', white_silver_attack, 128)
 p(f, 'BLACK_KNIGHT_MASKS', black_knight_attack, 128)
 p(f, 'WHITE_KNIGHT_MASKS', white_knight_attack, 128)
+p(f, 'BLACK_LOCAL_CHECK_CANDIDATES', black_local_check_candidates, 128)
+p(f, 'WHITE_LOCAL_CHECK_CANDIDATES', mirrory_array(black_local_check_candidates), 128)
 h = []
 v = []
 for s in range(9):
