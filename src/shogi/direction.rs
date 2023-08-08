@@ -1,6 +1,23 @@
 use super::cell::unpack;
 pub type Direction = (isize, isize);
 
+pub const VECTORS: [Direction; 8] = [
+  (-1, -1),
+  (-1, 0),
+  (-1, 1),
+  (0, -1),
+  (0, 1),
+  (1, -1),
+  (1, 0),
+  (1, 1),
+];
+pub const OFFSETS: [isize; 8] = [-10, -9, -8, -1, 1, 8, 9, 10];
+//flags: +1 - bishop
+//flags: +2 - rook
+//flags: +4 - general (forward)
+pub const BLACK_FLAGS: [u8; 8] = [1 + 4, 2 + 4, 1 + 4, 2, 2, 1, 2, 1];
+pub const WHITE_FLAGS: [u8; 8] = [1, 2, 1, 2, 2, 1 + 4, 2 + 4, 1 + 4];
+
 fn delta(from: usize, to: usize) -> Direction {
   let (row1, col1) = unpack(from);
   let (row2, col2) = unpack(to);
@@ -32,7 +49,7 @@ pub fn try_to_find_delta_direction_no(from: usize, to: usize) -> Option<usize> {
 
 #[test]
 fn test_direction_to_usize() {
-  for (i, p) in super::piece::BLACK_DIRECTIONS.iter().enumerate() {
-    assert_eq!(to_usize((p.0, p.1)), i);
+  for (i, p) in VECTORS.iter().enumerate() {
+    assert_eq!(to_usize(p.clone()), i);
   }
 }

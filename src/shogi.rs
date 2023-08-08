@@ -680,9 +680,9 @@ impl Position {
         return false;
       }
       let flags = if self.side < 0 {
-        piece::BLACK_DIRECTIONS_FLAGS[i]
+        direction::BLACK_FLAGS[i]
       } else {
-        piece::WHITE_DIRECTIONS_FLAGS[i]
+        direction::WHITE_FLAGS[i]
       };
       if piece::is_sliding_dir(t.abs(), flags) {
         return true;
@@ -1102,9 +1102,9 @@ impl Position {
     i: usize,
   ) -> bool {
     let flags = if s > 0 {
-      piece::BLACK_DIRECTIONS_FLAGS[i]
+      direction::BLACK_FLAGS[i]
     } else {
-      piece::WHITE_DIRECTIONS_FLAGS[i]
+      direction::WHITE_FLAGS[i]
     };
     let p = consts::SLIDING_MASKS[8 * king_pos + i];
     let b = p & self.all_pieces;
@@ -1126,9 +1126,9 @@ impl Position {
   fn attacked(&self, king_pos: usize, s: i8) -> bool {
     let (king_row, king_col) = cell::unpack(king_pos);
     for (i, (flags, p)) in if s > 0 {
-      piece::BLACK_DIRECTIONS_FLAGS.iter()
+      direction::BLACK_FLAGS.iter()
     } else {
-      piece::WHITE_DIRECTIONS_FLAGS.iter()
+      direction::WHITE_FLAGS.iter()
     }
     .zip(consts::SLIDING_MASKS.iter().skip(8 * king_pos))
     .enumerate()
@@ -1178,9 +1178,9 @@ impl Position {
   fn attacking_pieces(&self, king_pos: usize, s: i8) -> attacking_pieces::AttackingPieces {
     let mut attacking_pieces = attacking_pieces::AttackingPieces::default();
     for (i, (flags, p)) in if s > 0 {
-      piece::BLACK_DIRECTIONS_FLAGS.iter()
+      direction::BLACK_FLAGS.iter()
     } else {
-      piece::WHITE_DIRECTIONS_FLAGS.iter()
+      direction::WHITE_FLAGS.iter()
     }
     .zip(consts::SLIDING_MASKS.iter().skip(8 * king_pos))
     .enumerate()
@@ -1244,9 +1244,9 @@ impl Position {
         }
         used += bit;
         let flags = if s > 0 {
-          piece::BLACK_DIRECTIONS_FLAGS[i]
+          direction::BLACK_FLAGS[i]
         } else {
-          piece::WHITE_DIRECTIONS_FLAGS[i]
+          direction::WHITE_FLAGS[i]
         };
         let p = consts::SLIDING_MASKS[8 * king_pos + i];
         let b = p & self.all_pieces;
@@ -1296,9 +1296,9 @@ impl Position {
     let mut attacking_pieces = attacking_pieces::AttackingPieces::default();
     let mut blocking_cells = 0u128;
     for (i, (flags, p)) in if s > 0 {
-      piece::BLACK_DIRECTIONS_FLAGS.iter()
+      direction::BLACK_FLAGS.iter()
     } else {
-      piece::WHITE_DIRECTIONS_FLAGS.iter()
+      direction::WHITE_FLAGS.iter()
     }
     .zip(consts::SLIDING_MASKS.iter().skip(8 * king_pos))
     .enumerate()
@@ -1371,18 +1371,24 @@ impl Position {
     }
     let king_pos = king_pos.unwrap();
     let (king_row, king_col) = cell::unpack(king_pos);
-    for t in if self.side < 0 {
-      piece::BLACK_DIRECTIONS.iter()
+    for (t, flags) in direction::VECTORS.iter().zip(if self.side < 0 {
+      direction::BLACK_FLAGS.iter()
     } else {
-      piece::WHITE_DIRECTIONS.iter()
-    } {
+      direction::WHITE_FLAGS.iter()
+    }) {
       let mut row = king_row;
       let mut col = king_col;
-      let mut mask = piece::near_dir_to_mask(t.2) & drops_mask;
+      let mut mask = piece::near_dir_to_mask(*flags) & drops_mask;
       if mask == 0 {
         continue;
       }
       for steps in 0.. {
+        if steps == 1 {
+          mask = piece::sliding_dir_to_mask(*flags) & drops_mask;
+          if mask == 0 {
+            break;
+          }
+        }
         let r = (row as isize) + t.0;
         if r < 0 || r >= 9 {
           break;
@@ -1390,12 +1396,6 @@ impl Position {
         let c = (col as isize) + t.1;
         if c < 0 || c >= 9 {
           break;
-        }
-        if steps == 1 {
-          mask = piece::sliding_dir_to_mask(t.2) & drops_mask;
-          if mask == 0 {
-            break;
-          }
         }
         row = r as usize;
         col = c as usize;

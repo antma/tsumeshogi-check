@@ -45,31 +45,6 @@ pub const KING_MOVES: [Direction; 8] = [
   (1, 0),
   (1, 1),
 ];
-//flags: +1 - bishop
-//flags: +2 - rook
-//flags: +4 - general (forward)
-pub const BLACK_DIRECTIONS: [(isize, isize, u8); 8] = [
-  (-1, -1, 1 + 4),
-  (-1, 0, 2 + 4),
-  (-1, 1, 1 + 4),
-  (0, -1, 2),
-  (0, 1, 2),
-  (1, -1, 1),
-  (1, 0, 2),
-  (1, 1, 1),
-];
-pub const WHITE_DIRECTIONS: [(isize, isize, u8); 8] = [
-  (1, -1, 1 + 4),
-  (1, 0, 2 + 4),
-  (1, 1, 1 + 4),
-  (0, -1, 2),
-  (0, 1, 2),
-  (-1, -1, 1),
-  (-1, 0, 2),
-  (-1, 1, 1),
-];
-pub const BLACK_DIRECTIONS_FLAGS: [u8; 8] = [1 + 4, 2 + 4, 1 + 4, 2, 2, 1, 2, 1];
-pub const WHITE_DIRECTIONS_FLAGS: [u8; 8] = [1, 2, 1, 2, 2, 1 + 4, 2 + 4, 1 + 4];
 pub const fn expected_number_of_pieces(abs_piece: i8) -> u32 {
   match abs_piece {
     PAWN => 18,
