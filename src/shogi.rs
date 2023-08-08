@@ -1124,7 +1124,6 @@ impl Position {
     false
   }
   fn attacked(&self, king_pos: usize, s: i8) -> bool {
-    let (king_row, king_col) = cell::unpack(king_pos);
     for (i, (flags, p)) in if s > 0 {
       direction::BLACK_FLAGS.iter()
     } else {
@@ -1141,10 +1140,7 @@ impl Position {
         debug_assert_ne!(t, 0);
         if t < 0 {
           let pa = piece.abs();
-          let (row, col) = cell::unpack(k);
-          let ok = if (king_row as isize - row as isize).abs() <= 1
-            && (king_col as isize - col as isize).abs() <= 1
-          {
+          let ok = if (king_pos as isize) + direction::OFFSETS[i] == (k as isize) {
             piece::is_near_dir(pa, *flags)
           } else {
             piece::is_sliding_dir(pa, *flags)
@@ -1156,6 +1152,7 @@ impl Position {
       }
     }
     //knight checks
+    let (king_row, king_col) = cell::unpack(king_pos);
     let r = (king_row as isize) - 2 * (s as isize);
     if r >= 0 && r < 9 {
       for t in piece::KNIGHT_MOVES_DELTA_COL.iter() {
@@ -1164,13 +1161,9 @@ impl Position {
           continue;
         }
         let piece = self.board[9 * r as usize + c as usize];
-        if s * piece >= 0 {
-          continue;
+        if s * piece == -piece::KNIGHT {
+          return true;
         }
-        if piece.abs() != piece::KNIGHT {
-          continue;
-        }
-        return true;
       }
     }
     false
@@ -1216,13 +1209,9 @@ impl Position {
         }
         let k = 9 * r as usize + c as usize;
         let piece = self.board[k];
-        if s * piece >= 0 {
-          continue;
+        if s * piece == -piece::KNIGHT {
+          attacking_pieces.push(k);
         }
-        if piece.abs() != piece::KNIGHT {
-          continue;
-        }
-        attacking_pieces.push(k);
       }
     }
     attacking_pieces
@@ -1336,13 +1325,9 @@ impl Position {
         }
         let k = 9 * r as usize + c as usize;
         let piece = self.board[k];
-        if s * piece >= 0 {
-          continue;
+        if s * piece == -piece::KNIGHT {
+          attacking_pieces.push(k);
         }
-        if piece.abs() != piece::KNIGHT {
-          continue;
-        }
-        attacking_pieces.push(k);
       }
     }
     //double checks can't be blocked
