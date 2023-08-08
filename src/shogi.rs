@@ -585,14 +585,14 @@ impl Position {
           }
         }
         piece::SILVER => {
-          for t in piece::SILVER_MOVES.iter() {
+          for t in &direction::SILVER_MOVES {
             if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false) {
               return true;
             }
           }
         }
         piece::WHITE_SILVER => {
-          for t in piece::SILVER_MOVES.iter() {
+          for t in &direction::SILVER_MOVES {
             if self.enumerate_piece_move(&mut f, pos, v, -t.0, t.1, false) {
               return true;
             }
@@ -603,7 +603,7 @@ impl Position {
         | piece::PROMOTED_LANCE
         | piece::PROMOTED_KNIGHT
         | piece::PROMOTED_SILVER => {
-          for t in piece::GOLD_MOVES.iter() {
+          for t in &direction::GOLD_MOVES {
             if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false) {
               return true;
             }
@@ -614,14 +614,14 @@ impl Position {
         | piece::WHITE_PROMOTED_LANCE
         | piece::WHITE_PROMOTED_KNIGHT
         | piece::WHITE_PROMOTED_SILVER => {
-          for t in piece::GOLD_MOVES.iter() {
+          for t in &direction::GOLD_MOVES {
             if self.enumerate_piece_move(&mut f, pos, v, -t.0, t.1, false) {
               return true;
             }
           }
         }
         piece::KING | piece::WHITE_KING => {
-          for t in piece::KING_MOVES.iter() {
+          for t in &direction::KING_MOVES {
             if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false) {
               return true;
             }
@@ -629,13 +629,13 @@ impl Position {
         }
         _ => {
           if w == piece::BISHOP || w == -piece::BISHOP {
-            for t in piece::BISHOP_MOVES.iter() {
+            for t in &direction::BISHOP_MOVES {
               if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, true) {
                 return true;
               }
             }
           } else if w == piece::ROOK || w == -piece::ROOK {
-            for t in piece::ROOK_MOVES.iter() {
+            for t in &direction::ROOK_MOVES {
               if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, true) {
                 return true;
               }
@@ -646,13 +646,13 @@ impl Position {
       //promoted
       if v != w {
         if w == piece::BISHOP || w == -piece::BISHOP {
-          for t in piece::ROOK_MOVES.iter() {
+          for t in &direction::ROOK_MOVES {
             if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false) {
               return true;
             }
           }
         } else if w == piece::ROOK || w == -piece::ROOK {
-          for t in piece::BISHOP_MOVES.iter() {
+          for t in &direction::BISHOP_MOVES {
             if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false) {
               return true;
             }
@@ -967,12 +967,12 @@ impl Position {
           self.enumerate_piece_move(&mut f, from, v, 2, 1, false);
         }
         piece::SILVER => {
-          for t in piece::SILVER_MOVES.iter() {
+          for t in &direction::SILVER_MOVES {
             self.enumerate_piece_move(&mut f, from, v, t.0, t.1, false);
           }
         }
         piece::WHITE_SILVER => {
-          for t in piece::SILVER_MOVES.iter() {
+          for t in &direction::SILVER_MOVES {
             self.enumerate_piece_move(&mut f, from, v, -t.0, t.1, false);
           }
         }
@@ -981,7 +981,7 @@ impl Position {
         | piece::PROMOTED_LANCE
         | piece::PROMOTED_KNIGHT
         | piece::PROMOTED_SILVER => {
-          for t in piece::GOLD_MOVES.iter() {
+          for t in &direction::GOLD_MOVES {
             self.enumerate_piece_move(&mut f, from, v, t.0, t.1, false);
           }
         }
@@ -990,22 +990,22 @@ impl Position {
         | piece::WHITE_PROMOTED_LANCE
         | piece::WHITE_PROMOTED_KNIGHT
         | piece::WHITE_PROMOTED_SILVER => {
-          for t in piece::GOLD_MOVES.iter() {
+          for t in &direction::GOLD_MOVES {
             self.enumerate_piece_move(&mut f, from, v, -t.0, t.1, false);
           }
         }
         piece::KING | piece::WHITE_KING => {
-          for t in piece::KING_MOVES.iter() {
+          for t in &direction::KING_MOVES {
             self.enumerate_piece_move(&mut f, from, v, t.0, t.1, false);
           }
         }
         _ => {
           if w == piece::BISHOP || w == -piece::BISHOP {
-            for t in piece::BISHOP_MOVES.iter() {
+            for t in &direction::BISHOP_MOVES {
               self.enumerate_piece_move(&mut f, from, v, t.0, t.1, true);
             }
           } else if w == piece::ROOK || w == -piece::ROOK {
-            for t in piece::ROOK_MOVES.iter() {
+            for t in &direction::ROOK_MOVES {
               self.enumerate_piece_move(&mut f, from, v, t.0, t.1, true);
             }
           }
@@ -1014,11 +1014,11 @@ impl Position {
       //promoted
       if v != w {
         if w == piece::BISHOP || w == -piece::BISHOP {
-          for t in piece::ROOK_MOVES.iter() {
+          for t in &direction::ROOK_MOVES {
             self.enumerate_piece_move(&mut f, from, v, t.0, t.1, false);
           }
         } else if w == piece::ROOK || w == -piece::ROOK {
-          for t in piece::BISHOP_MOVES.iter() {
+          for t in &direction::BISHOP_MOVES {
             self.enumerate_piece_move(&mut f, from, v, t.0, t.1, false);
           }
         }
@@ -1155,7 +1155,7 @@ impl Position {
     let (king_row, king_col) = cell::unpack(king_pos);
     let r = (king_row as isize) - 2 * (s as isize);
     if r >= 0 && r < 9 {
-      for t in piece::KNIGHT_MOVES_DELTA_COL.iter() {
+      for t in &piece::KNIGHT_MOVES_DELTA_COL {
         let c = (king_col as isize) + *t;
         if c < 0 || c >= 9 {
           continue;
@@ -1202,7 +1202,7 @@ impl Position {
     //knight checks
     let r = (king_row as isize) - 2 * (s as isize);
     if r >= 0 && r < 9 {
-      for t in piece::KNIGHT_MOVES_DELTA_COL.iter() {
+      for t in &piece::KNIGHT_MOVES_DELTA_COL {
         let c = (king_col as isize) + *t;
         if c < 0 || c >= 9 {
           continue;
@@ -1318,7 +1318,7 @@ impl Position {
     //knight checks
     let r = (king_row as isize) - 2 * (s as isize);
     if r >= 0 && r < 9 {
-      for t in piece::KNIGHT_MOVES_DELTA_COL.iter() {
+      for t in &piece::KNIGHT_MOVES_DELTA_COL {
         let c = (king_col as isize) + *t;
         if c < 0 || c >= 9 {
           continue;
@@ -1356,7 +1356,7 @@ impl Position {
     }
     let king_pos = king_pos.unwrap();
     let (king_row, king_col) = cell::unpack(king_pos);
-    for (t, flags) in direction::VECTORS.iter().zip(if self.side < 0 {
+    for (t, flags) in direction::KING_MOVES.iter().zip(if self.side < 0 {
       direction::BLACK_FLAGS.iter()
     } else {
       direction::WHITE_FLAGS.iter()
@@ -1398,7 +1398,7 @@ impl Position {
     }
     let r = (king_row as isize) + 2 * (self.side as isize);
     if r >= 0 && r < 9 {
-      for t in piece::KNIGHT_MOVES_DELTA_COL.iter() {
+      for t in &piece::KNIGHT_MOVES_DELTA_COL {
         let c = (king_col as isize) + *t;
         if c < 0 || c >= 9 {
           continue;
@@ -1552,7 +1552,7 @@ impl Position {
         r.push(m);
         false
       };
-      for t in piece::KING_MOVES.iter() {
+      for t in &direction::KING_MOVES {
         self.enumerate_piece_move(&mut func_add, *pos, king, t.0, t.1, false);
       }
     }

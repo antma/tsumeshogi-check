@@ -1,7 +1,10 @@
 use super::cell::unpack;
 pub type Direction = (isize, isize);
-
-pub const VECTORS: [Direction; 8] = [
+pub const SILVER_MOVES: [Direction; 5] = [(-1, -1), (-1, 0), (-1, 1), (1, -1), (1, 1)];
+pub const GOLD_MOVES: [Direction; 6] = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, 0)];
+pub const ROOK_MOVES: [Direction; 4] = [(-1, 0), (0, -1), (0, 1), (1, 0)];
+pub const BISHOP_MOVES: [Direction; 4] = [(-1, -1), (-1, 1), (1, -1), (1, 1)];
+pub const KING_MOVES: [Direction; 8] = [
   (-1, -1),
   (-1, 0),
   (-1, 1),
@@ -49,7 +52,7 @@ pub fn try_to_find_delta_direction_no(from: usize, to: usize) -> Option<usize> {
 
 #[test]
 fn test_direction_to_usize() {
-  for (i, p) in VECTORS.iter().enumerate() {
+  for (i, p) in KING_MOVES.iter().enumerate() {
     assert_eq!(to_usize(p.clone()), i);
   }
 }

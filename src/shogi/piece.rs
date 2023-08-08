@@ -1,4 +1,3 @@
-use super::direction::Direction;
 pub const PIECE_TO_CHAR: &str = "plnsgbrk";
 pub const NONE: i8 = 0;
 pub const PAWN: i8 = 1;
@@ -31,20 +30,6 @@ pub const WHITE_PROMOTED_SILVER: i8 = -PROMOTED_SILVER;
 pub const WHITE_PROMOTED_BISHOP: i8 = -PROMOTED_BISHOP;
 pub const WHITE_PROMOTED_ROOK: i8 = -PROMOTED_ROOK;
 pub const KNIGHT_MOVES_DELTA_COL: [isize; 2] = [-1, 1];
-pub const SILVER_MOVES: [Direction; 5] = [(-1, -1), (-1, 0), (-1, 1), (1, -1), (1, 1)];
-pub const GOLD_MOVES: [Direction; 6] = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, 0)];
-pub const ROOK_MOVES: [Direction; 4] = [(-1, 0), (0, -1), (0, 1), (1, 0)];
-pub const BISHOP_MOVES: [Direction; 4] = [(-1, -1), (-1, 1), (1, -1), (1, 1)];
-pub const KING_MOVES: [Direction; 8] = [
-  (-1, -1),
-  (-1, 0),
-  (-1, 1),
-  (0, -1),
-  (0, 1),
-  (1, -1),
-  (1, 0),
-  (1, 1),
-];
 pub const fn expected_number_of_pieces(abs_piece: i8) -> u32 {
   match abs_piece {
     PAWN => 18,
