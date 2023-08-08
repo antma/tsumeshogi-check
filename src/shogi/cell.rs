@@ -34,23 +34,6 @@ pub fn mirror(cell: usize) -> usize {
   9 * (8 - row) + (8 - col)
 }
 
-pub(super) fn pawn_could_attack_king_by_move_with_promotion(
-  pawn: usize,
-  side: i8,
-  king_row: usize,
-  king_col: usize,
-) -> bool {
-  if !promotion_zone(pawn, side) {
-    return false;
-  }
-  let (row, col) = unpack(pawn);
-  if (king_col as isize - col as isize).abs() > 1 {
-    return false;
-  }
-  let delta_row = row as isize - king_row as isize;
-  delta_row == 0 || delta_row == (side as isize)
-}
-
 #[cfg(test)]
 mod test {
   #[test]
