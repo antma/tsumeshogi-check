@@ -78,6 +78,9 @@ impl Move {
   pub fn is_promotion(&self) -> bool {
     self.from_piece != piece::NONE && self.from_piece != self.to_piece
   }
+  pub fn is_king_move(&self) -> bool {
+    self.from_piece.abs() == piece::KING
+  }
   pub fn swap_piece_side(&mut self) {
     self.from_piece *= -1;
     self.to_piece *= -1;

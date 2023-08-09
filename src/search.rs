@@ -28,8 +28,6 @@ struct Stats {
   sente_legal_moves: u64,
   gote_skipped_moves: u64,
   gote_skipped_moves_percent: f64,
-  gote_king_illegal_moves: u64,
-  gote_king_illegal_moves_percent: f64,
   gote_legal_moves: u64,
   gote_is_futile_drop_true: u64,
   gote_is_futile_drop_false: u64,
@@ -97,11 +95,6 @@ impl Search {
         self.stats.gote_skipped_moves_percent,
         self.stats.gote_skipped_moves,
         self.stats.gote_skipped_moves + self.stats.gote_legal_moves
-      );
-      stats::percent!(
-        self.stats.gote_king_illegal_moves_percent,
-        self.stats.gote_king_illegal_moves,
-        self.stats.gote_skipped_moves
       );
       stats::percent!(
         self.stats.gote_is_futile_drop_true_percent,
@@ -198,10 +191,6 @@ impl Search {
         res.best_move = BestMove::One(0);
       }
     }
-    stats::incr!(
-      self.stats.gote_king_illegal_moves,
-      it.stats.king_illegal_moves as u64
-    );
     stats::incr!(self.stats.gote_skipped_moves, it.stats.skipped_moves as u64);
     stats::incr!(self.stats.gote_legal_moves, it.legal_moves as u64);
     stats::incr!(

@@ -14,7 +14,6 @@ pub(super) struct SenteStats {
 #[derive(Default)]
 pub(super) struct GoteStats {
   pub skipped_moves: u32,
-  pub king_illegal_moves: u32,
   pub is_futile_drop_true: u32,
   pub is_futile_drop_false: u32,
 }
@@ -94,14 +93,19 @@ impl SenteMovesIterator {
       };
       if checks.is_check() {
         let legal = if !self.checks.is_check() {
-          if m.is_drop() {
+          if m.is_drop() || m.is_king_move() {
             debug_assert!(pos.is_legal());
             true
           } else {
             pos.is_legal_after_move_in_checkless_position(&m)
           }
         } else {
-          pos.is_legal()
+          if m.is_king_move() {
+            debug_assert!(pos.is_legal());
+            true
+          } else {
+            pos.is_legal()
+          }
         };
         if legal {
           self.legal_moves += 1;
@@ -180,7 +184,7 @@ impl GoteMovesIterator {
   ) -> Option<(Move, UndoMove)> {
     while let Some((m, hash_move)) = self.next(pos, history) {
       let u = pos.do_move(&m);
-      let legal = if m.is_drop() || hash_move {
+      let legal = if m.is_drop() || m.is_king_move() || hash_move {
         debug_assert!(pos.is_legal());
         true
       } else {
@@ -200,11 +204,6 @@ impl GoteMovesIterator {
         }
         self.legal_moves += 1;
         return Some((m, u));
-      }
-      if cfg!(feature = "stats") {
-        if m.from_piece.abs() == super::shogi::piece::KING {
-          stats::incr!(self.stats.king_illegal_moves);
-        }
       }
       stats::incr!(self.stats.skipped_moves);
       pos.undo_move(&m, &u);
