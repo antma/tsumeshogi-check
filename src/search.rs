@@ -31,6 +31,9 @@ struct Stats {
   gote_king_illegal_moves: u64,
   gote_king_illegal_moves_percent: f64,
   gote_legal_moves: u64,
+  gote_is_futile_drop_true: u64,
+  gote_is_futile_drop_false: u64,
+  gote_is_futile_drop_true_percent: f64,
 }
 
 #[cfg(not(feature = "stats"))]
@@ -99,6 +102,11 @@ impl Search {
         self.stats.gote_king_illegal_moves_percent,
         self.stats.gote_king_illegal_moves,
         self.stats.gote_skipped_moves
+      );
+      stats::percent!(
+        self.stats.gote_is_futile_drop_true_percent,
+        self.stats.gote_is_futile_drop_true,
+        self.stats.gote_is_futile_drop_true + self.stats.gote_is_futile_drop_false
       );
       log::info!("search.stats = {:#?}", self.stats);
       log::info!(
@@ -196,6 +204,14 @@ impl Search {
     );
     stats::incr!(self.stats.gote_skipped_moves, it.stats.skipped_moves as u64);
     stats::incr!(self.stats.gote_legal_moves, it.legal_moves as u64);
+    stats::incr!(
+      self.stats.gote_is_futile_drop_true,
+      it.stats.is_futile_drop_true as u64
+    );
+    stats::incr!(
+      self.stats.gote_is_futile_drop_false,
+      it.stats.is_futile_drop_false as u64
+    );
     res.nodes = (self.nodes - nodes) + (self.hash_nodes - hash_nodes);
     self
       .gote_hash

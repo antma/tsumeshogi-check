@@ -5,15 +5,26 @@ use shogi::{Checks, Position};
 
 #[cfg(feature = "stats")]
 #[derive(Default)]
-pub(super) struct Stats {
-  pub(super) skipped_moves: u32,
-  pub(super) illegal_moves: u32,
-  pub(super) king_illegal_moves: u32,
+pub(super) struct SenteStats {
+  pub skipped_moves: u32,
+  pub illegal_moves: u32,
+}
+
+#[cfg(feature = "stats")]
+#[derive(Default)]
+pub(super) struct GoteStats {
+  pub skipped_moves: u32,
+  pub king_illegal_moves: u32,
+  pub is_futile_drop_true: u32,
+  pub is_futile_drop_false: u32,
 }
 
 #[cfg(not(feature = "stats"))]
 #[derive(Default)]
-pub(super) struct Stats {}
+pub(super) struct SenteStats {}
+#[cfg(not(feature = "stats"))]
+#[derive(Default)]
+pub(super) struct GoteStats {}
 
 pub struct SenteMovesIterator {
   moves: Vec<Move>,
@@ -21,7 +32,7 @@ pub struct SenteMovesIterator {
   k: usize,
   state: u32,
   pub legal_moves: u32,
-  pub(super) stats: Stats,
+  pub(super) stats: SenteStats,
 }
 
 pub struct GoteMovesIterator {
@@ -33,7 +44,7 @@ pub struct GoteMovesIterator {
   state: u32,
   pub legal_moves: u32,
   expect_futile_drop_check: bool,
-  pub(super) stats: Stats,
+  pub(super) stats: GoteStats,
 }
 
 impl SenteMovesIterator {
@@ -52,7 +63,7 @@ impl SenteMovesIterator {
       k: 0,
       state: 0,
       legal_moves: 0,
-      stats: Stats::default(),
+      stats: SenteStats::default(),
     }
   }
   fn next(&mut self, pos: &mut Position) -> Option<Move> {
@@ -126,7 +137,7 @@ impl GoteMovesIterator {
       state: 0,
       legal_moves: 0,
       expect_futile_drop_check: !allow_futile_drops,
-      stats: Stats::default(),
+      stats: GoteStats::default(),
     }
   }
   fn next(&mut self, pos: &mut Position, history: &History) -> Option<(Move, bool)> {
@@ -176,15 +187,16 @@ impl GoteMovesIterator {
         pos.is_legal()
       };
       if legal {
-        if self.k == 1
-          && self.state == 2
-          && self.legal_moves == 0
-          && self.expect_futile_drop_check
-          && pos.is_futile_drop(&self.checks, &m)
+        if self.k == 1 && self.state == 2 && self.legal_moves == 0 && self.expect_futile_drop_check
         {
-          self.k = self.moves.len();
-          pos.undo_move(&m, &u);
-          return None;
+          if pos.is_futile_drop(&self.checks, &m) {
+            self.k = self.moves.len();
+            pos.undo_move(&m, &u);
+            stats::incr!(self.stats.is_futile_drop_true);
+            return None;
+          } else {
+            stats::incr!(self.stats.is_futile_drop_false);
+          }
         }
         self.legal_moves += 1;
         return Some((m, u));
