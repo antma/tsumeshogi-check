@@ -631,8 +631,13 @@ impl Position {
           }
         }
         piece::KING | piece::WHITE_KING => {
-          for t in &direction::KING_MOVES {
-            if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false) {
+          for to in bitboards::Bits128(self.legal_king_moves(pos, v)) {
+            if f(Move {
+              from: pos,
+              to,
+              from_piece: v,
+              to_piece: v,
+            }) {
               return true;
             }
           }
