@@ -8,6 +8,7 @@ use shogi::{Checks, Position};
 pub(super) struct Stats {
   pub(super) skipped_moves: u32,
   pub(super) illegal_moves: u32,
+  pub(super) king_illegal_moves: u32,
 }
 
 #[cfg(not(feature = "stats"))]
@@ -188,6 +189,11 @@ impl GoteMovesIterator {
         if unprocessed {
           self.legal_moves += 1;
           return Some((m, u));
+        }
+      }
+      if cfg!(feature = "stats") {
+        if m.from_piece.abs() == super::shogi::piece::KING {
+          stats::incr!(self.stats.king_illegal_moves);
         }
       }
       stats::incr!(self.stats.skipped_moves);
