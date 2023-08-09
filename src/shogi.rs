@@ -1011,8 +1011,13 @@ impl Position {
           }
         }
         piece::KING | piece::WHITE_KING => {
-          for t in &direction::KING_MOVES {
-            self.enumerate_piece_move(&mut f, from, v, t.0, t.1, false);
+          for to in bitboards::Bits128(self.legal_king_moves(from, v)) {
+            f(Move {
+              from,
+              to,
+              from_piece: v,
+              to_piece: v,
+            });
           }
         }
         _ => {
