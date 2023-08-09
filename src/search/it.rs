@@ -139,12 +139,16 @@ impl GoteMovesIterator {
         let r = self.moves[self.k].clone();
         self.k += 1;
         if let Some(t) = self.best_move.as_ref() {
-          if self.state > 0 && *t == r {
-            //don't process best move (from hash) twice
-            break Some((r, false));
+          if *t == r {
+            if self.state == 0 {
+              self.expect_futile_drop_check = false;
+              break Some((r, true));
+            } else {
+              continue;
+            }
           }
         }
-        break Some((r, true));
+        break Some((r, false));
       }
       self.state += 1;
       self.k = 0;
@@ -163,9 +167,9 @@ impl GoteMovesIterator {
     pos: &mut Position,
     history: &History,
   ) -> Option<(Move, UndoMove)> {
-    while let Some((m, unprocessed)) = self.next(pos, history) {
+    while let Some((m, hash_move)) = self.next(pos, history) {
       let u = pos.do_move(&m);
-      let legal = if m.is_drop() {
+      let legal = if m.is_drop() || hash_move {
         debug_assert!(pos.is_legal());
         true
       } else {
@@ -174,22 +178,16 @@ impl GoteMovesIterator {
       if legal {
         if self.k == 1
           && self.state == 2
+          && self.legal_moves == 0
           && self.expect_futile_drop_check
           && pos.is_futile_drop(&self.checks, &m)
         {
           self.k = self.moves.len();
           pos.undo_move(&m, &u);
           return None;
-        } else {
-          self.expect_futile_drop_check = false;
         }
-        if !m.is_drop() {
-          self.expect_futile_drop_check = false;
-        }
-        if unprocessed {
-          self.legal_moves += 1;
-          return Some((m, u));
-        }
+        self.legal_moves += 1;
+        return Some((m, u));
       }
       if cfg!(feature = "stats") {
         if m.from_piece.abs() == super::shogi::piece::KING {
