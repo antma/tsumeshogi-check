@@ -192,6 +192,22 @@ for row in range(9):
           r += 1 << (9 * j + i)
     black_local_check_candidates.append(r)
 
+near_attack = []
+for i in range(81): near_attack.append(king_attack[i] | white_knight_attack[i])
+king_move_candidates = []
+for row in range(9):
+  for col in range(9):
+    r = 0
+    for y in range(-1, 2):
+      j = row + y
+      if not legal_coordinate(j): continue
+      for x in range(-1, 2):
+        if abs(y) + abs(x) == 0: continue
+        i = col + x
+        if not legal_coordinate(i): continue
+        r |= near_attack[9 * j + i]
+    king_move_candidates.append(r)
+
 assert(mirrory_array(black_gold_attack) == white_gold_attack)
 assert(mirrory_array(black_silver_attack) == white_silver_attack)
 p(f, 'KING_MASKS', king_attack, 128)
@@ -203,6 +219,8 @@ p(f, 'BLACK_KNIGHT_MASKS', black_knight_attack, 128)
 p(f, 'WHITE_KNIGHT_MASKS', white_knight_attack, 128)
 p(f, 'BLACK_LOCAL_CHECK_CANDIDATES', black_local_check_candidates, 128)
 p(f, 'WHITE_LOCAL_CHECK_CANDIDATES', mirrory_array(black_local_check_candidates), 128)
+p(f, 'BLACK_KING_MOVES_CANDIDATES', mirrory_array(king_move_candidates), 128)
+p(f, 'WHITE_KING_MOVES_CANDIDATES', king_move_candidates, 128)
 h = []
 v = []
 for s in range(9):

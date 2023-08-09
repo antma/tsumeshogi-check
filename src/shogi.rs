@@ -1551,20 +1551,113 @@ impl Position {
     }
     r
   }
+  /*
+  fn compute_moves_after_blockable_check(&self, blocking_cells: u128) -> Vec<Move> {
+    let mut r = Vec::new();
+    let mut func_add = |m| {
+      r.push(m);
+      false
+    };
+    let (pieces, pawns) = if self.side > 0 {
+      (self.black_pieces, blocking_cells << 9)
+    } else {
+      (self.white_pieces, blocking_cells >> 9)
+    };
+    let s1 = pieces & pawns;
+    let s2 = pieces ^ s1;
+    for from in bitboards::Bits128(s1) {
+      let v = self.board[from];
+      match v.abs() {
+        piece::PAWN => {
+
+        }
+        _ => (),
+
+      }
+    }
+    r
+  }
+  */
+  fn legal_king_moves(&self, king_pos: usize, s: i8) -> u128 {
+    let mut r = 0;
+    let (a, p) = if s > 0 {
+      (
+        (consts::BLACK_KING_MOVES_CANDIDATES[king_pos] | self.sliding_pieces) & self.white_pieces,
+        self.black_pieces,
+      )
+    } else {
+      (
+        (consts::WHITE_KING_MOVES_CANDIDATES[king_pos] | self.sliding_pieces) & self.black_pieces,
+        self.white_pieces,
+      )
+    };
+    for from in bitboards::Bits128(a) {
+      let v = self.board[from];
+      r |= match v {
+        piece::PAWN => (1u128 << from) >> 9,
+        piece::WHITE_PAWN => (1u128 << from) << 9,
+        piece::LANCE | piece::WHITE_LANCE => {
+          bitboards::lance(from, v, self.all_pieces2 ^ consts::MASKS2[king_pos])
+        }
+        piece::KNIGHT => consts::BLACK_KNIGHT_MASKS[from],
+        piece::WHITE_KNIGHT => consts::WHITE_KNIGHT_MASKS[from],
+        piece::SILVER => consts::BLACK_SILVER_MASKS[from],
+        piece::WHITE_SILVER => consts::WHITE_SILVER_MASKS[from],
+        piece::GOLD
+        | piece::PROMOTED_PAWN
+        | piece::PROMOTED_LANCE
+        | piece::PROMOTED_KNIGHT
+        | piece::PROMOTED_SILVER => consts::BLACK_GOLD_MASKS[from],
+        piece::WHITE_GOLD
+        | piece::WHITE_PROMOTED_PAWN
+        | piece::WHITE_PROMOTED_LANCE
+        | piece::WHITE_PROMOTED_KNIGHT
+        | piece::WHITE_PROMOTED_SILVER => consts::WHITE_GOLD_MASKS[from],
+        piece::KING | piece::WHITE_KING => consts::KING_MASKS[from],
+        piece::BISHOP | piece::WHITE_BISHOP => bitboards::bishop(
+          from,
+          self.all_pieces3 ^ consts::MASKS3[king_pos],
+          self.all_pieces4 ^ consts::MASKS4[king_pos],
+        ),
+        piece::ROOK | piece::WHITE_ROOK => bitboards::rook(
+          from,
+          self.all_pieces ^ (1u128 << king_pos),
+          self.all_pieces2 ^ consts::MASKS2[king_pos],
+        ),
+        piece::PROMOTED_BISHOP | piece::WHITE_PROMOTED_BISHOP => {
+          bitboards::bishop(
+            from,
+            self.all_pieces3 ^ consts::MASKS3[king_pos],
+            self.all_pieces4 ^ consts::MASKS4[king_pos],
+          ) | consts::KING_MASKS[from]
+        }
+        piece::PROMOTED_ROOK | piece::WHITE_PROMOTED_ROOK => {
+          bitboards::rook(
+            from,
+            self.all_pieces ^ (1u128 << king_pos),
+            self.all_pieces2 ^ consts::MASKS2[king_pos],
+          ) | consts::KING_MASKS[from]
+        }
+        _ => panic!("unhandled piece {}", v),
+      }
+    }
+    consts::KING_MASKS[king_pos] & !r & !p
+  }
   fn compute_moves_after_nonblocking_check(&self, attacking_piece: Option<usize>) -> Vec<Move> {
     let mut r = Vec::new();
     let king = self.side * piece::KING;
-    if let Some(pos) = if king > 0 {
+    if let Some(king_pos) = if king > 0 {
       self.black_king_position.as_ref()
     } else {
       self.white_king_position.as_ref()
     } {
-      let mut func_add = |m| {
-        r.push(m);
-        false
-      };
-      for t in &direction::KING_MOVES {
-        self.enumerate_piece_move(&mut func_add, *pos, king, t.0, t.1, false);
+      for to in bitboards::Bits128(self.legal_king_moves(*king_pos, self.side)) {
+        r.push(Move {
+          from: *king_pos,
+          to,
+          from_piece: king,
+          to_piece: king,
+        });
       }
     }
     if let Some(to) = attacking_piece {
