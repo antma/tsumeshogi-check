@@ -1207,8 +1207,7 @@ impl Position {
         debug_assert_ne!(t, 0);
         if t < 0 {
           let pa = piece.abs();
-          let cells = *p ^ consts::SLIDING_MASKS[8 * k + i] ^ (1u128 << k);
-          let ok = if cells == 0 {
+          let ok = if (king_pos as isize) + direction::OFFSETS[i] == (k as isize) {
             piece::is_near_dir(pa, *flags)
           } else {
             piece::is_sliding_dir(pa, *flags)
