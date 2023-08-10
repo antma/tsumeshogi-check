@@ -154,7 +154,10 @@ impl std::fmt::Display for PSNMove {
   }
 }
 impl PSNMove {
-  pub fn new(m: &Move, u: &UndoMove) -> Self {
+  pub fn new(pos: &Position, m: &Move) -> Self {
+    PSNMove(m.clone(), pos.is_take(m))
+  }
+  pub fn from_undo(m: &Move, u: &UndoMove) -> Self {
     PSNMove(m.clone(), u.taken_piece != piece::NONE)
   }
 }

@@ -279,7 +279,7 @@ fn test_sente_iterator_unique() {
     assert!(
       s.insert(u32::from(&m)),
       "duplicate move {}",
-      shogi::moves::PSNMove::new(&m, &u)
+      shogi::moves::PSNMove::from_undo(&m, &u)
     );
     pos.undo_move(&m, &u);
   }

@@ -167,7 +167,7 @@ impl Search {
           next_depth,
           ev,
           pos.move_no - 1,
-          shogi::moves::PSNMove::new(&m, &u),
+          shogi::moves::PSNMove::from_undo(&m, &u),
         );
         debug_assert_eq!(ev.depth % 2, 1);
         pos.undo_move(&m, &u);
@@ -241,7 +241,7 @@ impl Search {
         next_depth,
         ev,
         pos.move_no - 1,
-        shogi::moves::PSNMove::new(&m, &u),
+        shogi::moves::PSNMove::from_undo(&m, &u),
       );
       pos.undo_move(&m, &u);
       if !ev.best_move.is_some() {

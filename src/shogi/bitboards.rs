@@ -1,14 +1,30 @@
-use super::{cell, consts};
+use super::{cell, consts, piece};
 use std::iter::{Chain, Map};
 
-pub const BLACK_PROMOTION: u128 = (1u128 << 27) - 1;
-pub const WHITE_PROMOTION: u128 = BLACK_PROMOTION << 54;
+const ALL_BITS: u128 = (1u128 << 81) - 1;
+const BLACK_PROMOTION_ZONE_MASK: u128 = (1u128 << 27) - 1;
+const WHITE_PROMOTION_ZONE_MASK: u128 = BLACK_PROMOTION_ZONE_MASK << 54;
+const BLACK_UNPROMOTED_PAWN: u128 = (ALL_BITS << 9) & ALL_BITS;
+const WHITE_UNPROMOTED_PAWN: u128 = ALL_BITS >> 9;
+const BLACK_UNPROMOTED_KNIGHT: u128 = (BLACK_UNPROMOTED_PAWN << 9) & ALL_BITS;
+const WHITE_UNPROMOTED_KNIGHT: u128 = WHITE_UNPROMOTED_PAWN >> 9;
 
 pub fn promotion_zone(side: i8) -> u128 {
   if side > 0 {
-    BLACK_PROMOTION
+    BLACK_PROMOTION_ZONE_MASK
   } else {
-    WHITE_PROMOTION
+    WHITE_PROMOTION_ZONE_MASK
+  }
+}
+
+pub fn unpromoted_zone(piece: i8) -> u128 {
+  match piece {
+    //unpromoted pawn and lance could be on last rank
+    piece::PAWN | piece::LANCE => BLACK_UNPROMOTED_PAWN,
+    piece::WHITE_PAWN | piece::WHITE_LANCE => WHITE_UNPROMOTED_PAWN,
+    piece::KNIGHT => BLACK_UNPROMOTED_KNIGHT,
+    piece::WHITE_KNIGHT => WHITE_UNPROMOTED_KNIGHT,
+    _ => ALL_BITS,
   }
 }
 

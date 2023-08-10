@@ -52,9 +52,18 @@ fn reorder_takes_to_front() {
   let pos = Position::parse_sfen("k8/9/9/4p4/9/3N5/9/B8/K3R4 b - 1").unwrap();
   let checks = pos.compute_checks();
   let mut moves = pos.compute_moves(&checks);
-  assert_eq!(pos.reorder_takes_to_front(&mut moves), 3);
+  let i = pos.reorder_takes_to_front(&mut moves);
+  assert_eq!(i, 3, "{:?}", printable_moves(&pos, &moves));
   assert!(moves.iter().take(3).all(|m| pos.is_take(&m)));
   assert!(moves.iter().skip(3).all(|m| !pos.is_take(&m)));
+}
+
+fn printable_moves(pos: &Position, a: &Vec<Move>) -> Vec<String> {
+  let mut b = Vec::new();
+  for m in a {
+    b.push(PSNMove::new(&pos, m).to_string());
+  }
+  b
 }
 
 fn filter_checks(pos: &mut Position, a: Vec<Move>) -> Vec<String> {
@@ -62,7 +71,7 @@ fn filter_checks(pos: &mut Position, a: Vec<Move>) -> Vec<String> {
   for m in a {
     let u = pos.do_move(&m);
     if pos.is_legal() && pos.is_check() {
-      let psn = PSNMove::new(&m, &u);
+      let psn = PSNMove::from_undo(&m, &u);
       b.push(psn.to_string());
     }
     pos.undo_move(&m, &u);
