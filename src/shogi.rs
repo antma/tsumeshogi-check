@@ -1737,6 +1737,29 @@ impl Position {
     }
     r
   }
+  fn has_legal_move_after_nonblocking_check(&mut self, attacking_piece: usize) -> bool {
+    let side = self.side;
+    let king_pos = self.find_king_position(side).unwrap();
+    debug_assert_ne!(consts::KING_MASKS[king_pos] & (1u128 << attacking_piece), 0, "king_pos = {}, attacking_piece = {}, fen = {}",
+      cell::to_string(king_pos), cell::to_string(attacking_piece), self 
+    );
+    if self.legal_king_moves(king_pos, side) != 0 {
+      return true;
+    }
+    for from in self.attacking_pieces(attacking_piece, -side) {
+      if from == king_pos {
+        continue;
+      }
+      if let Some(i) = direction::try_to_find_delta_direction_no(king_pos, from) {
+        if !self.attacked_by_sliding_piece_in_given_direction_no(from, side, i) {
+          return true;
+        }
+      } else {
+        return true;
+      }
+    }
+    false
+  }
   fn compute_moves_after_nonblocking_check(&self, attacking_piece: Option<usize>) -> Vec<Move> {
     let king = self.side * piece::KING;
     let mut r = self.compute_legal_king_moves(king);
@@ -1968,39 +1991,20 @@ impl Position {
   pub fn is_futile_drop(&mut self, checks: &Checks, drop: &Move) -> bool {
     let attacking_piece = checks.attacking_pieces.first().unwrap();
     let p = self.board[attacking_piece];
-    let mut u = moves::Moves::with_capacity(2);
-    u.push(
-      self,
-      Move {
-        from: attacking_piece,
-        to: drop.to,
-        from_piece: p,
-        to_piece: p,
-      },
-    );
-    if !self.is_legal() {
-      u.undo(self);
-      return false;
-    }
-    let checks = Checks {
-      blocking_cells: 0,
-      attacking_pieces: attacking_pieces::AttackingPieces::once(drop.to),
-      king_pos: self.find_king_position(self.side),
-      hash: self.hash,
+    let m = Move {
+      from: attacking_piece,
+      to: drop.to,
+      from_piece: p,
+      to_piece: p,
     };
-    let moves = self.compute_moves(&checks);
-    for m in moves {
-      u.push(self, m);
-      if self.is_legal() {
-        //no mate
-        u.undo(self);
-        return false;
-      }
-      u.pop(self);
-    }
-    //mate
-    u.undo(self);
-    true
+    let u = self.do_move(&m);
+    let r = if !self.is_legal() {
+      false
+    } else {
+      !self.has_legal_move_after_nonblocking_check(drop.to)
+    };
+    self.undo_move(&m, &u);
+    r
   }
   pub fn validate_move(&self, m: &Move) -> bool {
     if m.to_piece * self.side <= 0 {

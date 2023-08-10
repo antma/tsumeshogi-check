@@ -149,3 +149,12 @@ fn potentional_checks() {
     assert_eq!(r1, r2, "test(swapped sides) {}, fen {}", test + 1, pos);
   }
 }
+
+#[test]
+fn first_drop_near_king() {
+  let pos = Position::parse_sfen("lnB6/k2Rs4/1p7/p1p6/9/3L5/9/9/9 w Grb3g3s3n2l15p 9").unwrap();
+  let checks = pos.compute_checks();
+  let drops = pos.compute_drops(&checks);
+  let drop = drops.first().unwrap();
+  assert_eq!(drop.to, 9 + 7);
+}

@@ -35,7 +35,14 @@ fn tsume1_drop_white_knight_on_first_rank_is_illegal() {
 
 #[test]
 fn tsume1_futile_drops() {
-  common::tsume_batch_test(vec!["6Snl/5+Rg1k/6ppp/9/9/9/9/9/9 b r2b3g3s3n3l15p 5"], 1);
+  common::tsume_batch_test(
+    vec![
+      "6Snl/5+Rg1k/6ppp/9/9/9/9/9/9 b r2b3g3s3n3l15p 1",
+      "6Snl/5+Rg1k/6pps/9/9/9/9/9/8L b r2b3g2s3n2l16p 1",
+      "6Snl/5+Rg1k/6pgs/9/9/9/9/9/1B6L b rb2g2s3n2l17p 1",
+    ],
+    1,
+  );
 }
 
 #[test]
