@@ -147,9 +147,14 @@ impl GoteMovesIterator {
   fn next(&mut self, pos: &mut Position, history: &History) -> Option<(Move, bool)> {
     loop {
       if self.k < self.moves.len() {
-        if self.state == 1 && self.k == self.takes {
-          let n = self.moves.len();
-          history.sort(&mut self.moves[self.takes..n]);
+        match self.state {
+          1 => if self.k == self.takes {
+            history.sort(&mut self.moves[self.takes..]);
+          }
+          2 => if self.k == 1 {
+            history.sort(&mut self.moves[1..]);
+          }
+          _ => (),
         }
         let r = self.moves[self.k].clone();
         self.k += 1;
