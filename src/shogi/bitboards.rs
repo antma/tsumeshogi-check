@@ -84,6 +84,10 @@ pub fn scan(b: u128, direction_no: usize) -> usize {
   }
 }
 
+pub fn contains(b: u128, k: usize) -> bool {
+  (b & (1 << k)) != 0
+}
+
 pub fn rook(pos: usize, b1: u128, b2: u128) -> u128 {
   let (row, col) = cell::unpack(pos);
   let s = 9 * row;

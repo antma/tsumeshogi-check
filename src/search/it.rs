@@ -129,9 +129,18 @@ impl GoteMovesIterator {
     self.takes = i;
     history.sort(&mut self.moves[0..i]);
   }
-  fn compute_drops(&mut self, pos: &Position) {
-    //can't sort drops, since futile drop check depends on the fact that first drop is near the king
+  fn compute_drops(&mut self, pos: &mut Position, history: &History) {
     self.moves = pos.compute_drops(&self.checks);
+    if self.legal_moves == 0 && self.expect_futile_drop_check {
+      if pos.is_futile_drops(&self.checks, &self.moves) {
+        self.moves.clear();
+        stats::incr!(self.stats.is_futile_drop_true);
+      } else {
+        stats::incr!(self.stats.is_futile_drop_false);
+      }
+    }
+    history.sort(&mut self.moves);
+    //log::debug!("compute drops: pos = {}, drops = {:?}", pos, pos.to_psn_moves(&self.moves));
   }
   pub fn new(checks: Checks, best_move: Option<Move>, allow_futile_drops: bool) -> Self {
     Self {
@@ -180,7 +189,7 @@ impl GoteMovesIterator {
       self.k = 0;
       match self.state {
         1 => self.compute_moves(pos, history),
-        2 => self.compute_drops(pos),
+        2 => self.compute_drops(pos, history),
         _ => {
           self.moves.clear();
           break None;
@@ -202,17 +211,6 @@ impl GoteMovesIterator {
         pos.is_legal()
       };
       if legal {
-        if self.k == 1 && self.state == 2 && self.legal_moves == 0 && self.expect_futile_drop_check
-        {
-          if pos.is_futile_drop(&self.checks, &m) {
-            self.k = self.moves.len();
-            pos.undo_move(&m, &u);
-            stats::incr!(self.stats.is_futile_drop_true);
-            return None;
-          } else {
-            stats::incr!(self.stats.is_futile_drop_false);
-          }
-        }
         self.legal_moves += 1;
         return Some((m, u));
       }

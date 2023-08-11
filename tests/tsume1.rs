@@ -40,6 +40,7 @@ fn tsume1_futile_drops() {
       "6Snl/5+Rg1k/6ppp/9/9/9/9/9/9 b r2b3g3s3n3l15p 1",
       "6Snl/5+Rg1k/6pps/9/9/9/9/9/8L b r2b3g2s3n2l16p 1",
       "6Snl/5+Rg1k/6pgs/9/9/9/9/9/1B6L b rb2g2s3n2l17p 1",
+      "lS5nl/3s2+R2/p6p1/kS2Gb2p/3ppNpS1/Np3P2P/PPG1P1K2/4G4/LB5RL b GN4P2p 1",
     ],
     1,
   );

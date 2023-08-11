@@ -616,8 +616,7 @@ impl Position {
           from_piece: v,
           to_piece: piece::promote(v),
         });
-        let bit = 1u128 << k;
-        if (b & bit) != 0 {
+        if bitboards::contains(b, k) {
           f(Move {
             from,
             to: k,
@@ -1580,34 +1579,6 @@ impl Position {
     }
     r
   }
-  fn has_legal_move_after_nonblocking_check(&mut self, attacking_piece: usize) -> bool {
-    let side = self.side;
-    let king_pos = self.find_king_position(side).unwrap();
-    debug_assert_ne!(
-      consts::KING_MASKS[king_pos] & (1u128 << attacking_piece),
-      0,
-      "king_pos = {}, attacking_piece = {}, fen = {}",
-      cell::to_string(king_pos),
-      cell::to_string(attacking_piece),
-      self
-    );
-    if self.legal_king_moves(king_pos, side) != 0 {
-      return true;
-    }
-    for from in self.attacking_pieces(attacking_piece, -side) {
-      if from == king_pos {
-        continue;
-      }
-      if let Some(i) = direction::try_to_find_delta_direction_no(king_pos, from) {
-        if !self.attacked_by_sliding_piece_in_given_direction_no(from, side, i) {
-          return true;
-        }
-      } else {
-        return true;
-      }
-    }
-    false
-  }
   fn compute_moves_after_nonblocking_check(&self, attacking_piece: Option<usize>) -> Vec<Move> {
     let king = self.side * piece::KING;
     let mut r = self.compute_legal_king_moves(king);
@@ -1836,23 +1807,46 @@ impl Position {
     }
     None
   }
-  pub fn is_futile_drop(&mut self, checks: &Checks, drop: &Move) -> bool {
-    let attacking_piece = checks.attacking_pieces.first().unwrap();
-    let p = self.board[attacking_piece];
+  fn is_futile_drop(&mut self, king_pos: usize, attacking_piece_pos: usize, attacking_piece: i8, drop: &Move) -> bool {
     let m = Move {
-      from: attacking_piece,
+      from: attacking_piece_pos,
       to: drop.to,
-      from_piece: p,
-      to_piece: p,
+      from_piece: attacking_piece,
+      to_piece: attacking_piece,
     };
     let u = self.do_move(&m);
-    let r = if !self.is_legal() {
+    let legal = self.is_legal_after_move_in_checkless_position(drop);
+    debug_assert_eq!(legal, self.is_legal());
+    let r = if !legal {
       false
     } else {
-      !self.has_legal_move_after_nonblocking_check(drop.to)
+      self.legal_king_moves(king_pos, self.side) == 0
     };
     self.undo_move(&m, &u);
     r
+  }
+  pub fn is_futile_drops(&mut self, checks: &Checks, drops: &[Move]) -> bool {
+    let king_pos = *checks.king_pos.as_ref().unwrap();
+    let (king_row, king_col) = cell::unpack(king_pos);
+    let attacking_piece_pos = checks.attacking_pieces.first().unwrap();
+    let attacking_piece = self.board[attacking_piece_pos];
+    let mut prev: usize = 0xff;
+    for drop in drops {
+      if prev != drop.to {
+        let (row, col) = cell::unpack(drop.to);
+        if (king_row as isize - row as isize).abs() > 2 || (king_col as isize - col as isize).abs() > 2 {
+          break;
+        }
+        let u = self.do_move(&drop);
+        let r = !self.is_futile_drop(king_pos, attacking_piece_pos, attacking_piece, drop);
+        self.undo_move(&drop, &u);
+        if r {
+          return false;
+        }
+        prev = drop.to;
+      }
+    }
+    true
   }
   pub fn validate_move(&self, m: &Move) -> bool {
     if m.to_piece * self.side <= 0 {
@@ -1904,6 +1898,13 @@ impl Position {
     } else {
       i
     }
+  }
+  pub fn to_psn_moves(&self, moves: &[Move]) -> Vec<String> {
+    let mut r = Vec::with_capacity(moves.len());
+    for m in moves {
+      r.push(moves::PSNMove::new(self, m).to_string());
+    }
+    r
   }
 }
 

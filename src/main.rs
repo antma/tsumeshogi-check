@@ -157,6 +157,7 @@ fn process_file(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
     if test <= opts.skip {
       continue;
     }
+    log::debug!("Test #{}: fen = {}", test, line);
     let pos = Position::parse_sfen(&line);
     if pos.is_err() {
       error!("Test #{}: fail to parse SFEN. {}", test, pos.err().unwrap());
