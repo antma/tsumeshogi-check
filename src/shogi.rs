@@ -82,7 +82,7 @@ impl Checks {
   }
   pub fn is_double_check(&self) -> bool {
     if self.attacking_pieces.len() >= 2 {
-      assert_eq!(self.blocking_cells, 0);
+      debug_assert_eq!(self.blocking_cells, 0);
       true
     } else {
       false
@@ -939,21 +939,10 @@ impl Position {
   }
   pub fn compute_drops_with_check(&self) -> Vec<Move> {
     let drops_mask = self.compute_drops_mask();
-    let mut r = Vec::new();
-    self.enumerate_drops(
-      |m| {
-        r.push(m);
-        false
-      },
-      self.compute_potential_drops_map(drops_mask).into_iter(),
-    );
-    r
+    self.enumerate_drops(self.compute_potential_drops_map(drops_mask).into_iter())
   }
-  fn enumerate_drops<F: FnMut(Move) -> bool, I: Iterator<Item = (usize, u32)>>(
-    &self,
-    mut f: F,
-    drop_masks_iterator: I,
-  ) -> bool {
+  fn enumerate_drops<I: Iterator<Item = (usize, u32)>>(&self, drop_masks_iterator: I) -> Vec<Move> {
+    let mut r = Vec::new();
     let drops_mask = self.compute_drops_mask();
     for (k, mask) in drop_masks_iterator {
       let mask = mask & drops_mask;
@@ -973,17 +962,15 @@ impl Position {
         if !piece::could_unpromoted(to_piece, k) {
           continue;
         }
-        if f(Move {
+        r.push(Move {
           from: 0xff,
           to: k,
           from_piece: piece::NONE,
           to_piece,
-        }) {
-          return true;
-        }
+        });
       }
     }
-    false
+    r
   }
   fn attacked_by_sliding_piece_in_given_direction_no(
     &self,
@@ -1396,38 +1383,25 @@ impl Position {
     false
   }
   pub fn compute_drops(&self, checks: &Checks) -> Vec<Move> {
-    let mut r = Vec::new();
     match checks.attacking_pieces.len() {
-      0 => {
-        self.enumerate_drops(
-          |m| {
-            r.push(m);
-            false
-          },
-          self.empty_cells_with_drop_mask(0x7fff_ffff).into_iter(),
-        );
-      }
+      0 => self.enumerate_drops(self.empty_cells_with_drop_mask(0x7fff_ffff).into_iter()),
       1 => {
         if checks.blocking_cells != 0 {
-          self.enumerate_drops(
-            |m| {
-              r.push(m);
-              false
-            },
-            SlidingIterator::new(
-              checks.attacking_pieces.first().unwrap(),
-              checks.king_pos.unwrap(),
-              0x7fff_ffff,
-            ),
-          );
+          self.enumerate_drops(SlidingIterator::new(
+            checks.attacking_pieces.first().unwrap(),
+            checks.king_pos.unwrap(),
+            0x7fff_ffff,
+          ))
+        } else {
+          Vec::with_capacity(0)
         }
       }
       2 => {
         //drops are impossible
+        Vec::with_capacity(0)
       }
       _ => panic!("too many attacking pieces"),
     }
-    r
   }
   fn attack_from(&self, from: usize, v: i8) -> u128 {
     match v {
