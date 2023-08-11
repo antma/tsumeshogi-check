@@ -88,9 +88,6 @@ impl Checks {
       false
     }
   }
-  fn blocking_cell(&self, cell: usize) -> bool {
-    (self.blocking_cells & (1u128 << cell)) != 0
-  }
 }
 
 struct PotentialDropsMap(Vec<(usize, u32)>);
@@ -545,134 +542,6 @@ impl Position {
       }
       if t != 0 || !sliding {
         break;
-      }
-    }
-    false
-  }
-  fn enumerate_simple_moves<F: FnMut(Move) -> bool>(&self, mut f: F) -> bool {
-    for pos in bitboards::Bits128(if self.side > 0 {
-      self.black_pieces
-    } else {
-      self.white_pieces
-    }) {
-      let v = self.board[pos];
-      let w = piece::unpromote(v);
-      match v {
-        piece::PAWN => {
-          if self.enumerate_piece_move(&mut f, pos, v, -1, 0, false) {
-            return true;
-          }
-        }
-        piece::WHITE_PAWN => {
-          if self.enumerate_piece_move(&mut f, pos, v, 1, 0, false) {
-            return true;
-          }
-        }
-        piece::LANCE => {
-          if self.enumerate_piece_move(&mut f, pos, v, -1, 0, true) {
-            return true;
-          }
-        }
-        piece::WHITE_LANCE => {
-          if self.enumerate_piece_move(&mut f, pos, v, 1, 0, true) {
-            return true;
-          }
-        }
-        piece::KNIGHT => {
-          if self.enumerate_piece_move(&mut f, pos, v, -2, -1, false) {
-            return true;
-          }
-          if self.enumerate_piece_move(&mut f, pos, v, -2, 1, false) {
-            return true;
-          }
-        }
-        piece::WHITE_KNIGHT => {
-          if self.enumerate_piece_move(&mut f, pos, v, 2, -1, false) {
-            return true;
-          }
-          if self.enumerate_piece_move(&mut f, pos, v, 2, 1, false) {
-            return true;
-          }
-        }
-        piece::SILVER => {
-          for t in &direction::SILVER_MOVES {
-            if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false) {
-              return true;
-            }
-          }
-        }
-        piece::WHITE_SILVER => {
-          for t in &direction::SILVER_MOVES {
-            if self.enumerate_piece_move(&mut f, pos, v, -t.0, t.1, false) {
-              return true;
-            }
-          }
-        }
-        piece::GOLD
-        | piece::PROMOTED_PAWN
-        | piece::PROMOTED_LANCE
-        | piece::PROMOTED_KNIGHT
-        | piece::PROMOTED_SILVER => {
-          for t in &direction::GOLD_MOVES {
-            if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false) {
-              return true;
-            }
-          }
-        }
-        piece::WHITE_GOLD
-        | piece::WHITE_PROMOTED_PAWN
-        | piece::WHITE_PROMOTED_LANCE
-        | piece::WHITE_PROMOTED_KNIGHT
-        | piece::WHITE_PROMOTED_SILVER => {
-          for t in &direction::GOLD_MOVES {
-            if self.enumerate_piece_move(&mut f, pos, v, -t.0, t.1, false) {
-              return true;
-            }
-          }
-        }
-        piece::KING | piece::WHITE_KING => {
-          for to in bitboards::Bits128(self.legal_king_moves(pos, v)) {
-            if f(Move {
-              from: pos,
-              to,
-              from_piece: v,
-              to_piece: v,
-            }) {
-              return true;
-            }
-          }
-        }
-        _ => {
-          if w == piece::BISHOP || w == -piece::BISHOP {
-            for t in &direction::BISHOP_MOVES {
-              if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, true) {
-                return true;
-              }
-            }
-          } else if w == piece::ROOK || w == -piece::ROOK {
-            for t in &direction::ROOK_MOVES {
-              if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, true) {
-                return true;
-              }
-            }
-          }
-        }
-      }
-      //promoted
-      if v != w {
-        if w == piece::BISHOP || w == -piece::BISHOP {
-          for t in &direction::ROOK_MOVES {
-            if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false) {
-              return true;
-            }
-          }
-        } else if w == piece::ROOK || w == -piece::ROOK {
-          for t in &direction::BISHOP_MOVES {
-            if self.enumerate_piece_move(&mut f, pos, v, t.0, t.1, false) {
-              return true;
-            }
-          }
-        }
       }
     }
     false
@@ -1740,8 +1609,13 @@ impl Position {
   fn has_legal_move_after_nonblocking_check(&mut self, attacking_piece: usize) -> bool {
     let side = self.side;
     let king_pos = self.find_king_position(side).unwrap();
-    debug_assert_ne!(consts::KING_MASKS[king_pos] & (1u128 << attacking_piece), 0, "king_pos = {}, attacking_piece = {}, fen = {}",
-      cell::to_string(king_pos), cell::to_string(attacking_piece), self 
+    debug_assert_ne!(
+      consts::KING_MASKS[king_pos] & (1u128 << attacking_piece),
+      0,
+      "king_pos = {}, attacking_piece = {}, fen = {}",
+      cell::to_string(king_pos),
+      cell::to_string(attacking_piece),
+      self
     );
     if self.legal_king_moves(king_pos, side) != 0 {
       return true;
