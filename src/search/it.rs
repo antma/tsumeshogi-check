@@ -31,6 +31,7 @@ pub struct SenteMovesIterator {
   k: usize,
   state: u32,
   pub legal_moves: u32,
+  #[allow(dead_code)]
   pub(super) stats: SenteStats,
 }
 
@@ -43,6 +44,7 @@ pub struct GoteMovesIterator {
   state: u32,
   pub legal_moves: u32,
   expect_futile_drop_check: bool,
+  #[allow(dead_code)]
   pub(super) stats: GoteStats,
 }
 
@@ -148,11 +150,15 @@ impl GoteMovesIterator {
     loop {
       if self.k < self.moves.len() {
         match self.state {
-          1 => if self.k == self.takes {
-            history.sort(&mut self.moves[self.takes..]);
+          1 => {
+            if self.k == self.takes {
+              history.sort(&mut self.moves[self.takes..]);
+            }
           }
-          2 => if self.k == 1 {
-            history.sort(&mut self.moves[1..]);
+          2 => {
+            if self.k == 1 {
+              history.sort(&mut self.moves[1..]);
+            }
           }
           _ => (),
         }
@@ -196,7 +202,8 @@ impl GoteMovesIterator {
         pos.is_legal()
       };
       if legal {
-        if self.k == 1 && self.state == 2 && self.legal_moves == 0 && self.expect_futile_drop_check {
+        if self.k == 1 && self.state == 2 && self.legal_moves == 0 && self.expect_futile_drop_check
+        {
           if pos.is_futile_drop(&self.checks, &m) {
             self.k = self.moves.len();
             pos.undo_move(&m, &u);
