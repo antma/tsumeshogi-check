@@ -368,11 +368,7 @@ impl Position {
             sfen,
             format!(
               "unpromoted {} on the {} row at cell {}",
-              if p.abs() == piece::PAWN {
-                "pawn"
-              } else {
-                "knight"
-              },
+              piece::to_human_string(p.abs()),
               row + 1,
               cell::to_string(c)
             ),
@@ -1807,7 +1803,13 @@ impl Position {
     }
     None
   }
-  fn is_futile_drop(&mut self, king_pos: usize, attacking_piece_pos: usize, attacking_piece: i8, drop: &Move) -> bool {
+  fn is_futile_drop(
+    &mut self,
+    king_pos: usize,
+    attacking_piece_pos: usize,
+    attacking_piece: i8,
+    drop: &Move,
+  ) -> bool {
     let m = Move {
       from: attacking_piece_pos,
       to: drop.to,
@@ -1834,7 +1836,9 @@ impl Position {
     for drop in drops {
       if prev != drop.to {
         let (row, col) = cell::unpack(drop.to);
-        if (king_row as isize - row as isize).abs() > 2 || (king_col as isize - col as isize).abs() > 2 {
+        if (king_row as isize - row as isize).abs() > 2
+          || (king_col as isize - col as isize).abs() > 2
+        {
           break;
         }
         let u = self.do_move(&drop);
