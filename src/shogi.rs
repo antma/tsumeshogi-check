@@ -958,7 +958,7 @@ impl Position {
           continue;
         }
         r.push(Move {
-          from: 0xff,
+          from: 0x7f,
           to: k,
           from_piece: piece::NONE,
           to_piece,
@@ -1642,7 +1642,7 @@ impl Position {
       nifu_masks: self.nifu_masks,
       taken_piece: self.board[m.to],
     };
-    if m.from != 0xff {
+    if m.from != 0x7f {
       self.board[m.from] = piece::NONE;
       self.hash ^= hash::get_piece_hash(m.from_piece, m.from);
       if m.to_piece == piece::KING {
@@ -1744,7 +1744,7 @@ impl Position {
     self.drop_masks = u.drop_masks;
     self.nifu_masks = u.nifu_masks;
     self.board[m.to] = u.taken_piece;
-    if m.from != 0xff {
+    if m.from != 0x7f {
       self.board[m.from] = m.from_piece;
       if m.from_piece == piece::KING {
         self.black_king_position = Some(m.from);
@@ -1832,7 +1832,7 @@ impl Position {
     let (king_row, king_col) = cell::unpack(king_pos);
     let attacking_piece_pos = checks.attacking_pieces.first().unwrap();
     let attacking_piece = self.board[attacking_piece_pos];
-    let mut prev: usize = 0xff;
+    let mut prev: usize = 0x7f;
     for drop in drops {
       if prev != drop.to {
         let (row, col) = cell::unpack(drop.to);

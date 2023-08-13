@@ -102,7 +102,7 @@ impl Move {
       s.push_str(&piece::to_jp_string(self.to_piece.abs()));
       s.push('打');
     } else {
-      let cell = prev_move.as_ref().map(|q| q.to).unwrap_or(0xff);
+      let cell = prev_move.as_ref().map(|q| q.to).unwrap_or(0x7f);
       if cell == self.to {
         s.push_str("同　");
       } else {
@@ -323,7 +323,7 @@ impl FromStr for Move {
       Ok(Move {
         from_piece: 0,
         to_piece: from_piece,
-        from: 0xff,
+        from: 0x7f,
         to: to_cell,
       })
     } else {
