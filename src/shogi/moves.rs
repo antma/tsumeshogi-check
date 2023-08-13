@@ -145,6 +145,9 @@ impl Move {
       s
     }
   }
+  pub fn packed_take_move(&self, taken_piece: i8) -> u32 {
+    u32::from(self) + ((taken_piece.abs() as u32) << 26)
+  }
 }
 
 pub struct PSNMove(Move, bool);

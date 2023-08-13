@@ -171,14 +171,19 @@ impl Search {
         );
         debug_assert_eq!(ev.depth % 2, 1);
         pos.undo_move(&m, &u);
+        let packed_move = if u.taken_piece != 0 {
+          m.packed_take_move(u.taken_piece)
+        } else {
+          u32::from(&m)
+        };
         if ev.best_move.is_none() {
           res.depth = depth;
           res.best_move = BestMove::None;
-          self.gote_history[d].success(u32::from(&m));
+          self.gote_history[d].success(packed_move);
           hash_best_move = Some(m);
           break;
         }
-        self.gote_history[d].fail(u32::from(&m));
+        self.gote_history[d].fail(packed_move);
         ev.depth += 1;
         if res.gote_cmp(&ev, pos) == Ordering::Less {
           res.depth = ev.depth;

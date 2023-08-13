@@ -1910,6 +1910,9 @@ impl Position {
     }
     r
   }
+  pub fn packed_take_move(&self, take: &Move) -> u32 {
+    take.packed_take_move(self.board[take.to])
+  }
 }
 
 impl fmt::Display for Position {

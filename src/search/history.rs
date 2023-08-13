@@ -1,4 +1,4 @@
-use crate::shogi::moves::Move;
+use crate::shogi::{moves::Move, Position};
 
 struct HistoryEntry {
   success: u64,
@@ -119,6 +119,9 @@ impl History {
   }
   pub fn sort(&self, m: &mut [Move]) {
     m.sort_by_cached_key(|p| F64(self.get(u32::from(p))));
+  }
+  pub fn sort_takes(&self, pos: &Position, m: &mut [Move]) {
+    m.sort_by_cached_key(|p| F64(self.get(pos.packed_take_move(p))))
   }
 }
 

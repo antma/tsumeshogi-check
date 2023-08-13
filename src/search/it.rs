@@ -127,7 +127,7 @@ impl GoteMovesIterator {
     self.moves = pos.compute_moves(&self.checks);
     let i = pos.reorder_takes_to_front(&mut self.moves);
     self.takes = i;
-    history.sort(&mut self.moves[0..i]);
+    history.sort_takes(pos, &mut self.moves[0..i]);
   }
   fn compute_drops(&mut self, pos: &mut Position, history: &History) {
     self.moves = pos.compute_drops(&self.checks);
