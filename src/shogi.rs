@@ -489,15 +489,15 @@ impl Position {
     }
   }
   //true -> stop, false -> continue
-  fn enumerate_piece_move<F: FnMut(Move) -> bool>(
+  fn enumerate_piece_move(
     &self,
-    f: &mut F,
+    moves: &mut Vec<Move>,
     from: usize,
     piece: i8,
     delta_row: isize,
     delta_col: isize,
     sliding: bool,
-  ) -> bool {
+  ) {
     let (mut row, mut col) = cell::unpack(from);
     let p = cell::promotion_zone(from, self.side);
     loop {
@@ -516,31 +516,26 @@ impl Position {
       if t > 0 {
         break;
       }
-      if piece::is_promoted(piece) || piece::could_unpromoted(piece, k) {
-        if f(Move {
-          from,
-          to: k,
-          from_piece: piece,
-          to_piece: piece,
-        }) {
-          return true;
-        }
-      }
       if piece::could_promoted(piece) && (p || cell::promotion_zone(k, self.side)) {
-        if f(Move {
+        moves.push(Move {
           from,
           to: k,
           from_piece: piece,
           to_piece: piece::promote(piece),
-        }) {
-          return true;
-        }
+        });
+      }
+      if piece::is_promoted(piece) || piece::could_unpromoted(piece, k) {
+        moves.push(Move {
+          from,
+          to: k,
+          from_piece: piece,
+          to_piece: piece,
+        });
       }
       if t != 0 || !sliding {
         break;
       }
     }
-    false
   }
   fn discover_check_bitboard(&self, opponent_king_pos: usize, pieces: u128) -> u128 {
     let mut r = 0;
@@ -560,13 +555,7 @@ impl Position {
     }
     r
   }
-  fn promoted_sliding_piece_checks<F: FnMut(Move) -> bool>(
-    &self,
-    a: u128,
-    from: usize,
-    v: i8,
-    f: &mut F,
-  ) {
+  fn promoted_sliding_piece_checks(&self, a: u128, from: usize, v: i8, moves: &mut Vec<Move>) {
     for k in bitboards::Bits128(
       a & !(if v > 0 {
         self.black_pieces
@@ -574,7 +563,7 @@ impl Position {
         self.white_pieces
       }),
     ) {
-      f(Move {
+      moves.push(Move {
         from,
         to: k,
         from_piece: v,
@@ -582,14 +571,14 @@ impl Position {
       });
     }
   }
-  fn sliding_piece_checks<F: FnMut(Move) -> bool>(
+  fn sliding_piece_checks(
     &self,
     a: u128,
     b: u128,
     from: usize,
     opponent_king_pos: usize,
     v: i8,
-    f: &mut F,
+    moves: &mut Vec<Move>,
   ) {
     let a = a
       & !(if v > 0 {
@@ -606,14 +595,14 @@ impl Position {
     if promoted_moves != 0 {
       let c = consts::KING_MASKS[opponent_king_pos];
       for k in bitboards::Bits128(promoted_moves & (b | c)) {
-        f(Move {
+        moves.push(Move {
           from,
           to: k,
           from_piece: v,
           to_piece: piece::promote(v),
         });
         if bitboards::contains(b, k) {
-          f(Move {
+          moves.push(Move {
             from,
             to: k,
             from_piece: v,
@@ -623,7 +612,7 @@ impl Position {
       }
     }
     for k in bitboards::Bits128(not_promoted_moves & b) {
-      f(Move {
+      moves.push(Move {
         from,
         to: k,
         from_piece: v,
@@ -631,14 +620,7 @@ impl Position {
       });
     }
   }
-  fn knight_checks<F: FnMut(Move) -> bool>(
-    a: u128,
-    b: u128,
-    c: u128,
-    from: usize,
-    v: i8,
-    f: &mut F,
-  ) {
+  fn knight_checks(a: u128, b: u128, c: u128, from: usize, v: i8, moves: &mut Vec<Move>) {
     let (promoted_moves, not_promoted_moves) = if cell::promotion_zone(from, v) {
       (a, 0)
     } else {
@@ -650,7 +632,7 @@ impl Position {
       for k in bitboards::Bits128(promoted_moves) {
         let bit = 1u128 << k;
         if (c & bit) != 0 {
-          f(Move {
+          moves.push(Move {
             from,
             to: k,
             from_piece: v,
@@ -658,7 +640,7 @@ impl Position {
           });
         }
         if (b & bit) != 0 {
-          f(Move {
+          moves.push(Move {
             from,
             to: k,
             from_piece: v,
@@ -669,7 +651,7 @@ impl Position {
     }
     let not_promoted_moves = not_promoted_moves & b;
     for k in bitboards::Bits128(not_promoted_moves) {
-      f(Move {
+      moves.push(Move {
         from,
         to: k,
         from_piece: v,
@@ -703,10 +685,6 @@ impl Position {
         consts::WHITE_LOCAL_CHECK_CANDIDATES[opponent_king_pos],
       )
     };
-    let mut f = |mv| {
-      moves.push(mv);
-      false
-    };
     let s2 = pieces & self.discover_check_bitboard(opponent_king_pos, pieces);
     let s1 = pieces ^ s2;
     let s3 = s1 & self.sliding_pieces;
@@ -726,31 +704,31 @@ impl Position {
               bitboards::lance(opponent_king_pos, 1, self.all_pieces2),
             )
           };
-          Position::knight_checks(a, b, c, from, v, &mut f);
+          Position::knight_checks(a, b, c, from, v, &mut moves);
         }
         piece::PROMOTED_ROOK => {
           let a =
             bitboards::rook(from, self.all_pieces, self.all_pieces2) | consts::KING_MASKS[from];
           let b = bitboards::rook(opponent_king_pos, self.all_pieces, self.all_pieces2)
             | consts::KING_MASKS[opponent_king_pos];
-          self.promoted_sliding_piece_checks(a & b, from, v, &mut f);
+          self.promoted_sliding_piece_checks(a & b, from, v, &mut moves);
         }
         piece::PROMOTED_BISHOP => {
           let a =
             bitboards::bishop(from, self.all_pieces3, self.all_pieces4) | consts::KING_MASKS[from];
           let b = bitboards::bishop(opponent_king_pos, self.all_pieces3, self.all_pieces4)
             | consts::KING_MASKS[opponent_king_pos];
-          self.promoted_sliding_piece_checks(a & b, from, v, &mut f);
+          self.promoted_sliding_piece_checks(a & b, from, v, &mut moves);
         }
         piece::ROOK => {
           let a = bitboards::rook(from, self.all_pieces, self.all_pieces2);
           let b = bitboards::rook(opponent_king_pos, self.all_pieces, self.all_pieces2);
-          self.sliding_piece_checks(a, b, from, opponent_king_pos, v, &mut f);
+          self.sliding_piece_checks(a, b, from, opponent_king_pos, v, &mut moves);
         }
         piece::BISHOP => {
           let a = bitboards::bishop(from, self.all_pieces3, self.all_pieces4);
           let b = bitboards::bishop(opponent_king_pos, self.all_pieces3, self.all_pieces4);
-          self.sliding_piece_checks(a, b, from, opponent_king_pos, v, &mut f);
+          self.sliding_piece_checks(a, b, from, opponent_king_pos, v, &mut moves);
         }
         _ => panic!("unhandled sliding piece"),
       }
@@ -765,7 +743,7 @@ impl Position {
           } else {
             (pawn_bit << 9) & !self.white_pieces
           };
-          Position::knight_checks(a, shifted_king_bit, c, from, v, &mut f);
+          Position::knight_checks(a, shifted_king_bit, c, from, v, &mut moves);
         }
         piece::KNIGHT => {
           let (a, b) = if v > 0 {
@@ -779,7 +757,7 @@ impl Position {
               consts::BLACK_KNIGHT_MASKS[opponent_king_pos],
             )
           };
-          Position::knight_checks(a, b, c, from, v, &mut f);
+          Position::knight_checks(a, b, c, from, v, &mut moves);
         }
         piece::SILVER => {
           let (a, b) = if v > 0 {
@@ -793,7 +771,7 @@ impl Position {
               consts::BLACK_SILVER_MASKS[opponent_king_pos],
             )
           };
-          Position::knight_checks(a, b, c, from, v, &mut f);
+          Position::knight_checks(a, b, c, from, v, &mut moves);
         }
         piece::GOLD
         | piece::PROMOTED_PAWN
@@ -810,7 +788,7 @@ impl Position {
               & !self.white_pieces
           };
           for k in bitboards::Bits128(c) {
-            f(Move {
+            moves.push(Move {
               from,
               to: k,
               from_piece: v,
@@ -827,33 +805,33 @@ impl Position {
       let w = piece::unpromote(v);
       match v {
         piece::PAWN => {
-          self.enumerate_piece_move(&mut f, from, v, -1, 0, false);
+          self.enumerate_piece_move(&mut moves, from, v, -1, 0, false);
         }
         piece::WHITE_PAWN => {
-          self.enumerate_piece_move(&mut f, from, v, 1, 0, false);
+          self.enumerate_piece_move(&mut moves, from, v, 1, 0, false);
         }
         piece::LANCE => {
-          self.enumerate_piece_move(&mut f, from, v, -1, 0, true);
+          self.enumerate_piece_move(&mut moves, from, v, -1, 0, true);
         }
         piece::WHITE_LANCE => {
-          self.enumerate_piece_move(&mut f, from, v, 1, 0, true);
+          self.enumerate_piece_move(&mut moves, from, v, 1, 0, true);
         }
         piece::KNIGHT => {
-          self.enumerate_piece_move(&mut f, from, v, -2, -1, false);
-          self.enumerate_piece_move(&mut f, from, v, -2, 1, false);
+          self.enumerate_piece_move(&mut moves, from, v, -2, -1, false);
+          self.enumerate_piece_move(&mut moves, from, v, -2, 1, false);
         }
         piece::WHITE_KNIGHT => {
-          self.enumerate_piece_move(&mut f, from, v, 2, -1, false);
-          self.enumerate_piece_move(&mut f, from, v, 2, 1, false);
+          self.enumerate_piece_move(&mut moves, from, v, 2, -1, false);
+          self.enumerate_piece_move(&mut moves, from, v, 2, 1, false);
         }
         piece::SILVER => {
           for t in &direction::SILVER_MOVES {
-            self.enumerate_piece_move(&mut f, from, v, t.0, t.1, false);
+            self.enumerate_piece_move(&mut moves, from, v, t.0, t.1, false);
           }
         }
         piece::WHITE_SILVER => {
           for t in &direction::SILVER_MOVES {
-            self.enumerate_piece_move(&mut f, from, v, -t.0, t.1, false);
+            self.enumerate_piece_move(&mut moves, from, v, -t.0, t.1, false);
           }
         }
         piece::GOLD
@@ -862,7 +840,7 @@ impl Position {
         | piece::PROMOTED_KNIGHT
         | piece::PROMOTED_SILVER => {
           for t in &direction::GOLD_MOVES {
-            self.enumerate_piece_move(&mut f, from, v, t.0, t.1, false);
+            self.enumerate_piece_move(&mut moves, from, v, t.0, t.1, false);
           }
         }
         piece::WHITE_GOLD
@@ -871,12 +849,12 @@ impl Position {
         | piece::WHITE_PROMOTED_KNIGHT
         | piece::WHITE_PROMOTED_SILVER => {
           for t in &direction::GOLD_MOVES {
-            self.enumerate_piece_move(&mut f, from, v, -t.0, t.1, false);
+            self.enumerate_piece_move(&mut moves, from, v, -t.0, t.1, false);
           }
         }
         piece::KING | piece::WHITE_KING => {
           for to in bitboards::Bits128(self.legal_king_moves(from, v)) {
-            f(Move {
+            moves.push(Move {
               from,
               to,
               from_piece: v,
@@ -887,11 +865,11 @@ impl Position {
         _ => {
           if w == piece::BISHOP || w == -piece::BISHOP {
             for t in &direction::BISHOP_MOVES {
-              self.enumerate_piece_move(&mut f, from, v, t.0, t.1, true);
+              self.enumerate_piece_move(&mut moves, from, v, t.0, t.1, true);
             }
           } else if w == piece::ROOK || w == -piece::ROOK {
             for t in &direction::ROOK_MOVES {
-              self.enumerate_piece_move(&mut f, from, v, t.0, t.1, true);
+              self.enumerate_piece_move(&mut moves, from, v, t.0, t.1, true);
             }
           }
         }
@@ -900,11 +878,11 @@ impl Position {
       if v != w {
         if w == piece::BISHOP || w == -piece::BISHOP {
           for t in &direction::ROOK_MOVES {
-            self.enumerate_piece_move(&mut f, from, v, t.0, t.1, false);
+            self.enumerate_piece_move(&mut moves, from, v, t.0, t.1, false);
           }
         } else if w == piece::ROOK || w == -piece::ROOK {
           for t in &direction::BISHOP_MOVES {
-            self.enumerate_piece_move(&mut f, from, v, t.0, t.1, false);
+            self.enumerate_piece_move(&mut moves, from, v, t.0, t.1, false);
           }
         }
       }
