@@ -20,6 +20,7 @@ struct Stats {
   sente_drop_cuts: u64,
   sente_promotion_cuts: u64,
   mates_by_pawn_drop: u64,
+  skipped_gote_searches_after_pawn_drop: u64,
   max_hash_size: usize,
   sente_skipped_moves: u64,
   sente_skipped_moves_percent: f64,
@@ -231,7 +232,7 @@ impl Search {
     };
     let nodes = self.nodes_increment();
     let hash_nodes = self.hash_nodes;
-    let mut it = it::SenteMovesIterator::new(pos, last_move);
+    let mut it = it::SenteMovesIterator::new(pos, last_move, depth > 1);
     let mut res = SearchResult::new(depth);
     while let Some((m, u, oc)) = it.do_next_move(pos) {
       let next_depth = if res.best_move.is_many() {
@@ -239,6 +240,11 @@ impl Search {
       } else {
         res.depth - 1
       };
+      if next_depth == 0 && m.is_pawn_drop() {
+        stats::incr!(self.stats.skipped_gote_searches_after_pawn_drop);
+        pos.undo_move(&m, &u);
+        continue;
+      }
       let ev = self.gote_search(pos, oc, next_depth);
       log::debug!(
         "self.gote_search({}, next_depth: {}) = {:?} after move {}.{}",

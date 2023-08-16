@@ -911,8 +911,11 @@ impl Position {
       self.drop_masks >> 16
     }
   }
-  pub fn compute_drops_with_check(&self) -> Vec<Move> {
-    let drops_mask = self.compute_drops_mask();
+  pub fn compute_drops_with_check(&self, allow_pawn_drops: bool) -> Vec<Move> {
+    let mut drops_mask = self.compute_drops_mask();
+    if !allow_pawn_drops {
+      drops_mask &= !(1 << piece::PAWN);
+    }
     self.enumerate_drops(self.compute_potential_drops_map(drops_mask).into_iter())
   }
   fn enumerate_drops<I: Iterator<Item = (usize, u32)>>(&self, drop_masks_iterator: I) -> Vec<Move> {

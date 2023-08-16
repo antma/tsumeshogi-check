@@ -31,6 +31,7 @@ pub struct SenteMovesIterator {
   k: usize,
   state: u32,
   pub legal_moves: u32,
+  allow_pawn_drops: bool,
   #[allow(dead_code)]
   pub(super) stats: SenteStats,
 }
@@ -50,9 +51,9 @@ pub struct GoteMovesIterator {
 
 impl SenteMovesIterator {
   fn compute_drops(&mut self, pos: &Position) {
-    self.moves = pos.compute_drops_with_check()
+    self.moves = pos.compute_drops_with_check(self.allow_pawn_drops)
   }
-  pub fn new(pos: &Position, last_move: Option<&Move>) -> Self {
+  pub fn new(pos: &Position, last_move: Option<&Move>, allow_pawn_drops: bool) -> Self {
     let checks = if let Some(m) = last_move {
       pos.compute_checks_after_move(m)
     } else {
@@ -64,6 +65,7 @@ impl SenteMovesIterator {
       k: 0,
       state: 0,
       legal_moves: 0,
+      allow_pawn_drops,
       stats: SenteStats::default(),
     }
   }
@@ -234,7 +236,7 @@ fn perft_sente(
   if next_depth >= v.len() {
     return;
   }
-  let mut it = SenteMovesIterator::new(pos, last_move);
+  let mut it = SenteMovesIterator::new(pos, last_move, true);
   while let Some((m, u, oc)) = it.do_next_move(pos) {
     perft_gote(pos, v, oc, next_depth, history);
     pos.undo_move(&m, &u);
@@ -282,7 +284,7 @@ fn test_sente_iterator_unique() {
     "lnn5l/2g1S1+Bp1/bp1pk3p/pP1g2p2/4s4/P1R2PP1P/2KP2g2/2S2+r3/LN1G4L b P5pns 1",
   )
   .unwrap();
-  let mut it = SenteMovesIterator::new(&pos, None);
+  let mut it = SenteMovesIterator::new(&pos, None, true);
   let mut s = std::collections::BTreeSet::new();
   while let Some((m, u, _)) = it.do_next_move(&mut pos) {
     assert!(
