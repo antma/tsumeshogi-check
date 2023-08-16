@@ -114,8 +114,8 @@ impl IntoIterator for PotentialDropsMap {
 
 #[derive(Debug)]
 pub struct ParseSFENError {
-  sfen: String,
-  message: String,
+  pub sfen: String,
+  pub message: String,
 }
 
 impl fmt::Display for ParseSFENError {
