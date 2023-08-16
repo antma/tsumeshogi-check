@@ -44,6 +44,10 @@ fn tsume1_futile_drops() {
     ],
     1,
   );
+  common::no_tsume_batch_test(
+    vec!["k3l3R/p4s3/9/N8/4p4/4KBB2/9/1pp+l+l+l+n+n+n/+s+s+sggggr1 b 14p 1"],
+    1,
+  );
 }
 
 #[test]

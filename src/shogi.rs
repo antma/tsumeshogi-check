@@ -1787,22 +1787,23 @@ impl Position {
     attacking_piece_pos: usize,
     attacking_piece: i8,
     drop: &Move,
+    test_legality: bool,
   ) -> bool {
-    let m = Move {
+    let take = Move {
       from: attacking_piece_pos,
       to: drop.to,
       from_piece: attacking_piece,
       to_piece: attacking_piece,
     };
-    let u = self.do_move(&m);
-    let legal = self.is_legal_after_move_in_checkless_position(drop);
+    let u = self.do_move(&take);
+    let legal = !test_legality || self.is_legal_after_move_in_checkless_position(&take);
     debug_assert_eq!(legal, self.is_legal());
     let r = if !legal {
       false
     } else {
       self.legal_king_moves(king_pos, self.side) == 0
     };
-    self.undo_move(&m, &u);
+    self.undo_move(&take, &u);
     r
   }
   pub fn is_futile_drops(&mut self, checks: &Checks, drops: &[Move]) -> bool {
@@ -1811,21 +1812,31 @@ impl Position {
     let attacking_piece_pos = checks.attacking_pieces.first().unwrap();
     let attacking_piece = self.board[attacking_piece_pos];
     let mut prev: usize = 0x7f;
+    let mut test_legality = true;
     for drop in drops {
       if prev != drop.to {
         let (row, col) = cell::unpack(drop.to);
         if (king_row as isize - row as isize).abs() > 2
           || (king_col as isize - col as isize).abs() > 2
         {
-          break;
+          if !test_legality {
+            break;
+          }
         }
         let u = self.do_move(&drop);
-        let r = !self.is_futile_drop(king_pos, attacking_piece_pos, attacking_piece, drop);
+        let r = !self.is_futile_drop(
+          king_pos,
+          attacking_piece_pos,
+          attacking_piece,
+          drop,
+          test_legality,
+        );
         self.undo_move(&drop, &u);
         if r {
           return false;
         }
         prev = drop.to;
+        test_legality = false;
       }
     }
     true
