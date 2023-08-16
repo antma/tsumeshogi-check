@@ -360,22 +360,6 @@ impl Position {
         }
       }
     }
-    //check pawns and knights in promotion zone
-    for row in (0..3).chain(6..9) {
-      for (c, p) in board.iter().enumerate().skip(9 * row).take(9) {
-        if !piece::is_promoted(*p) && !piece::could_unpromoted(*p, c) {
-          return Err(ParseSFENError::new(
-            sfen,
-            format!(
-              "unpromoted {} on the {} row at cell {}",
-              piece::to_human_string(p.abs()),
-              row + 1,
-              cell::to_string(c)
-            ),
-          ));
-        }
-      }
-    }
     let (black_pieces, white_pieces) = board::count_pieces(&board);
     if black_pieces[piece::KING as usize] > 1 {
       return Err(ParseSFENError::new(
@@ -463,6 +447,23 @@ impl Position {
       white_pieces,
       sliding_pieces,
     ) = board::compute_all_pieces(&board);
+    //check pawns and knights in promotion zone
+    for k in bitboards::Bits128(
+      (!bitboards::BLACK_UNPROMOTED_KNIGHT & black_pieces)
+        | (!bitboards::WHITE_UNPROMOTED_KNIGHT & white_pieces),
+    ) {
+      let v = board[k];
+      if !piece::is_promoted(v) && !piece::could_unpromoted(v, k) {
+        return Err(ParseSFENError::new(
+          sfen,
+          format!(
+            "unpromoted {} at cell {}",
+            piece::to_human_string(v.abs()),
+            cell::to_string(k)
+          ),
+        ));
+      }
+    }
     let pos = Position {
       board,
       black_pockets,
