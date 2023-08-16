@@ -32,8 +32,8 @@ pub struct Position {
   sliding_pieces: u128,
   pub hash: u64,
   pub move_no: u32,
-  drop_masks: u32,
   nifu_masks: u32,
+  drop_masks: u16,
   pub side: i8,
 }
 
@@ -41,11 +41,11 @@ struct SlidingIterator {
   delta: isize,
   last: usize,
   end: usize,
-  drops_mask: u32,
+  drops_mask: u8,
 }
 
 impl Iterator for SlidingIterator {
-  type Item = (usize, u32);
+  type Item = (usize, u8);
   fn next(&mut self) -> Option<Self::Item> {
     let a = (self.last as isize + self.delta) as usize;
     if a == self.end {
@@ -58,7 +58,7 @@ impl Iterator for SlidingIterator {
 }
 
 impl SlidingIterator {
-  fn new(attacking_piece: usize, king_pos: usize, drops_mask: u32) -> Self {
+  fn new(attacking_piece: usize, king_pos: usize, drops_mask: u8) -> Self {
     let (delta_row, delta_col) = direction::delta_direction(king_pos, attacking_piece);
     SlidingIterator {
       delta: 9 * delta_row + delta_col,
@@ -90,7 +90,7 @@ impl Checks {
   }
 }
 
-struct PotentialDropsMap(Vec<(usize, u32)>);
+struct PotentialDropsMap(Vec<(usize, u8)>);
 
 impl Default for PotentialDropsMap {
   fn default() -> Self {
@@ -99,13 +99,13 @@ impl Default for PotentialDropsMap {
 }
 
 impl PotentialDropsMap {
-  fn insert(&mut self, cell: usize, mask: u32) {
+  fn insert(&mut self, cell: usize, mask: u8) {
     self.0.push((cell, mask));
   }
 }
 
 impl IntoIterator for PotentialDropsMap {
-  type Item = (usize, u32);
+  type Item = (usize, u8);
   type IntoIter = std::vec::IntoIter<Self::Item>;
   fn into_iter(self) -> Self::IntoIter {
     self.0.into_iter()
@@ -133,7 +133,7 @@ impl ParseSFENError {
   }
 }
 
-fn compute_drops_mask(q: &[u8]) -> u32 {
+fn compute_drops_mask(q: &[u8]) -> u8 {
   q.iter()
     .enumerate()
     .skip(1)
@@ -161,6 +161,13 @@ fn compute_hash(board: &[i8], black_pockets: &[u8], white_pockets: &[u8], side: 
   res
 }
 
+fn swap_bytes(x: u16) -> u16 {
+  let lo = x & 0xff;
+  let hi = x >> 8;
+  (lo << 8) + hi
+}
+
+#[allow(dead_code)]
 fn swap_words(x: u32) -> u32 {
   let lo = x & 0xffff;
   let hi = x >> 16;
@@ -194,7 +201,7 @@ impl Position {
     let t = self.black_king_position.map(cell::mirror);
     self.black_king_position = self.white_king_position.map(cell::mirror);
     self.white_king_position = t;
-    self.drop_masks = swap_words(self.drop_masks);
+    self.drop_masks = swap_bytes(self.drop_masks);
     let lo = self.nifu_masks & 0xffff;
     let hi = self.nifu_masks >> 16;
     self.nifu_masks = (nify_mask_reverse(lo) << 16) + nify_mask_reverse(hi);
@@ -478,7 +485,8 @@ impl Position {
       white_pieces,
       sliding_pieces,
       hash,
-      drop_masks: compute_drops_mask(&black_pockets) | (compute_drops_mask(&white_pockets) << 16),
+      drop_masks: (compute_drops_mask(&black_pockets) as u16)
+        | ((compute_drops_mask(&white_pockets) as u16) << 8),
       nifu_masks,
       side,
       move_no,
@@ -890,7 +898,7 @@ impl Position {
     }
     moves
   }
-  fn empty_cells_with_drop_mask(&self, drop_mask: u32) -> Vec<(usize, u32)> {
+  fn empty_cells_with_drop_mask(&self, drop_mask: u8) -> Vec<(usize, u8)> {
     self
       .board
       .iter()
@@ -904,11 +912,11 @@ impl Position {
       })
       .collect()
   }
-  fn compute_drops_mask(&self) -> u32 {
+  fn compute_drops_mask(&self) -> u8 {
     if self.side > 0 {
-      self.drop_masks & 0xffff
+      (self.drop_masks & 0xff) as u8
     } else {
-      self.drop_masks >> 16
+      (self.drop_masks >> 8) as u8
     }
   }
   pub fn compute_drops_with_check(&self, allow_pawn_drops: bool) -> Vec<Move> {
@@ -918,7 +926,7 @@ impl Position {
     }
     self.enumerate_drops(self.compute_potential_drops_map(drops_mask).into_iter())
   }
-  fn enumerate_drops<I: Iterator<Item = (usize, u32)>>(&self, drop_masks_iterator: I) -> Vec<Move> {
+  fn enumerate_drops<I: Iterator<Item = (usize, u8)>>(&self, drop_masks_iterator: I) -> Vec<Move> {
     let mut r = Vec::new();
     let drops_mask = self.compute_drops_mask();
     for (k, mask) in drop_masks_iterator {
@@ -926,7 +934,7 @@ impl Position {
       if mask == 0 {
         continue;
       }
-      for p in bits::Bits(mask) {
+      for p in bits::Bits(mask as u32) {
         let p = p as i8;
         if p == piece::PAWN {
           let col = k % 9;
@@ -955,11 +963,6 @@ impl Position {
     s: i8,
     i: usize,
   ) -> bool {
-    let flags = if s > 0 {
-      direction::BLACK_FLAGS[i]
-    } else {
-      direction::WHITE_FLAGS[i]
-    };
     let p = consts::SLIDING_MASKS[8 * king_pos + i];
     let b = p & self.all_pieces;
     if b == 0 {
@@ -970,18 +973,22 @@ impl Position {
     let t = s * piece;
     debug_assert_ne!(t, 0);
     if t < 0 {
-      let pa = piece.abs();
-      if piece::is_sliding_dir(pa, flags) {
+      let f = if s > 0 {
+        direction::BLACK_MASKS[i].1
+      } else {
+        direction::WHITE_MASKS[i].1
+      };
+      if ((1 << (-t)) & f) != 0 {
         return true;
       }
     }
     false
   }
   fn attacked(&self, king_pos: usize, s: i8) -> bool {
-    for (i, (flags, p)) in if s > 0 {
-      direction::BLACK_FLAGS.iter()
+    for (i, (f, p)) in if s > 0 {
+      direction::BLACK_MASKS.iter()
     } else {
-      direction::WHITE_FLAGS.iter()
+      direction::WHITE_MASKS.iter()
     }
     .zip(consts::SLIDING_MASKS.iter().skip(8 * king_pos))
     .enumerate()
@@ -993,13 +1000,12 @@ impl Position {
         let t = s * piece;
         debug_assert_ne!(t, 0);
         if t < 0 {
-          let pa = piece.abs();
-          let ok = if (king_pos as isize) + direction::OFFSETS[i] == (k as isize) {
-            piece::is_near_dir(pa, *flags)
+          let f = if (king_pos as isize) + direction::OFFSETS[i] == (k as isize) {
+            f.0
           } else {
-            piece::is_sliding_dir(pa, *flags)
+            f.1
           };
-          if ok {
+          if ((1 << (-t)) & f) != 0 {
             return true;
           }
         }
@@ -1024,10 +1030,10 @@ impl Position {
   }
   fn attacking_pieces(&self, king_pos: usize, s: i8) -> attacking_pieces::AttackingPieces {
     let mut attacking_pieces = attacking_pieces::AttackingPieces::default();
-    for (i, (flags, p)) in if s > 0 {
-      direction::BLACK_FLAGS.iter()
+    for (i, (f, p)) in if s > 0 {
+      direction::BLACK_MASKS.iter()
     } else {
-      direction::WHITE_FLAGS.iter()
+      direction::WHITE_MASKS.iter()
     }
     .zip(consts::SLIDING_MASKS.iter().skip(8 * king_pos))
     .enumerate()
@@ -1039,13 +1045,12 @@ impl Position {
         let t = s * piece;
         debug_assert_ne!(t, 0);
         if t < 0 {
-          let pa = piece.abs();
-          let ok = if (king_pos as isize) + direction::OFFSETS[i] == (k as isize) {
-            piece::is_near_dir(pa, *flags)
+          let f = if (king_pos as isize) + direction::OFFSETS[i] == (k as isize) {
+            f.0
           } else {
-            piece::is_sliding_dir(pa, *flags)
+            f.1
           };
-          if ok {
+          if ((1 << (-t)) & f) != 0 {
             attacking_pieces.push(k);
           }
         }
@@ -1085,10 +1090,10 @@ impl Position {
           continue;
         }
         used += bit;
-        let flags = if s > 0 {
-          direction::BLACK_FLAGS[i]
+        let f = if s > 0 {
+          direction::BLACK_MASKS[i]
         } else {
-          direction::WHITE_FLAGS[i]
+          direction::WHITE_MASKS[i]
         };
         let p = consts::SLIDING_MASKS[8 * king_pos + i];
         let b = p & self.all_pieces;
@@ -1098,14 +1103,14 @@ impl Position {
           let t = s * piece;
           debug_assert_ne!(t, 0);
           if t < 0 {
-            let pa = piece.abs();
+            let g = 1 << (-t);
             let cells = p ^ consts::SLIDING_MASKS[8 * k + i] ^ (1u128 << k);
             if cells == 0 {
-              if piece::is_near_dir(pa, flags) {
+              if (f.0 & g) != 0 {
                 attacking_pieces.push(k);
               }
             } else {
-              if piece::is_sliding_dir(pa, flags) {
+              if (f.1 & g) != 0 {
                 attacking_pieces.push(k);
                 blocking_cells |= cells;
               }
@@ -1137,10 +1142,10 @@ impl Position {
   fn checks(&self, king_pos: usize, s: i8) -> Checks {
     let mut attacking_pieces = attacking_pieces::AttackingPieces::default();
     let mut blocking_cells = 0u128;
-    for (i, (flags, p)) in if s > 0 {
-      direction::BLACK_FLAGS.iter()
+    for (i, (f, p)) in if s > 0 {
+      direction::BLACK_MASKS.iter()
     } else {
-      direction::WHITE_FLAGS.iter()
+      direction::WHITE_MASKS.iter()
     }
     .zip(consts::SLIDING_MASKS.iter().skip(8 * king_pos))
     .enumerate()
@@ -1152,14 +1157,14 @@ impl Position {
         let t = s * piece;
         debug_assert_ne!(t, 0);
         if t < 0 {
-          let pa = piece.abs();
+          let g = 1 << (-t);
           let cells = *p ^ consts::SLIDING_MASKS[8 * k + i] ^ (1u128 << k);
           if cells == 0 {
-            if piece::is_near_dir(pa, *flags) {
+            if (f.0 & g) != 0 {
               attacking_pieces.push(k);
             }
           } else {
-            if piece::is_sliding_dir(pa, *flags) {
+            if (f.1 & g) != 0 {
               attacking_pieces.push(k);
               blocking_cells |= cells;
             }
@@ -1201,7 +1206,7 @@ impl Position {
       self.white_king_position
     }
   }
-  fn compute_potential_drops_map(&self, drops_mask: u32) -> PotentialDropsMap {
+  fn compute_potential_drops_map(&self, drops_mask: u8) -> PotentialDropsMap {
     let mut m = PotentialDropsMap::default();
     let king_pos = self.find_king_position(-self.side);
     if king_pos.is_none() {
@@ -1209,20 +1214,20 @@ impl Position {
     }
     let king_pos = king_pos.unwrap();
     let (king_row, king_col) = cell::unpack(king_pos);
-    for (t, flags) in direction::KING_MOVES.iter().zip(if self.side < 0 {
-      direction::BLACK_FLAGS.iter()
+    for (t, f) in direction::KING_MOVES.iter().zip(if self.side < 0 {
+      direction::BLACK_DROP_MASKS.iter()
     } else {
-      direction::WHITE_FLAGS.iter()
+      direction::WHITE_DROP_MASKS.iter()
     }) {
       let mut row = king_row;
       let mut col = king_col;
-      let mut mask = piece::near_dir_to_mask(*flags) & drops_mask;
+      let mut mask = f.0 & drops_mask;
       if mask == 0 {
         continue;
       }
       for steps in 0.. {
         if steps == 1 {
-          mask = piece::sliding_dir_to_mask(*flags) & drops_mask;
+          mask = f.1 & drops_mask;
           if mask == 0 {
             break;
           }
@@ -1245,7 +1250,7 @@ impl Position {
       }
     }
     //knight checks
-    let knight_bit = 1u32 << piece::KNIGHT;
+    let knight_bit = 1 << piece::KNIGHT;
     if (drops_mask & knight_bit) == 0 {
       return m;
     }
@@ -1361,13 +1366,13 @@ impl Position {
   }
   pub fn compute_drops(&self, checks: &Checks) -> Vec<Move> {
     match checks.attacking_pieces.len() {
-      0 => self.enumerate_drops(self.empty_cells_with_drop_mask(0x7fff_ffff).into_iter()),
+      0 => self.enumerate_drops(self.empty_cells_with_drop_mask(0xff).into_iter()),
       1 => {
         if checks.blocking_cells != 0 {
           self.enumerate_drops(SlidingIterator::new(
             checks.attacking_pieces.first().unwrap(),
             checks.king_pos.unwrap(),
-            0x7fff_ffff,
+            0xff,
           ))
         } else {
           Vec::with_capacity(0)
@@ -1650,13 +1655,13 @@ impl Position {
         self.hash ^=
           hash::get_black_pocket_hash(m.to_piece, self.black_pockets[m.to_piece as usize]);
         if decrement_pocket(&mut self.black_pockets[m.to_piece as usize]) {
-          self.drop_masks ^= 1u32 << m.to_piece;
+          self.drop_masks ^= 1 << m.to_piece;
         }
       } else {
         self.hash ^=
           hash::get_white_pocket_hash(-m.to_piece, self.white_pockets[(-m.to_piece) as usize]);
         if decrement_pocket(&mut self.white_pockets[(-m.to_piece) as usize]) {
-          self.drop_masks ^= 1u32 << (16 - m.to_piece);
+          self.drop_masks ^= 1 << (8 - m.to_piece);
         }
       }
     }
@@ -1679,12 +1684,12 @@ impl Position {
       let p = piece::unpromote(u.taken_piece);
       if p > 0 {
         if increment_pocket(&mut self.white_pockets[p as usize]) {
-          self.drop_masks ^= 1u32 << (16 + p);
+          self.drop_masks ^= 1 << (8 + p);
         }
         self.hash ^= hash::get_white_pocket_hash(p, self.white_pockets[p as usize]);
       } else {
         if increment_pocket(&mut self.black_pockets[(-p) as usize]) {
-          self.drop_masks ^= 1u32 << (-p);
+          self.drop_masks ^= 1 << (-p);
         }
         self.hash ^= hash::get_black_pocket_hash(-p, self.black_pockets[(-p) as usize]);
       }

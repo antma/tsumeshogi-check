@@ -1,4 +1,7 @@
-use super::cell::unpack;
+use super::{
+  cell::unpack,
+  piece::{flags_to_drop_mask, flags_to_mask},
+};
 pub type Direction = (isize, isize);
 pub const SILVER_MOVES: [Direction; 5] = [(-1, -1), (-1, 0), (-1, 1), (1, -1), (1, 1)];
 pub const GOLD_MOVES: [Direction; 6] = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, 0)];
@@ -18,8 +21,46 @@ pub const OFFSETS: [isize; 8] = [-10, -9, -8, -1, 1, 8, 9, 10];
 //flags: +1 - bishop
 //flags: +2 - rook
 //flags: +4 - general (forward)
-pub const BLACK_FLAGS: [u8; 8] = [1 + 4, 2 + 4, 1 + 4, 2, 2, 1, 2, 1];
-pub const WHITE_FLAGS: [u8; 8] = [1, 2, 1, 2, 2, 1 + 4, 2 + 4, 1 + 4];
+pub const BLACK_MASKS: [(u32, u32); 8] = [
+  flags_to_mask(1 + 4),
+  flags_to_mask(2 + 4),
+  flags_to_mask(1 + 4),
+  flags_to_mask(2),
+  flags_to_mask(2),
+  flags_to_mask(1),
+  flags_to_mask(2),
+  flags_to_mask(1),
+];
+pub const WHITE_MASKS: [(u32, u32); 8] = [
+  flags_to_mask(1),
+  flags_to_mask(2),
+  flags_to_mask(1),
+  flags_to_mask(2),
+  flags_to_mask(2),
+  flags_to_mask(1 + 4),
+  flags_to_mask(2 + 4),
+  flags_to_mask(1 + 4),
+];
+pub const BLACK_DROP_MASKS: [(u8, u8); 8] = [
+  flags_to_drop_mask(1 + 4),
+  flags_to_drop_mask(2 + 4),
+  flags_to_drop_mask(1 + 4),
+  flags_to_drop_mask(2),
+  flags_to_drop_mask(2),
+  flags_to_drop_mask(1),
+  flags_to_drop_mask(2),
+  flags_to_drop_mask(1),
+];
+pub const WHITE_DROP_MASKS: [(u8, u8); 8] = [
+  flags_to_drop_mask(1),
+  flags_to_drop_mask(2),
+  flags_to_drop_mask(1),
+  flags_to_drop_mask(2),
+  flags_to_drop_mask(2),
+  flags_to_drop_mask(1 + 4),
+  flags_to_drop_mask(2 + 4),
+  flags_to_drop_mask(1 + 4),
+];
 
 fn delta(from: usize, to: usize) -> Direction {
   let (row1, col1) = unpack(from);

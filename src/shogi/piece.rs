@@ -72,18 +72,19 @@ pub fn could_promoted(piece: i8) -> bool {
   p < KING && p != GOLD
 }
 
-pub fn sliding_dir_to_mask(flags: u8) -> u32 {
+const fn sliding_dir_to_drop_mask(flags: u8) -> u8 {
   match flags {
-    1 => 1u32 << BISHOP,
-    2 => 1u32 << ROOK,
-    5 => 1u32 << BISHOP,
-    6 => (1u32 << ROOK) | (1u32 << LANCE),
-    _ => panic!("unhandled flags {}", flags),
+    1 => 1 << BISHOP,
+    2 => 1 << ROOK,
+    5 => 1 << BISHOP,
+    6 => (1 << ROOK) | (1 << LANCE),
+    _ => 0,
+    //_ => panic!("unhandled flags {}", flags),
   }
 }
 
 pub fn is_sliding_dir(abs_piece: i8, flags: u8) -> bool {
-  assert!(abs_piece > 0);
+  debug_assert!(abs_piece > 0);
   match abs_piece {
     LANCE => (flags & 6) == 6,
     ROOK | PROMOTED_ROOK => (flags & 2) != 0,
@@ -92,18 +93,26 @@ pub fn is_sliding_dir(abs_piece: i8, flags: u8) -> bool {
   }
 }
 
-pub fn near_dir_to_mask(flags: u8) -> u32 {
+const fn near_dir_to_drop_mask(flags: u8) -> u8 {
   match flags {
-    1 => (1u32 << BISHOP) | (1u32 << SILVER),
-    2 => (1u32 << ROOK) | (1u32 << GOLD),
-    5 => (1u32 << BISHOP) | (1u32 << SILVER) | (1u32 << GOLD),
-    6 => (1u32 << ROOK) | (1u32 << SILVER) | (1u32 << GOLD) | (1u32 << PAWN) | (1u32 << LANCE),
-    _ => panic!("unhandled flags {}", flags),
+    1 => (1 << BISHOP) | (1 << SILVER),
+    2 => (1 << ROOK) | (1 << GOLD),
+    5 => (1 << BISHOP) | (1 << SILVER) | (1 << GOLD),
+    6 => (1 << ROOK) | (1 << SILVER) | (1 << GOLD) | (1 << PAWN) | (1 << LANCE),
+    _ => 0,
+    //_ => panic!("unhandled flags {}", flags),
   }
 }
 
+pub const fn flags_to_drop_mask(flags: u8) -> (u8, u8) {
+  (
+    near_dir_to_drop_mask(flags),
+    sliding_dir_to_drop_mask(flags),
+  )
+}
+
 pub fn is_near_dir(abs_piece: i8, flags: u8) -> bool {
-  assert!(abs_piece > 0);
+  debug_assert!(abs_piece > 0);
   match abs_piece {
     PROMOTED_ROOK | PROMOTED_BISHOP | KING => true,
     PAWN | LANCE => (flags & 6) == 6,
@@ -235,5 +244,81 @@ pub fn to_jp_string(abs_piece: i8) -> &'static str {
     PROMOTED_BISHOP => "馬",
     PROMOTED_ROOK => "龍",
     _ => panic!("unhandled piece {}", abs_piece),
+  }
+}
+
+const fn bit(p: i8) -> u32 {
+  1 << p
+}
+
+pub const fn flags_to_mask(flags: u8) -> (u32, u32) {
+  const GOLD_MASK: u32 = bit(GOLD)
+    | bit(PROMOTED_PAWN)
+    | bit(PROMOTED_LANCE)
+    | bit(PROMOTED_KNIGHT)
+    | bit(PROMOTED_SILVER);
+  match flags {
+    1 => (
+      bit(BISHOP) | bit(KING) | bit(PROMOTED_BISHOP) | bit(PROMOTED_ROOK) | bit(SILVER),
+      bit(BISHOP) | bit(PROMOTED_BISHOP),
+    ),
+    2 => (
+      bit(ROOK) | bit(KING) | bit(PROMOTED_BISHOP) | bit(PROMOTED_ROOK) | GOLD_MASK,
+      bit(ROOK) | bit(PROMOTED_ROOK),
+    ),
+    5 => (
+      bit(BISHOP) | bit(KING) | bit(PROMOTED_BISHOP) | bit(PROMOTED_ROOK) | bit(SILVER) | GOLD_MASK,
+      bit(BISHOP) | bit(PROMOTED_BISHOP),
+    ),
+    6 => (
+      bit(ROOK)
+        | bit(KING)
+        | bit(PROMOTED_BISHOP)
+        | bit(PROMOTED_ROOK)
+        | bit(SILVER)
+        | GOLD_MASK
+        | bit(LANCE)
+        | bit(PAWN),
+      bit(ROOK) | bit(PROMOTED_ROOK) | bit(LANCE),
+    ),
+    _ => (0, 0),
+  }
+}
+
+#[test]
+fn test_flags_to_mask() {
+  for flags in [1, 2, 5, 6] {
+    let (near, far) = flags_to_mask(flags);
+    for p in vec![
+      PAWN,
+      LANCE,
+      KNIGHT,
+      SILVER,
+      GOLD,
+      BISHOP,
+      ROOK,
+      KING,
+      PROMOTED_PAWN,
+      PROMOTED_LANCE,
+      PROMOTED_KNIGHT,
+      PROMOTED_SILVER,
+      PROMOTED_BISHOP,
+      PROMOTED_ROOK,
+    ] {
+      assert_eq!(
+        (near & (1 << p)) != 0,
+        is_near_dir(p, flags),
+        "near: flags = {}, piece = {}",
+        flags,
+        p
+      );
+      assert_eq!(
+        (far & (1 << p)) != 0,
+        is_sliding_dir(p, flags),
+        "far: flags = {}, piece = {}",
+        flags,
+        p
+      );
+    }
   }
 }

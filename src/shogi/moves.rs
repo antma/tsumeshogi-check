@@ -20,8 +20,8 @@ pub struct UndoMove {
   pub white_pieces: u128,
   pub sliding_pieces: u128,
   pub hash: u64,
-  pub drop_masks: u32,
   pub nifu_masks: u32,
+  pub drop_masks: u16,
   pub taken_piece: i8,
 }
 
