@@ -899,17 +899,9 @@ impl Position {
     moves
   }
   fn empty_cells_with_drop_mask(&self, drop_mask: u8) -> Vec<(usize, u8)> {
-    self
-      .board
-      .iter()
-      .enumerate()
-      .filter_map(|(i, p)| {
-        if *p == piece::NONE {
-          Some((i, drop_mask))
-        } else {
-          None
-        }
-      })
+    bitboards::Bits128(bitboards::ALL_BITS & !(self.black_pieces | self.white_pieces))
+      .into_iter()
+      .map(|i| (i, drop_mask))
       .collect()
   }
   fn compute_drops_mask(&self) -> u8 {

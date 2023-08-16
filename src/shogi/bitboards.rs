@@ -1,7 +1,7 @@
 use super::{cell, consts, piece};
 use std::iter::{Chain, Map};
 
-const ALL_BITS: u128 = (1u128 << 81) - 1;
+pub const ALL_BITS: u128 = (1u128 << 81) - 1;
 const BLACK_PROMOTION_ZONE_MASK: u128 = (1u128 << 27) - 1;
 const WHITE_PROMOTION_ZONE_MASK: u128 = BLACK_PROMOTION_ZONE_MASK << 54;
 const BLACK_UNPROMOTED_PAWN: u128 = (ALL_BITS << 9) & ALL_BITS;
