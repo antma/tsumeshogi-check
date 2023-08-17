@@ -234,12 +234,8 @@ impl Search {
     let hash_nodes = self.hash_nodes;
     let mut it = it::SenteMovesIterator::new(pos, last_move, depth > 1);
     let mut res = SearchResult::new(depth);
+    let mut next_depth = res.depth - 1;
     while let Some((m, u, oc)) = it.do_next_move(pos) {
-      let next_depth = if res.best_move.is_many() {
-        res.depth - 3
-      } else {
-        res.depth - 1
-      };
       if next_depth == 0 && m.is_pawn_drop() {
         stats::incr!(self.stats.skipped_gote_searches_after_pawn_drop);
         pos.undo_move(&m, &u);
@@ -290,6 +286,11 @@ impl Search {
         }
         break;
       }
+      next_depth = if res.best_move.is_many() {
+        res.depth - 3
+      } else {
+        res.depth - 1
+      };
     }
     stats::incr!(
       self.stats.sente_skipped_moves,
