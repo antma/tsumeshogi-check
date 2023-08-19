@@ -6,6 +6,7 @@ mod result;
 use super::{shogi, stats};
 use hash::SearchHash;
 use result::{BestMove, SearchResult};
+use shogi::between::Between;
 use shogi::moves::{Move, Moves};
 use shogi::{Checks, Position};
 use std::cmp::Ordering;
@@ -43,6 +44,7 @@ pub struct Search {
   sente_hash: SearchHash,
   gote_hash: SearchHash,
   gote_history: Vec<history::History>,
+  b: Between,
   pub nodes: u64,
   hash_nodes: u64,
   generation: u8,
@@ -57,6 +59,7 @@ impl Default for Search {
       sente_hash: SearchHash::default(),
       gote_hash: SearchHash::default(),
       gote_history: Vec::new(),
+      b: Between::default(),
       nodes: 0,
       hash_nodes: 0,
       generation: 0,
@@ -150,7 +153,7 @@ impl Search {
     hash_best_move = None;
     let d = depth as usize / 2;
     if depth == 0 {
-      while let Some((m, u)) = it.do_next_move(pos, &self.gote_history[d]) {
+      while let Some((m, u)) = it.do_next_move(pos, &self.gote_history[d], &mut self.b) {
         pos.undo_move(&m, &u);
         hash_best_move = Some(m);
         break;
@@ -160,7 +163,7 @@ impl Search {
       }
     } else {
       let next_depth = depth - 1;
-      while let Some((m, u)) = it.do_next_move(pos, &self.gote_history[d]) {
+      while let Some((m, u)) = it.do_next_move(pos, &self.gote_history[d], &mut self.b) {
         let mut ev = self.sente_search(pos, next_depth, Some(&m));
         log::debug!(
           "self.sente_search({}, next_depth: {}) = {:?} after move {}.{}",

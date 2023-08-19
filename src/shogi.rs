@@ -3,6 +3,7 @@ use std::fmt;
 use std::str::FromStr;
 
 pub mod attacking_pieces;
+pub mod between;
 mod bitboards;
 mod board;
 mod cell;
@@ -35,38 +36,6 @@ pub struct Position {
   nifu_masks: u32,
   drop_masks: u16,
   pub side: i8,
-}
-
-struct SlidingIterator {
-  delta: isize,
-  last: usize,
-  end: usize,
-  drops_mask: u8,
-}
-
-impl Iterator for SlidingIterator {
-  type Item = (usize, u8);
-  fn next(&mut self) -> Option<Self::Item> {
-    let a = (self.last as isize + self.delta) as usize;
-    if a == self.end {
-      None
-    } else {
-      self.last = a;
-      Some((a, self.drops_mask))
-    }
-  }
-}
-
-impl SlidingIterator {
-  fn new(attacking_piece: usize, king_pos: usize, drops_mask: u8) -> Self {
-    let (delta_row, delta_col) = direction::delta_direction(king_pos, attacking_piece);
-    SlidingIterator {
-      delta: 9 * delta_row + delta_col,
-      last: king_pos,
-      end: attacking_piece,
-      drops_mask,
-    }
-  }
 }
 
 pub struct Checks {
@@ -1361,7 +1330,7 @@ impl Position {
       0 => self.enumerate_drops(self.empty_cells_with_drop_mask(0xff).into_iter()),
       1 => {
         if checks.blocking_cells != 0 {
-          self.enumerate_drops(SlidingIterator::new(
+          self.enumerate_drops(between::SlidingIterator::new(
             checks.attacking_pieces.first().unwrap(),
             checks.king_pos.unwrap(),
             0xff,
@@ -1584,6 +1553,73 @@ impl Position {
       }
     }
     r
+  }
+  pub fn compute_moves_after_check(&self, checks: &Checks, b: &mut between::Between) -> Vec<Move> {
+    debug_assert!(self.validate_checks(checks));
+    let l = checks.attacking_pieces.len();
+    match l {
+      0 => panic!("not a check"),
+      1 => {
+        let p = checks.attacking_pieces.first().unwrap();
+        let to_bitboard = checks.blocking_cells | (1u128 << p);
+        let king = self.side * piece::KING;
+        let mut r = self.compute_legal_king_moves(king);
+        let (mut pieces, king_pos) = if self.side > 0 {
+          (self.black_pieces, &self.black_king_position)
+        } else {
+          (self.white_pieces, &self.white_king_position)
+        };
+        let king_pos = *king_pos.as_ref().unwrap();
+        pieces ^= 1u128 << king_pos;
+        pieces &= self.sliding_pieces | b.f(p, king_pos, self.side);
+        let gold = self.side * piece::GOLD;
+        for from in bitboards::Bits128(pieces) {
+          let v = self.board[from];
+          let a = self.attack_from(from, v) & to_bitboard;
+          if a == 0 {
+            continue;
+          }
+          if piece::is_promoted(v) {
+            for to in bitboards::Bits128(a) {
+              r.push(Move {
+                from,
+                to,
+                from_piece: v,
+                to_piece: v,
+              });
+            }
+          } else {
+            if v != gold {
+              let s = if cell::promotion_zone(from, v) {
+                a
+              } else {
+                a & bitboards::promotion_zone(v)
+              };
+              let to_piece = piece::promote(v);
+              for to in bitboards::Bits128(s) {
+                r.push(Move {
+                  from,
+                  to,
+                  from_piece: v,
+                  to_piece,
+                });
+              }
+            }
+            for to in bitboards::Bits128(a & bitboards::unpromoted_zone(v)) {
+              r.push(Move {
+                from,
+                to,
+                from_piece: v,
+                to_piece: v,
+              });
+            }
+          }
+        }
+        r
+      }
+      2 => self.compute_moves_after_nonblocking_check(None),
+      _ => panic!("illegal number {} of attacking pieces", l),
+    }
   }
   pub fn compute_moves(&self, checks: &Checks) -> Vec<Move> {
     debug_assert!(self.validate_checks(checks));
