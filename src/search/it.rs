@@ -13,7 +13,7 @@ pub(super) struct SenteStats {
 #[cfg(feature = "stats")]
 #[derive(Default)]
 pub(super) struct GoteStats {
-  pub skipped_moves: u32,
+  //pub skipped_moves: u32,
   pub is_futile_drop_true: u32,
   pub is_futile_drop_false: u32,
 }
@@ -162,12 +162,7 @@ impl GoteMovesIterator {
       stats: GoteStats::default(),
     }
   }
-  fn next(
-    &mut self,
-    pos: &mut Position,
-    history: &History,
-    b: &mut Between,
-  ) -> Option<(Move, bool)> {
+  fn next(&mut self, pos: &mut Position, history: &History, b: &mut Between) -> Option<Move> {
     loop {
       if self.k < self.moves.len() {
         match self.state {
@@ -189,13 +184,13 @@ impl GoteMovesIterator {
           if *t == r {
             if self.state == 0 {
               self.expect_futile_drop_check = false;
-              break Some((r, true));
+              break Some(r);
             } else {
               continue;
             }
           }
         }
-        break Some((r, false));
+        break Some(r);
       }
       self.state += 1;
       self.k = 0;
@@ -215,22 +210,14 @@ impl GoteMovesIterator {
     history: &History,
     b: &mut Between,
   ) -> Option<(Move, UndoMove)> {
-    while let Some((m, hash_move)) = self.next(pos, history, b) {
+    if let Some(m) = self.next(pos, history, b) {
       let u = pos.do_move(&m);
-      let legal = if m.is_drop() || m.is_king_move() || hash_move {
-        debug_assert!(pos.is_legal());
-        true
-      } else {
-        pos.is_legal()
-      };
-      if legal {
-        self.legal_moves += 1;
-        return Some((m, u));
-      }
-      stats::incr!(self.stats.skipped_moves);
-      pos.undo_move(&m, &u);
+      debug_assert!(pos.is_legal());
+      self.legal_moves += 1;
+      Some((m, u))
+    } else {
+      None
     }
-    return None;
   }
 }
 
