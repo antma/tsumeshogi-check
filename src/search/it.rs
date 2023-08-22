@@ -14,8 +14,8 @@ pub(super) struct SenteStats {
 #[derive(Default)]
 pub(super) struct GoteStats {
   //pub skipped_moves: u32,
-  pub is_futile_drop_true: u32,
-  pub is_futile_drop_false: u32,
+//pub is_futile_drop_true: u32,
+//pub is_futile_drop_false: u32,
 }
 
 #[cfg(not(feature = "stats"))]
@@ -44,7 +44,6 @@ pub struct GoteMovesIterator {
   takes: usize,
   state: u32,
   pub legal_moves: u32,
-  expect_futile_drop_check: bool,
   #[allow(dead_code)]
   pub(super) stats: GoteStats,
 }
@@ -138,18 +137,10 @@ impl GoteMovesIterator {
   }
   fn compute_drops(&mut self, pos: &mut Position, history: &History) {
     self.moves = pos.compute_drops(&self.checks);
-    if self.legal_moves == 0 && self.expect_futile_drop_check {
-      if pos.is_futile_drops(&self.checks, &self.moves) {
-        self.moves.clear();
-        stats::incr!(self.stats.is_futile_drop_true);
-      } else {
-        stats::incr!(self.stats.is_futile_drop_false);
-      }
-    }
     history.sort(&mut self.moves);
     //log::debug!("compute drops: pos = {}, drops = {:?}", pos, pos.to_psn_moves(&self.moves));
   }
-  pub fn new(checks: Checks, best_move: Option<Move>, allow_futile_drops: bool) -> Self {
+  pub fn new(checks: Checks, best_move: Option<Move>) -> Self {
     Self {
       moves: best_move.clone().into_iter().collect(),
       checks,
@@ -158,7 +149,6 @@ impl GoteMovesIterator {
       takes: usize::MAX,
       state: 0,
       legal_moves: 0,
-      expect_futile_drop_check: !allow_futile_drops,
       stats: GoteStats::default(),
     }
   }
@@ -182,10 +172,7 @@ impl GoteMovesIterator {
         self.k += 1;
         if let Some(t) = self.best_move.as_ref() {
           if *t == r {
-            if self.state == 0 {
-              self.expect_futile_drop_check = false;
-              break Some(r);
-            } else {
+            if self.state > 0 {
               continue;
             }
           }
@@ -256,8 +243,7 @@ fn perft_gote(
   if next_depth >= v.len() {
     return;
   }
-  let allow_futile_drops = false;
-  let mut it = GoteMovesIterator::new(checks, None, allow_futile_drops);
+  let mut it = GoteMovesIterator::new(checks, None);
   while let Some((m, u)) = it.do_next_move(pos, history, b) {
     perft_sente(pos, v, next_depth, Some(&m), history, b);
     pos.undo_move(&m, &u);

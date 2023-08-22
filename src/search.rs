@@ -31,9 +31,6 @@ struct Stats {
   //gote_skipped_moves: u64,
   //gote_skipped_moves_percent: f64,
   gote_legal_moves: u64,
-  gote_is_futile_drop_true: u64,
-  gote_is_futile_drop_false: u64,
-  gote_is_futile_drop_true_percent: f64,
 }
 
 #[cfg(not(feature = "stats"))]
@@ -95,18 +92,6 @@ impl Search {
         self.stats.sente_illegal_moves,
         self.stats.sente_skipped_moves + self.stats.sente_legal_moves
       );
-      /*
-      stats::percent!(
-        self.stats.gote_skipped_moves_percent,
-        self.stats.gote_skipped_moves,
-        self.stats.gote_skipped_moves + self.stats.gote_legal_moves
-      );
-      */
-      stats::percent!(
-        self.stats.gote_is_futile_drop_true_percent,
-        self.stats.gote_is_futile_drop_true,
-        self.stats.gote_is_futile_drop_true + self.stats.gote_is_futile_drop_false
-      );
       log::info!("search.stats = {:#?}", self.stats);
       log::info!(
         "hash capacity = {}",
@@ -149,21 +134,16 @@ impl Search {
     }
     let nodes = self.nodes_increment();
     let hash_nodes = self.hash_nodes;
-    let allow_futile_drops = false;
-    let mut it = it::GoteMovesIterator::new(checks, hash_best_move, allow_futile_drops);
     let mut res = SearchResult::new(0);
-    hash_best_move = None;
-    let d = depth as usize / 2;
     if depth == 0 {
-      while let Some((m, u)) = it.do_next_move(pos, &self.gote_history[d], &mut self.b) {
-        pos.undo_move(&m, &u);
-        hash_best_move = Some(m);
-        break;
-      }
+      hash_best_move = pos.is_checkmate_after_check(&checks, &mut self.b);
       if hash_best_move.is_none() {
         res.best_move = BestMove::One(0);
       }
     } else {
+      let mut it = it::GoteMovesIterator::new(checks, hash_best_move);
+      hash_best_move = None;
+      let d = depth as usize / 2;
       let next_depth = depth - 1;
       while let Some((m, u)) = it.do_next_move(pos, &self.gote_history[d], &mut self.b) {
         let mut ev = self.sente_search(pos, next_depth, Some(&m));
@@ -201,17 +181,8 @@ impl Search {
         res.depth = 0;
         res.best_move = BestMove::One(0);
       }
+      stats::incr!(self.stats.gote_legal_moves, it.legal_moves as u64);
     }
-    //stats::incr!(self.stats.gote_skipped_moves, it.stats.skipped_moves as u64);
-    stats::incr!(self.stats.gote_legal_moves, it.legal_moves as u64);
-    stats::incr!(
-      self.stats.gote_is_futile_drop_true,
-      it.stats.is_futile_drop_true as u64
-    );
-    stats::incr!(
-      self.stats.gote_is_futile_drop_false,
-      it.stats.is_futile_drop_false as u64
-    );
     res.nodes = (self.nodes - nodes) + (self.hash_nodes - hash_nodes);
     self
       .gote_hash

@@ -1563,11 +1563,104 @@ impl Position {
     }
     r
   }
+  fn find_legal_move_after_check(&self, checks: &Checks, b: &mut between::Between) -> Option<Move> {
+    debug_assert!(self.validate_checks(checks));
+    let l = checks.attacking_pieces.len();
+    match l {
+      1 => {
+        let p = checks.attacking_pieces.first().unwrap();
+        let to_bitboard = checks.blocking_cells | (1u128 << p);
+        let (mut pieces, opponent_pieces, king_pos) = if self.side > 0 {
+          (
+            self.black_pieces,
+            self.white_pieces,
+            &self.black_king_position,
+          )
+        } else {
+          (
+            self.white_pieces,
+            self.black_pieces,
+            &self.white_king_position,
+          )
+        };
+        let king_pos = *king_pos.as_ref().unwrap();
+        let a = self.legal_king_moves(king_pos, self.side);
+        if a != 0 {
+          let king = piece::KING * self.side;
+          return Some(Move {
+            from: king_pos,
+            to: bitboards::first(a),
+            from_piece: king,
+            to_piece: king,
+          });
+        }
+        pieces ^= 1u128 << king_pos;
+        let binded_pieces = self.discover_check_bitboard(king_pos, opponent_pieces, -self.side);
+        pieces &= (self.sliding_pieces | b.f(p, king_pos, self.side)) & !binded_pieces;
+        for from in bitboards::Bits128(pieces) {
+          let v = self.board[from];
+          let a = self.attack_from(from, v) & to_bitboard;
+          if a != 0 {
+            let to = bitboards::first(a);
+            return Some(Move {
+              from,
+              to,
+              from_piece: v,
+              to_piece: if piece::could_promoted(v) && cell::promotion_zone(to, v) {
+                piece::promote(v)
+              } else {
+                v
+              },
+            });
+          }
+        }
+        None
+      }
+      2 => {
+        let king_pos = if self.side > 0 {
+          &self.black_king_position
+        } else {
+          &self.white_king_position
+        };
+        let king_pos = *king_pos.as_ref().unwrap();
+        let a = self.legal_king_moves(king_pos, self.side);
+        if a != 0 {
+          let king = piece::KING * self.side;
+          return Some(Move {
+            from: king_pos,
+            to: bitboards::first(a),
+            from_piece: king,
+            to_piece: king,
+          });
+        }
+        None
+      }
+      _ => panic!("illegal number {} of attacking pieces", l),
+    }
+  }
+  pub fn is_checkmate_after_check(
+    &mut self,
+    checks: &Checks,
+    b: &mut between::Between,
+  ) -> Option<Move> {
+    let o = self.find_legal_move_after_check(checks, b);
+    if o.is_some() {
+      return o;
+    }
+    let mut drops = self.compute_drops(&checks);
+    if drops.is_empty() {
+      return None;
+    }
+    if self.is_futile_drops(checks, &drops) {
+      None
+    } else {
+      drops.pop()
+    }
+  }
   pub fn compute_moves_after_check(&self, checks: &Checks, b: &mut between::Between) -> Vec<Move> {
     debug_assert!(self.validate_checks(checks));
     let l = checks.attacking_pieces.len();
     match l {
-      0 => panic!("not a check"),
       1 => {
         let p = checks.attacking_pieces.first().unwrap();
         let to_bitboard = checks.blocking_cells | (1u128 << p);
@@ -1861,7 +1954,7 @@ impl Position {
     self.undo_move(&take, &u);
     r
   }
-  pub fn is_futile_drops(&mut self, checks: &Checks, drops: &[Move]) -> bool {
+  fn is_futile_drops(&mut self, checks: &Checks, drops: &[Move]) -> bool {
     let king_pos = *checks.king_pos.as_ref().unwrap();
     let (king_row, king_col) = cell::unpack(king_pos);
     let attacking_piece_pos = checks.attacking_pieces.first().unwrap();
