@@ -515,13 +515,23 @@ impl Position {
       }
     }
   }
-  fn discover_check_bitboard(&self, opponent_king_pos: usize, pieces: u128) -> u128 {
+  fn discover_check_bitboard(&self, opponent_king_pos: usize, pieces: u128, side: i8) -> u128 {
     let mut r = 0;
     let king_bit = 1u128 << opponent_king_pos;
     for sliding_piece_pos in bitboards::Bits128(self.sliding_pieces & pieces) {
       if let Some(i) =
         direction::try_to_find_delta_direction_no(sliding_piece_pos, opponent_king_pos)
       {
+        let f = if side > 0 {
+          direction::BLACK_MASKS[i].1
+        } else {
+          direction::WHITE_MASKS[i].1
+        };
+        let v = self.board[sliding_piece_pos] * side;
+        debug_assert!(v > 0);
+        if (f & (1 << v)) == 0 {
+          continue;
+        }
         let b = (consts::SLIDING_MASKS[8 * opponent_king_pos + i]
           ^ consts::SLIDING_MASKS[8 * sliding_piece_pos + i]
           ^ king_bit)
@@ -663,7 +673,7 @@ impl Position {
         consts::WHITE_LOCAL_CHECK_CANDIDATES[opponent_king_pos],
       )
     };
-    let s2 = pieces & self.discover_check_bitboard(opponent_king_pos, pieces);
+    let s2 = pieces & self.discover_check_bitboard(opponent_king_pos, pieces, self.side);
     let s1 = pieces ^ s2;
     let s3 = s1 & self.sliding_pieces;
     let s4 = (s1 ^ s3) & local;
@@ -1564,14 +1574,23 @@ impl Position {
         let to_bitboard = checks.blocking_cells | (1u128 << p);
         let king = self.side * piece::KING;
         let mut r = self.compute_legal_king_moves(king);
-        let (mut pieces, king_pos) = if self.side > 0 {
-          (self.black_pieces, &self.black_king_position)
+        let (mut pieces, opponent_pieces, king_pos) = if self.side > 0 {
+          (
+            self.black_pieces,
+            self.white_pieces,
+            &self.black_king_position,
+          )
         } else {
-          (self.white_pieces, &self.white_king_position)
+          (
+            self.white_pieces,
+            self.black_pieces,
+            &self.white_king_position,
+          )
         };
         let king_pos = *king_pos.as_ref().unwrap();
         pieces ^= 1u128 << king_pos;
-        pieces &= self.sliding_pieces | b.f(p, king_pos, self.side);
+        let binded_pieces = self.discover_check_bitboard(king_pos, opponent_pieces, -self.side);
+        pieces &= (self.sliding_pieces | b.f(p, king_pos, self.side)) & !binded_pieces;
         let gold = self.side * piece::GOLD;
         for from in bitboards::Bits128(pieces) {
           let v = self.board[from];
