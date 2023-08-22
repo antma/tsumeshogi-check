@@ -1,4 +1,3 @@
-use crate::bits;
 use std::fmt;
 use std::str::FromStr;
 
@@ -144,7 +143,7 @@ fn swap_words(x: u32) -> u32 {
 }
 
 fn nify_mask_reverse(x: u32) -> u32 {
-  bits::Bits(x).into_iter().fold(0, |acc, i| acc + (256 >> i))
+  bitboards::Bits32(x).fold(0, |acc, i| acc + (256 >> i))
 }
 
 impl Position {
@@ -905,7 +904,7 @@ impl Position {
       if mask == 0 {
         continue;
       }
-      for p in bits::Bits(mask as u32) {
+      for p in bitboards::Bits32(mask as u32) {
         let p = p as i8;
         if p == piece::PAWN {
           let col = k % 9;
