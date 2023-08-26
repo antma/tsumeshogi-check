@@ -52,7 +52,7 @@ impl Search {
     let cache_memory = memory / 2;
     //log::debug!("sizeof(SearchResult)={}",std::mem::size_of::<SearchResult>());
     //log::debug!("sizeof(AttackingPieces)={}", std::mem::size_of::<shogi::attacking_pieces::AttackingPieces>());
-    let mut r = Self {
+    Self {
       sente_hash: cache::SenteCache::new(cache_memory),
       gote_hash: cache::GoteCache::new(cache_memory),
       gote_history: Vec::new(),
@@ -61,9 +61,7 @@ impl Search {
       hash_nodes: 0,
       generation: 0,
       stats: Stats::default(),
-    };
-    stats::max!(r.stats.cache_size, r.sente_hash.len() + r.gote_hash.len());
-    r
+    }
   }
   fn increment_generation(&mut self) {
     self.generation = self.generation.wrapping_add(1);
@@ -73,6 +71,10 @@ impl Search {
   }
   pub fn log_stats(&mut self, puzzles: u32, t: f64) {
     if cfg!(feature = "stats") {
+      stats::max!(
+        self.stats.cache_size,
+        self.sente_hash.len() + self.gote_hash.len()
+      );
       stats::percent!(
         self.stats.sente_skipped_moves_percent,
         self.stats.sente_skipped_moves,
@@ -160,8 +162,7 @@ impl Search {
         ev.depth += 1;
         if res.gote_cmp(&ev, pos) == Ordering::Less {
           res.depth = ev.depth;
-          res.best_move = BestMove::None;
-          res.update_best_move(&m, ev);
+          res.store_best_move(&m, ev);
         }
       }
       if it.legal_moves == 0 {

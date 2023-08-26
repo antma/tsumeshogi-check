@@ -34,12 +34,19 @@ impl BestMove {
       _ => true,
     }
   }
+  fn store_move(&mut self, m: &Move, bm: BestMove) {
+    *self = match bm {
+      BestMove::One(_) => BestMove::One(u32::from(m)),
+      BestMove::Many => BestMove::Many,
+      BestMove::None => panic!("try to store empty best move"),
+    }
+  }
   fn update(&mut self, m: &Move, bm: BestMove) {
     let x = match self {
       BestMove::None => match bm {
-        BestMove::None => panic!(""),
         BestMove::One(_) => BestMove::One(u32::from(m)),
         BestMove::Many => BestMove::Many,
+        BestMove::None => panic!("try to update empty best move"),
       },
       BestMove::One(_) => BestMove::Many,
       BestMove::Many => return,
@@ -68,6 +75,9 @@ impl SearchResult {
       nodes: 0,
       depth,
     }
+  }
+  pub fn store_best_move(&mut self, m: &Move, ev: SearchResult) {
+    self.best_move.store_move(m, ev.best_move);
   }
   pub fn update_best_move(&mut self, m: &Move, ev: SearchResult) {
     self.best_move.update(m, ev.best_move);
