@@ -96,6 +96,7 @@ fn try_parse_arg_option<R: FromStr<Err = impl std::fmt::Display>, I: Iterator<It
 
 #[derive(Debug)]
 pub struct CMDOptions {
+  pub memory_mib: usize,
   pub depth: usize,
   pub depth_extend: usize,
   pub skip: usize,
@@ -114,6 +115,7 @@ impl CMDOptions {
     let mut format_target = false;
     let mut level_filter = LevelFilter::Error;
     let mut output_filename = String::new();
+    let mut memory_mib = 128;
     loop {
       if let Some(d) = try_parse_arg_option::<usize, _>(&mut p, "d", "depth") {
         depth = d;
@@ -129,6 +131,10 @@ impl CMDOptions {
       }
       if let Some(o) = try_parse_arg_option::<String, _>(&mut p, "o", "output") {
         output_filename = o;
+        continue;
+      }
+      if let Some(n) = try_parse_arg_option::<usize, _>(&mut p, "m", "memory") {
+        memory_mib = n;
         continue;
       }
       if try_parse_option(&mut p, "w", "warn") {
@@ -154,6 +160,7 @@ impl CMDOptions {
       break;
     }
     CMDOptions {
+      memory_mib,
       depth,
       depth_extend,
       skip,

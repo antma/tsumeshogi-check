@@ -1,10 +1,9 @@
-mod hash;
+mod cache;
 mod history;
 mod it;
 mod result;
 
 use super::{shogi, stats};
-use hash::SearchHash;
 use result::{BestMove, SearchResult};
 use shogi::between::Between;
 use shogi::moves::{Move, Moves};
@@ -22,7 +21,7 @@ struct Stats {
   sente_promotion_cuts: u64,
   mates_by_pawn_drop: u64,
   skipped_gote_searches_after_pawn_drop: u64,
-  max_hash_size: usize,
+  cache_size: usize,
   sente_skipped_moves: u64,
   sente_skipped_moves_percent: f64,
   sente_illegal_moves: u64,
@@ -38,8 +37,8 @@ struct Stats {
 struct Stats {}
 
 pub struct Search {
-  sente_hash: SearchHash,
-  gote_hash: SearchHash,
+  sente_hash: cache::SenteCache,
+  gote_hash: cache::GoteCache,
   gote_history: Vec<history::History>,
   b: Between,
   pub nodes: u64,
@@ -48,31 +47,23 @@ pub struct Search {
   stats: Stats,
 }
 
-impl Default for Search {
-  fn default() -> Self {
+impl Search {
+  pub fn new(memory: usize) -> Self {
+    let cache_memory = memory / 2;
     //log::debug!("sizeof(SearchResult)={}",std::mem::size_of::<SearchResult>());
     //log::debug!("sizeof(AttackingPieces)={}", std::mem::size_of::<shogi::attacking_pieces::AttackingPieces>());
-    Self {
-      sente_hash: SearchHash::default(),
-      gote_hash: SearchHash::default(),
+    let mut r = Self {
+      sente_hash: cache::SenteCache::new(cache_memory),
+      gote_hash: cache::GoteCache::new(cache_memory),
       gote_history: Vec::new(),
       b: Between::default(),
       nodes: 0,
       hash_nodes: 0,
       generation: 0,
       stats: Stats::default(),
-    }
-  }
-}
-
-impl Search {
-  pub fn hashes_clear(&mut self) {
-    self.sente_hash.clear();
-    self.gote_hash.clear();
-  }
-  pub fn hashes_retain(&mut self, margin: u8) {
-    self.sente_hash.retain(self.generation, margin);
-    self.gote_hash.retain(self.generation, margin);
+    };
+    stats::max!(r.stats.cache_size, r.sente_hash.len() + r.gote_hash.len());
+    r
   }
   fn increment_generation(&mut self) {
     self.generation = self.generation.wrapping_add(1);
@@ -93,10 +84,6 @@ impl Search {
         self.stats.sente_skipped_moves + self.stats.sente_legal_moves
       );
       log::info!("search.stats = {:#?}", self.stats);
-      log::info!(
-        "hash capacity = {}",
-        self.sente_hash.capacity() + self.gote_hash.capacity()
-      );
     }
     log::info!("{} history tables items", self.gote_history_len());
     log::info!(
@@ -125,7 +112,7 @@ impl Search {
   fn gote_search(&mut self, pos: &mut Position, checks: Checks, depth: u8) -> SearchResult {
     debug_assert_eq!(depth % 2, 0);
     let mut hash_best_move = None;
-    if let Some((q, m)) = self.gote_hash.get_gote(pos.hash) {
+    if let Some((q, m)) = self.gote_hash.get(pos.hash) {
       if q.best_move.is_some() || q.depth >= depth {
         self.hash_nodes += q.nodes;
         return q;
@@ -186,7 +173,7 @@ impl Search {
     res.nodes = (self.nodes - nodes) + (self.hash_nodes - hash_nodes);
     self
       .gote_hash
-      .insert_gote(pos.hash, &res, hash_best_move, self.generation);
+      .insert(pos.hash, &res, hash_best_move, self.generation);
     res
   }
   fn sente_search(
@@ -197,7 +184,7 @@ impl Search {
   ) -> SearchResult {
     debug_assert_eq!(depth % 2, 1);
     log::debug!("entering sente_search(pos:{}, depth: {})", pos, depth);
-    let none_depth = if let Some(q) = self.sente_hash.get_sente(pos.hash) {
+    let none_depth = if let Some(q) = self.sente_hash.get(pos.hash) {
       if q.best_move.is_some() || q.depth >= depth {
         self.hash_nodes += q.nodes;
         return q;
@@ -278,18 +265,16 @@ impl Search {
     );
     stats::incr!(self.stats.sente_legal_moves, it.legal_moves as u64);
     res.nodes = (self.nodes - nodes) + (self.hash_nodes - hash_nodes);
-    self
-      .sente_hash
-      .insert_sente(pos.hash, &res, self.generation);
+    self.sente_hash.insert(pos.hash, &res, self.generation);
     res
   }
   fn extract_pv_from_hash(&self, pos: &mut Position, depth: usize) -> Vec<Move> {
     let mut r = Moves::with_capacity(depth);
     loop {
       let o = if pos.side > 0 {
-        self.sente_hash.get_sente(pos.hash)
+        self.sente_hash.get(pos.hash)
       } else {
-        self.gote_hash.get_gote(pos.hash).map(|p| p.0)
+        self.gote_hash.get(pos.hash).map(|p| p.0)
       };
       if let Some(p) = o {
         if let Some(m) = p.get_move() {
@@ -311,10 +296,6 @@ impl Search {
       log::debug!("depth = {}", depth);
       self.history_resize(depth);
       let ev = self.sente_search(pos, depth, None);
-      stats::max!(
-        self.stats.max_hash_size,
-        self.sente_hash.len() + self.gote_hash.len()
-      );
       assert_eq!(hash, pos.hash);
       if ev.best_move.is_some() {
         self.history_merge();
