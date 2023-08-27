@@ -1,10 +1,11 @@
-use shogi::Position;
+use shogi::{alloc::PositionMovesAllocator, Position};
 use tsumeshogi_check::shogi;
 use tsumeshogi_check::shogi::moves;
 
 #[test]
 fn kif_moves() {
   let mut pos = Position::default();
+  let mut allocator = PositionMovesAllocator::default();
   let mut last_move: Option<moves::Move> = None;
   for s in vec![
     "２六歩(27)",
@@ -79,7 +80,7 @@ fn kif_moves() {
     "４四歩打",
     "７六龍(46)",
   ] {
-    let m = pos.parse_kif_move(s, last_move).unwrap();
+    let m = pos.parse_kif_move(&mut allocator, s, last_move).unwrap();
     pos.do_move(&m);
     assert!(pos.is_legal());
     last_move = Some(m);

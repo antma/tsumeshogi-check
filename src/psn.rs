@@ -3,10 +3,12 @@ use std::io::prelude::*;
 use std::io::BufReader;
 use std::str::FromStr;
 
-use crate::shogi::game::{Game, GameResult};
-use crate::shogi::moves;
-use crate::shogi::Position;
-use moves::Move;
+use crate::shogi::{
+  alloc::PositionMovesAllocator,
+  game::{Game, GameResult},
+  moves::Move,
+  Position,
+};
 
 #[test]
 fn test_parse_header() {
@@ -135,6 +137,7 @@ pub fn parse_psn_game(a: &Vec<String>) -> std::result::Result<Game, ParsePSNGame
   let mut g = Game::default();
   let mut st = 0;
   let mut pos = Position::default();
+  let mut allocator = PositionMovesAllocator::default();
   for s in a {
     log::debug!("st = {}, process line {}", st, s);
     if st == 0 {
@@ -196,7 +199,7 @@ pub fn parse_psn_game(a: &Vec<String>) -> std::result::Result<Game, ParsePSNGame
     GameResult::BlackWon => {
       if pos.side < 0 {
         assert_eq!(g.moves.len() % 2, 1);
-        if !pos.has_legal_move() {
+        if !pos.has_legal_move(&mut allocator) {
           g.set_header(String::from("checkmate"), String::from("true"));
         } else {
           g.set_header(String::from("resignation"), String::from("true"));
@@ -211,7 +214,7 @@ pub fn parse_psn_game(a: &Vec<String>) -> std::result::Result<Game, ParsePSNGame
     GameResult::WhiteWon => {
       if pos.side > 0 {
         assert_eq!(g.moves.len() % 2, 0);
-        if !pos.has_legal_move() {
+        if !pos.has_legal_move(&mut allocator) {
           g.set_header(String::from("checkmate"), String::from("true"));
         } else {
           g.set_header(String::from("resignation"), String::from("true"));

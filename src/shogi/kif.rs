@@ -1,3 +1,4 @@
+use super::alloc::PositionMovesAllocator;
 use super::game::Game;
 use super::piece;
 use super::Position;
@@ -12,6 +13,7 @@ pub const JP_ROWS: [char; 9] = ['一', '二', '三', '四', '五', '六', '七',
 pub struct KIFBuilder {
   jp: HashMap<&'static str, &'static str>,
   en: HashMap<&'static str, &'static str>,
+  allocator: PositionMovesAllocator,
 }
 
 impl Default for KIFBuilder {
@@ -30,7 +32,11 @@ impl Default for KIFBuilder {
       jp.insert(s_jp, s_en);
       en.insert(s_en, s_jp);
     }
-    Self { jp, en }
+    Self {
+      jp,
+      en,
+      allocator: PositionMovesAllocator::default(),
+    }
   }
 }
 
@@ -183,7 +189,10 @@ impl ParseKIFGameError {
 }
 
 impl KIFBuilder {
-  pub fn parse_kif_game(&self, a: &Vec<String>) -> std::result::Result<Game, ParseKIFGameError> {
+  pub fn parse_kif_game(
+    &mut self,
+    a: &Vec<String>,
+  ) -> std::result::Result<Game, ParseKIFGameError> {
     let mut g = Game::default();
     let mut st = 0;
     let mut pos = Position::default();
@@ -216,7 +225,7 @@ impl KIFBuilder {
             g.resign(pos.move_no);
             break;
           }
-          if let Some(m) = pos.parse_kif_move(kif, last_move) {
+          if let Some(m) = pos.parse_kif_move(&mut self.allocator, kif, last_move) {
             pos.do_move(&m);
             last_move = Some(m.clone());
             if pos.is_legal() {

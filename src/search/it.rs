@@ -1,7 +1,7 @@
 use super::history::History;
 use crate::{shogi, stats};
 use shogi::moves::{Move, UndoMove};
-use shogi::{between::Between, Checks, Position};
+use shogi::{alloc::PositionMovesAllocator, between::Between, Checks, Position};
 
 #[cfg(feature = "stats")]
 #[derive(Default)]
@@ -49,17 +49,22 @@ pub struct GoteMovesIterator {
 }
 
 impl SenteMovesIterator {
-  fn compute_drops(&mut self, pos: &Position) {
-    self.moves = pos.compute_drops_with_check(self.allow_pawn_drops)
+  fn compute_drops(&mut self, pos: &Position, allocator: &mut PositionMovesAllocator) {
+    self.moves = pos.compute_drops_with_check(allocator, self.allow_pawn_drops)
   }
-  pub fn new(pos: &Position, last_move: Option<&Move>, allow_pawn_drops: bool) -> Self {
+  pub fn new(
+    pos: &Position,
+    allocator: &mut PositionMovesAllocator,
+    last_move: Option<&Move>,
+    allow_pawn_drops: bool,
+  ) -> Self {
     let checks = if let Some(m) = last_move {
       pos.compute_checks_after_move(m)
     } else {
       pos.compute_checks()
     };
     Self {
-      moves: pos.compute_check_candidates(&checks),
+      moves: pos.compute_check_candidates(allocator, &checks),
       checks,
       k: 0,
       state: 0,
@@ -68,7 +73,7 @@ impl SenteMovesIterator {
       stats: SenteStats::default(),
     }
   }
-  fn next(&mut self, pos: &mut Position) -> Option<Move> {
+  fn next(&mut self, pos: &mut Position, allocator: &mut PositionMovesAllocator) -> Option<Move> {
     loop {
       if self.k < self.moves.len() {
         let r = self.moves[self.k].clone();
@@ -78,7 +83,7 @@ impl SenteMovesIterator {
       self.state += 1;
       self.k = 0;
       match self.state {
-        1 => self.compute_drops(pos),
+        1 => self.compute_drops(pos, allocator),
         _ => {
           self.moves.clear();
           break None;
@@ -86,8 +91,12 @@ impl SenteMovesIterator {
       }
     }
   }
-  pub fn do_next_move(&mut self, pos: &mut Position) -> Option<(Move, UndoMove, Checks)> {
-    while let Some(m) = self.next(pos) {
+  pub fn do_next_move(
+    &mut self,
+    pos: &mut Position,
+    allocator: &mut PositionMovesAllocator,
+  ) -> Option<(Move, UndoMove, Checks)> {
+    while let Some(m) = self.next(pos, allocator) {
       let u = pos.do_move(&m);
       let checks = if m.is_drop() {
         pos.compute_checks_after_drop_with_check(&m)
@@ -124,8 +133,8 @@ impl SenteMovesIterator {
 }
 
 impl GoteMovesIterator {
-  fn compute_moves(&mut self, pos: &Position, history: &History, b: &mut Between) {
-    self.moves = pos.compute_moves_after_check(&self.checks, b);
+  fn compute_moves(&mut self, pos: &Position, allocator: &mut PositionMovesAllocator, history: &History, b: &mut Between) {
+    self.moves = pos.compute_moves_after_check(allocator, &self.checks, b);
     /*
     let t = pos.compute_moves(&self.checks);
     assert_eq!(self.moves.len(), t.len(), "m1 = {:?}, m2 = {:?}, pos = {}", pos.to_psn_moves(&self.moves),
@@ -135,8 +144,13 @@ impl GoteMovesIterator {
     self.takes = i;
     history.sort_takes(pos, &mut self.moves[0..i]);
   }
-  fn compute_drops(&mut self, pos: &mut Position, history: &History) {
-    self.moves = pos.compute_drops(&self.checks);
+  fn compute_drops(
+    &mut self,
+    pos: &mut Position,
+    allocator: &mut PositionMovesAllocator,
+    history: &History,
+  ) {
+    self.moves = pos.compute_drops(allocator, &self.checks);
     history.sort(&mut self.moves);
     //log::debug!("compute drops: pos = {}, drops = {:?}", pos, pos.to_psn_moves(&self.moves));
   }
@@ -152,7 +166,13 @@ impl GoteMovesIterator {
       stats: GoteStats::default(),
     }
   }
-  fn next(&mut self, pos: &mut Position, history: &History, b: &mut Between) -> Option<Move> {
+  fn next(
+    &mut self,
+    pos: &mut Position,
+    allocator: &mut PositionMovesAllocator,
+    history: &History,
+    b: &mut Between,
+  ) -> Option<Move> {
     loop {
       if self.k < self.moves.len() {
         match self.state {
@@ -182,8 +202,8 @@ impl GoteMovesIterator {
       self.state += 1;
       self.k = 0;
       match self.state {
-        1 => self.compute_moves(pos, history, b),
-        2 => self.compute_drops(pos, history),
+        1 => self.compute_moves(pos, allocator, history, b),
+        2 => self.compute_drops(pos, allocator, history),
         _ => {
           self.moves.clear();
           break None;
@@ -194,10 +214,11 @@ impl GoteMovesIterator {
   pub fn do_next_move(
     &mut self,
     pos: &mut Position,
+    allocator: &mut PositionMovesAllocator,
     history: &History,
     b: &mut Between,
   ) -> Option<(Move, UndoMove)> {
-    if let Some(m) = self.next(pos, history, b) {
+    if let Some(m) = self.next(pos, allocator, history, b) {
       let u = pos.do_move(&m);
       debug_assert!(pos.is_legal());
       self.legal_moves += 1;
@@ -211,6 +232,7 @@ impl GoteMovesIterator {
 #[cfg(test)]
 fn perft_sente(
   pos: &mut Position,
+  allocator: &mut PositionMovesAllocator,
   v: &mut [u32],
   depth: usize,
   last_move: Option<&Move>,
@@ -222,9 +244,9 @@ fn perft_sente(
   if next_depth >= v.len() {
     return;
   }
-  let mut it = SenteMovesIterator::new(pos, last_move, true);
-  while let Some((m, u, oc)) = it.do_next_move(pos) {
-    perft_gote(pos, v, oc, next_depth, history, b);
+  let mut it = SenteMovesIterator::new(pos, allocator, last_move, true);
+  while let Some((m, u, oc)) = it.do_next_move(pos, allocator) {
+    perft_gote(pos, allocator, v, oc, next_depth, history, b);
     pos.undo_move(&m, &u);
   }
 }
@@ -232,6 +254,7 @@ fn perft_sente(
 #[cfg(test)]
 fn perft_gote(
   pos: &mut Position,
+  allocator: &mut PositionMovesAllocator,
   v: &mut [u32],
   checks: Checks,
   depth: usize,
@@ -244,19 +267,20 @@ fn perft_gote(
     return;
   }
   let mut it = GoteMovesIterator::new(checks, None);
-  while let Some((m, u)) = it.do_next_move(pos, history, b) {
-    perft_sente(pos, v, next_depth, Some(&m), history, b);
+  while let Some((m, u)) = it.do_next_move(pos, allocator, history, b) {
+    perft_sente(pos, allocator, v, next_depth, Some(&m), history, b);
     pos.undo_move(&m, &u);
   }
 }
 
 #[cfg(test)]
 fn perft(sfen: &str, depth: usize) -> Vec<u32> {
+  let mut allocator = PositionMovesAllocator::default();
   let history = History::default();
   let mut b = Between::default();
   let mut v = vec![0; depth];
   let mut pos = Position::parse_sfen(sfen).unwrap();
-  perft_sente(&mut pos, &mut v, 0, None, &history, &mut b);
+  perft_sente(&mut pos, &mut allocator, &mut v, 0, None, &history, &mut b);
   v
 }
 
@@ -273,13 +297,14 @@ fn test_perft() {
 
 #[test]
 fn test_sente_iterator_unique() {
+  let mut allocator = PositionMovesAllocator::default();
   let mut pos = Position::parse_sfen(
     "lnn5l/2g1S1+Bp1/bp1pk3p/pP1g2p2/4s4/P1R2PP1P/2KP2g2/2S2+r3/LN1G4L b P5pns 1",
   )
   .unwrap();
-  let mut it = SenteMovesIterator::new(&pos, None, true);
+  let mut it = SenteMovesIterator::new(&pos, &mut allocator, None, true);
   let mut s = std::collections::BTreeSet::new();
-  while let Some((m, u, _)) = it.do_next_move(&mut pos) {
+  while let Some((m, u, _)) = it.do_next_move(&mut pos, &mut allocator) {
     assert!(
       s.insert(u32::from(&m)),
       "duplicate move {}",

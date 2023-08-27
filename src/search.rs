@@ -7,7 +7,7 @@ use super::{shogi, stats};
 use result::{BestMove, SearchResult};
 use shogi::between::Between;
 use shogi::moves::{Move, Moves};
-use shogi::{Checks, Position};
+use shogi::{alloc::PositionMovesAllocator, Checks, Position};
 use std::cmp::Ordering;
 
 #[cfg(feature = "stats")]
@@ -30,6 +30,16 @@ struct Stats {
   //gote_skipped_moves: u64,
   //gote_skipped_moves_percent: f64,
   gote_legal_moves: u64,
+  allocator: PositionMovesAllocator,
+  //sente
+  compute_check_candidates_average: f64,
+  compute_drops_with_checks_average: f64,
+  compute_drops_no_pawns_with_checks_average: f64,
+  //gote
+  compute_moves_after_non_blocking_check_average: f64,
+  compute_moves_after_sliding_piece_check_average: f64,
+  compute_legal_king_moves_average: f64,
+  compute_drops_after_sliding_piece_check_average: f64,
 }
 
 #[cfg(not(feature = "stats"))]
@@ -40,6 +50,7 @@ pub struct Search {
   sente_hash: cache::SenteCache,
   gote_hash: cache::GoteCache,
   gote_history: Vec<history::History>,
+  allocator: PositionMovesAllocator,
   b: Between,
   pub nodes: u64,
   hash_nodes: u64,
@@ -56,6 +67,7 @@ impl Search {
       sente_hash: cache::SenteCache::new(cache_memory),
       gote_hash: cache::GoteCache::new(cache_memory),
       gote_history: Vec::new(),
+      allocator: PositionMovesAllocator::default(),
       b: Between::default(),
       nodes: 0,
       hash_nodes: 0,
@@ -85,6 +97,91 @@ impl Search {
         self.stats.sente_illegal_moves,
         self.stats.sente_skipped_moves + self.stats.sente_legal_moves
       );
+      stats::average!(
+        self.stats.compute_check_candidates_average,
+        self
+          .stats
+          .allocator
+          .compute_check_candidates_allocator
+          .total_moves,
+        self
+          .stats
+          .allocator
+          .compute_check_candidates_allocator
+          .total_calls
+      );
+      stats::average!(
+        self.stats.compute_drops_with_checks_average,
+        self
+          .stats
+          .allocator
+          .compute_drops_with_checks_allocator
+          .total_moves,
+        self
+          .stats
+          .allocator
+          .compute_drops_with_checks_allocator
+          .total_calls
+      );
+      stats::average!(
+        self.stats.compute_drops_no_pawns_with_checks_average,
+        self
+          .stats
+          .allocator
+          .compute_drops_no_pawns_with_checks_allocator
+          .total_moves,
+        self
+          .stats
+          .allocator
+          .compute_drops_no_pawns_with_checks_allocator
+          .total_calls
+      );
+      stats::average!(
+        self.stats.compute_drops_after_sliding_piece_check_average,
+        self
+          .stats
+          .allocator
+          .compute_drops_after_sliding_piece_check_allocator
+          .total_moves,
+        self
+          .stats
+          .allocator
+          .compute_drops_after_sliding_piece_check_allocator
+          .total_calls
+      );
+      stats::average!(
+        self.stats.compute_moves_after_non_blocking_check_average,
+        self.stats
+          .allocator
+          .compute_moves_after_non_blocking_check_allocator
+          .total_moves,
+        self.stats
+          .allocator
+          .compute_moves_after_non_blocking_check_allocator
+          .total_calls
+      );
+      stats::average!(
+        self.stats.compute_moves_after_sliding_piece_check_average,
+        self.stats
+          .allocator
+          .compute_moves_after_sliding_piece_check_allocator
+          .total_moves,
+        self.stats
+          .allocator
+          .compute_moves_after_sliding_piece_check_allocator
+          .total_calls
+      );
+      stats::average!(
+        self.stats.compute_legal_king_moves_average,
+        self.stats
+          .allocator
+          .compute_legal_king_moves_allocator
+          .total_moves,
+        self.stats
+          .allocator
+          .compute_legal_king_moves_allocator
+          .total_calls
+      );
       log::info!("search.stats = {:#?}", self.stats);
     }
     log::info!("{} history tables items", self.gote_history_len());
@@ -106,6 +203,12 @@ impl Search {
       p.merge();
     }
   }
+  fn on_search_end(&mut self) {
+    self.history_merge();
+    #[allow(unused)]
+    let a = std::mem::take(&mut self.allocator);
+    stats::incr!(self.stats.allocator, a);
+  }
   fn nodes_increment(&mut self) -> u64 {
     let r = self.nodes;
     self.nodes += 1;
@@ -125,7 +228,7 @@ impl Search {
     let hash_nodes = self.hash_nodes;
     let mut res = SearchResult::new(0);
     if depth == 0 {
-      hash_best_move = pos.is_checkmate_after_check(&checks, &mut self.b);
+      hash_best_move = pos.is_checkmate_after_check(&mut self.allocator, &checks, &mut self.b);
       if hash_best_move.is_none() {
         res.best_move = BestMove::One(0);
       }
@@ -134,7 +237,9 @@ impl Search {
       hash_best_move = None;
       let d = depth as usize / 2;
       let next_depth = depth - 1;
-      while let Some((m, u)) = it.do_next_move(pos, &self.gote_history[d], &mut self.b) {
+      while let Some((m, u)) =
+        it.do_next_move(pos, &mut self.allocator, &self.gote_history[d], &mut self.b)
+      {
         let mut ev = self.sente_search(pos, next_depth, Some(&m));
         log::debug!(
           "self.sente_search({}, next_depth: {}) = {:?} after move {}.{}",
@@ -196,10 +301,10 @@ impl Search {
     };
     let nodes = self.nodes_increment();
     let hash_nodes = self.hash_nodes;
-    let mut it = it::SenteMovesIterator::new(pos, last_move, depth > 1);
+    let mut it = it::SenteMovesIterator::new(pos, &mut self.allocator, last_move, depth > 1);
     let mut res = SearchResult::new(depth);
     let mut next_depth = res.depth - 1;
-    while let Some((m, u, oc)) = it.do_next_move(pos) {
+    while let Some((m, u, oc)) = it.do_next_move(pos, &mut self.allocator) {
       if next_depth == 0 && m.is_pawn_drop() {
         stats::incr!(self.stats.skipped_gote_searches_after_pawn_drop);
         pos.undo_move(&m, &u);
@@ -299,7 +404,7 @@ impl Search {
       let ev = self.sente_search(pos, depth, None);
       assert_eq!(hash, pos.hash);
       if ev.best_move.is_some() {
-        self.history_merge();
+        self.on_search_end();
         if ev.best_move.is_one() {
           let pv = self.extract_pv_from_hash(pos, depth as usize);
           assert_eq!(hash, pos.hash);
@@ -309,7 +414,7 @@ impl Search {
         }
       }
     }
-    self.history_merge();
+    self.on_search_end();
     (None, None)
   }
 }

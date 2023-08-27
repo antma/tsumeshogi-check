@@ -30,6 +30,18 @@ macro_rules! percent {
   };
 }
 
+#[cfg(feature = "stats")]
+macro_rules! average {
+  ($e: expr, $num: expr, $den: expr) => {
+    let t = $den;
+    $e = if t == 0 {
+      0.0
+    } else {
+      (($num) as f64) / (t as f64)
+    };
+  };
+}
+
 #[cfg(not(feature = "stats"))]
 macro_rules! incr {
   ($e:expr) => {};
@@ -43,7 +55,9 @@ macro_rules! max {
 macro_rules! percent {
   ($e: expr, $num: expr, $den: expr) => {};
 }
+#[cfg(not(feature = "stats"))]
+macro_rules! average {
+  ($e: expr, $num: expr, $den: expr) => {};
+}
 
-pub(crate) use incr;
-pub(crate) use max;
-pub(crate) use percent;
+pub(crate) use {average, incr, max, percent};

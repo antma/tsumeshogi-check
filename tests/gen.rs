@@ -1,20 +1,22 @@
 use moves::{Move, PSNMove};
-use shogi::{moves, Position};
+use shogi::{alloc::PositionMovesAllocator, moves, Position};
 use tsumeshogi_check::shogi;
 
 #[test]
 fn legal_position() {
+  let mut allocator = PositionMovesAllocator::default();
   for sfen in vec!["k8/+P8/1K7/9/9/9/9/9/9 w 2r2b4g4s4n4l17p 1"] {
     let pos = Position::parse_sfen(&sfen).unwrap();
     assert!(pos.is_legal());
   }
   let mut pos = Position::parse_sfen("k8/9/PK7/9/9/9/9/9/9 b 2r2b4g4s4n4l17p 1").unwrap();
-  assert!(pos.do_san_move("P9b+"));
+  assert!(pos.do_san_move(&mut allocator, "P9b+"));
   assert!(pos.is_legal());
 }
 
 #[test]
 fn moves_generation() {
+  let mut allocator = PositionMovesAllocator::default();
   for (sfen, ans) in vec![
     (
       "k8/9/PK7/9/9/9/9/9/9 b 2r2b4g4s4n4l17p 1",
@@ -29,7 +31,7 @@ fn moves_generation() {
     let mut pos = Position::parse_sfen(&sfen).unwrap();
     let checks = pos.compute_checks();
     let moves = pos.compute_moves(&checks);
-    let drops = pos.compute_drops(&checks);
+    let drops = pos.compute_drops(&mut allocator, &checks);
     let mut res = Vec::new();
     for m in moves.iter().chain(drops.iter()) {
       let u = pos.do_move(&m);
@@ -123,17 +125,18 @@ const POTENTIONAL_CHECKS_FENS: [&'static str; 46] = [
 
 #[test]
 fn potentional_checks() {
+  let mut allocator = shogi::alloc::PositionMovesAllocator::default();
   for (test, fen) in POTENTIONAL_CHECKS_FENS.iter().enumerate() {
     let mut pos = Position::parse_sfen(fen).unwrap();
     let checks = pos.compute_checks();
-    let l1 = pos.compute_check_candidates(&checks);
+    let l1 = pos.compute_check_candidates(&mut allocator, &checks);
     let l2 = pos.compute_moves(&checks);
     let r1 = filter_checks(&mut pos, l1);
     let r2 = filter_checks(&mut pos, l2);
     assert_eq!(r1, r2, "test {}, fen {}", test + 1, fen);
     pos.swap_sides();
     let checks = pos.compute_checks();
-    let l1 = pos.compute_check_candidates(&checks);
+    let l1 = pos.compute_check_candidates(&mut allocator, &checks);
     let l2 = pos.compute_moves(&checks);
     let r1 = filter_checks(&mut pos, l1);
     let r2 = filter_checks(&mut pos, l2);
@@ -144,20 +147,22 @@ fn potentional_checks() {
 #[test]
 fn first_drop_near_king() {
   let pos = Position::parse_sfen("lnB6/k2Rs4/1p7/p1p6/9/3L5/9/9/9 w Grb3g3s3n2l15p 9").unwrap();
+  let mut allocator = PositionMovesAllocator::default();
   let checks = pos.compute_checks();
-  let drops = pos.compute_drops(&checks);
+  let drops = pos.compute_drops(&mut allocator, &checks);
   let drop = drops.first().unwrap();
   assert_eq!(drop.to, 9 + 7);
 }
 
 #[test]
 fn test_move_packing_unpacking() {
+  let mut allocator = PositionMovesAllocator::default();
   for (test, fen) in POTENTIONAL_CHECKS_FENS.iter().enumerate() {
     let mut pos = Position::parse_sfen(fen).unwrap();
     for i in 0..2 {
       let checks = pos.compute_checks();
       let moves = pos.compute_moves(&checks);
-      let drops = pos.compute_drops(&checks);
+      let drops = pos.compute_drops(&mut allocator, &checks);
       for m in moves.into_iter().chain(drops.into_iter()) {
         let p1 = u32::from(&m);
         let m2 = Move::from(p1);

@@ -1,6 +1,7 @@
 use std::fmt;
 use std::str::FromStr;
 
+pub mod alloc;
 pub mod attacking_pieces;
 pub mod between;
 mod bitboards;
@@ -14,6 +15,7 @@ pub mod kif;
 pub mod moves;
 pub mod piece;
 
+use alloc::PositionMovesAllocator;
 use moves::Move;
 
 #[derive(Clone)]
@@ -646,11 +648,15 @@ impl Position {
       });
     }
   }
-  pub fn compute_check_candidates(&self, checks: &Checks) -> Vec<Move> {
+  pub fn compute_check_candidates(
+    &self,
+    allocator: &mut PositionMovesAllocator,
+    checks: &Checks,
+  ) -> Vec<Move> {
     if checks.is_check() {
       return self.compute_moves(checks);
     }
-    let mut moves = Vec::new();
+    let mut moves = allocator.compute_check_candidates_allocator.alloc_vec();
     let opponent_king_pos = self.find_king_position(-self.side);
     if opponent_king_pos.is_none() {
       return moves;
@@ -874,6 +880,7 @@ impl Position {
         }
       }
     }
+    allocator.compute_check_candidates_allocator.update(&moves);
     moves
   }
   fn empty_cells_with_drop_mask(&self, drop_mask: u8) -> Vec<(usize, u8)> {
@@ -889,15 +896,31 @@ impl Position {
       (self.drop_masks >> 8) as u8
     }
   }
-  pub fn compute_drops_with_check(&self, allow_pawn_drops: bool) -> Vec<Move> {
+  pub fn compute_drops_with_check(
+    &self,
+    allocator: &mut PositionMovesAllocator,
+    allow_pawn_drops: bool,
+  ) -> Vec<Move> {
     let mut drops_mask = self.compute_drops_mask();
-    if !allow_pawn_drops {
+    let a = if allow_pawn_drops {
+      &mut allocator.compute_drops_with_checks_allocator
+    } else {
       drops_mask &= !(1 << piece::PAWN);
-    }
-    self.enumerate_drops(self.compute_potential_drops_map(drops_mask).into_iter())
+      &mut allocator.compute_drops_no_pawns_with_checks_allocator
+    };
+    let mut moves = a.alloc_vec();
+    self.enumerate_drops(
+      &mut moves,
+      self.compute_potential_drops_map(drops_mask).into_iter(),
+    );
+    a.update(&moves);
+    moves
   }
-  fn enumerate_drops<I: Iterator<Item = (usize, u8)>>(&self, drop_masks_iterator: I) -> Vec<Move> {
-    let mut r = Vec::new();
+  fn enumerate_drops<I: Iterator<Item = (usize, u8)>>(
+    &self,
+    moves: &mut Vec<Move>,
+    drop_masks_iterator: I,
+  ) {
     let drops_mask = self.compute_drops_mask();
     for (k, mask) in drop_masks_iterator {
       let mask = mask & drops_mask;
@@ -917,7 +940,7 @@ impl Position {
         if !piece::could_unpromoted(to_piece, k) {
           continue;
         }
-        r.push(Move {
+        moves.push(Move {
           from: 0x7f,
           to: k,
           from_piece: piece::NONE,
@@ -925,7 +948,6 @@ impl Position {
         });
       }
     }
-    r
   }
   fn attacked_by_sliding_piece_in_given_direction_no(
     &self,
@@ -1047,13 +1069,11 @@ impl Position {
   fn checks_after_move(&self, king_pos: usize, s: i8, m: &Move) -> Checks {
     let mut attacking_pieces = attacking_pieces::AttackingPieces::default();
     let mut blocking_cells = 0u128;
-    let mut set = Vec::with_capacity(2);
-    if !m.is_drop() {
-      set.push(m.from);
-    }
-    set.push(m.to);
     let mut used = 0u32;
-    for c in set {
+    for c in (if m.is_drop() { None } else { Some(m.from) })
+      .into_iter()
+      .chain(std::iter::once(m.to))
+    {
       if let Some(i) = direction::try_to_find_delta_direction_no(king_pos, c) {
         let bit = 1 << i;
         if (used & bit) != 0 {
@@ -1313,7 +1333,7 @@ impl Position {
     self.board[m.to] != piece::NONE
   }
   //slow (mate or stalemate)
-  pub fn has_legal_move(&mut self) -> bool {
+  pub fn has_legal_move(&mut self, allocator: &mut PositionMovesAllocator) -> bool {
     let c = self.compute_checks();
     let moves = self.compute_moves(&c);
     for m in &moves {
@@ -1324,7 +1344,7 @@ impl Position {
         return true;
       }
     }
-    for m in self.compute_drops(&c) {
+    for m in self.compute_drops(allocator, &c) {
       let u = self.do_move(&m);
       let legal = self.is_legal();
       self.undo_move(&m, &u);
@@ -1334,16 +1354,37 @@ impl Position {
     }
     false
   }
-  pub fn compute_drops(&self, checks: &Checks) -> Vec<Move> {
+  pub fn compute_drops(
+    &self,
+    allocator: &mut PositionMovesAllocator,
+    checks: &Checks,
+  ) -> Vec<Move> {
     match checks.attacking_pieces.len() {
-      0 => self.enumerate_drops(self.empty_cells_with_drop_mask(0xff).into_iter()),
+      0 => {
+        let mut moves = Vec::new();
+        self.enumerate_drops(
+          &mut moves,
+          self.empty_cells_with_drop_mask(0xff).into_iter(),
+        );
+        moves
+      }
       1 => {
         if checks.blocking_cells != 0 {
-          self.enumerate_drops(between::SlidingIterator::new(
-            checks.attacking_pieces.first().unwrap(),
-            checks.king_pos.unwrap(),
-            0xff,
-          ))
+          let mut moves = allocator
+            .compute_drops_after_sliding_piece_check_allocator
+            .alloc_vec();
+          self.enumerate_drops(
+            &mut moves,
+            between::SlidingIterator::new(
+              checks.attacking_pieces.first().unwrap(),
+              checks.king_pos.unwrap(),
+              0xff,
+            ),
+          );
+          allocator
+            .compute_drops_after_sliding_piece_check_allocator
+            .update(&moves);
+          moves
         } else {
           Vec::with_capacity(0)
         }
@@ -1454,15 +1495,14 @@ impl Position {
     }
     consts::KING_MASKS[king_pos] & !r & !p
   }
-  fn compute_legal_king_moves(&self, king: i8) -> Vec<Move> {
-    let mut r = Vec::new();
+  fn enumerate_legal_king_moves(&self, moves: &mut Vec<Move>, king: i8) {
     if let Some(king_pos) = if king > 0 {
       self.black_king_position.as_ref()
     } else {
       self.white_king_position.as_ref()
     } {
       for to in bitboards::Bits128(self.legal_king_moves(*king_pos, self.side)) {
-        r.push(Move {
+        moves.push(Move {
           from: *king_pos,
           to,
           from_piece: king,
@@ -1470,6 +1510,10 @@ impl Position {
         });
       }
     }
+  }
+  fn compute_legal_king_moves(&self, king: i8) -> Vec<Move> {
+    let mut r = Vec::new();
+    self.enumerate_legal_king_moves(&mut r, king);
     r
   }
   fn compute_moves_with_restricted_destination_cell(&self, to_bitboard: u128) -> Vec<Move> {
@@ -1640,6 +1684,7 @@ impl Position {
   }
   pub fn is_checkmate_after_check(
     &mut self,
+    allocator: &mut PositionMovesAllocator,
     checks: &Checks,
     b: &mut between::Between,
   ) -> Option<Move> {
@@ -1647,7 +1692,7 @@ impl Position {
     if o.is_some() {
       return o;
     }
-    let mut drops = self.compute_drops(&checks);
+    let mut drops = self.compute_drops(allocator, &checks);
     if drops.is_empty() {
       return None;
     }
@@ -1657,15 +1702,19 @@ impl Position {
       drops.pop()
     }
   }
-  pub fn compute_moves_after_check(&self, checks: &Checks, b: &mut between::Between) -> Vec<Move> {
+  pub fn compute_moves_after_check(&self, allocator: &mut PositionMovesAllocator, checks: &Checks, b: &mut between::Between) -> Vec<Move> {
     debug_assert!(self.validate_checks(checks));
     let l = checks.attacking_pieces.len();
     match l {
       1 => {
         let p = checks.attacking_pieces.first().unwrap();
+        let compute_moves_after_check_allocator = 
+          if checks.blocking_cells == 0 { &mut allocator.compute_moves_after_non_blocking_check_allocator }
+          else { &mut allocator.compute_moves_after_sliding_piece_check_allocator };
         let to_bitboard = checks.blocking_cells | (1u128 << p);
         let king = self.side * piece::KING;
-        let mut r = self.compute_legal_king_moves(king);
+        let mut r = compute_moves_after_check_allocator.alloc_vec();
+        self.enumerate_legal_king_moves(&mut r, king);
         let (mut pieces, opponent_pieces, king_pos) = if self.side > 0 {
           (
             self.black_pieces,
@@ -1726,9 +1775,15 @@ impl Position {
             }
           }
         }
+        compute_moves_after_check_allocator.update(&r);
         r
       }
-      2 => self.compute_moves_after_nonblocking_check(None),
+      2 => {
+        let mut r = allocator.compute_legal_king_moves_allocator.alloc_vec();
+        self.enumerate_legal_king_moves(&mut r, self.side * piece::KING);
+        allocator.compute_legal_king_moves_allocator.update(&r);
+        r
+      }
       _ => panic!("illegal number {} of attacking pieces", l),
     }
   }
@@ -1895,7 +1950,7 @@ impl Position {
     self.move_no -= 1;
     self.side *= -1;
   }
-  pub fn do_san_move(&mut self, san: &str) -> bool {
+  pub fn do_san_move(&mut self, allocator: &mut PositionMovesAllocator, san: &str) -> bool {
     let checks = self.compute_checks();
     let moves = self.compute_moves(&checks);
     for m in &moves {
@@ -1904,7 +1959,7 @@ impl Position {
         return true;
       }
     }
-    let drops = self.compute_drops(&checks);
+    let drops = self.compute_drops(allocator, &checks);
     for m in drops {
       if san == self.move_to_string(&m, &moves) {
         self.do_move(&m);
@@ -1913,7 +1968,12 @@ impl Position {
     }
     false
   }
-  pub fn parse_kif_move(&mut self, kif: &str, last_move: Option<Move>) -> Option<Move> {
+  pub fn parse_kif_move(
+    &mut self,
+    allocator: &mut PositionMovesAllocator,
+    kif: &str,
+    last_move: Option<Move>,
+  ) -> Option<Move> {
     let checks = self.compute_checks();
     let moves = self.compute_moves(&checks);
     for m in moves {
@@ -1921,7 +1981,7 @@ impl Position {
         return Some(m);
       }
     }
-    let drops = self.compute_drops(&checks);
+    let drops = self.compute_drops(allocator, &checks);
     for m in drops {
       if kif == m.to_kif(&last_move) {
         return Some(m);
