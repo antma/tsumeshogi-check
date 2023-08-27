@@ -51,8 +51,10 @@ pub struct PositionMovesAllocator {
 impl std::ops::AddAssign for PositionMovesAllocator {
   fn add_assign(&mut self, rhs: Self) {
     self.compute_check_candidates_allocator += rhs.compute_check_candidates_allocator;
-    self.compute_moves_after_non_blocking_check_allocator += rhs.compute_moves_after_non_blocking_check_allocator;
-    self.compute_moves_after_sliding_piece_check_allocator += rhs.compute_moves_after_sliding_piece_check_allocator;
+    self.compute_moves_after_non_blocking_check_allocator +=
+      rhs.compute_moves_after_non_blocking_check_allocator;
+    self.compute_moves_after_sliding_piece_check_allocator +=
+      rhs.compute_moves_after_sliding_piece_check_allocator;
     self.compute_drops_with_checks_allocator += rhs.compute_drops_with_checks_allocator;
     self.compute_drops_no_pawns_with_checks_allocator +=
       rhs.compute_drops_no_pawns_with_checks_allocator;

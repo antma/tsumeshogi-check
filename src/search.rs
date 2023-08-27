@@ -151,33 +151,39 @@ impl Search {
       );
       stats::average!(
         self.stats.compute_moves_after_non_blocking_check_average,
-        self.stats
+        self
+          .stats
           .allocator
           .compute_moves_after_non_blocking_check_allocator
           .total_moves,
-        self.stats
+        self
+          .stats
           .allocator
           .compute_moves_after_non_blocking_check_allocator
           .total_calls
       );
       stats::average!(
         self.stats.compute_moves_after_sliding_piece_check_average,
-        self.stats
+        self
+          .stats
           .allocator
           .compute_moves_after_sliding_piece_check_allocator
           .total_moves,
-        self.stats
+        self
+          .stats
           .allocator
           .compute_moves_after_sliding_piece_check_allocator
           .total_calls
       );
       stats::average!(
         self.stats.compute_legal_king_moves_average,
-        self.stats
+        self
+          .stats
           .allocator
           .compute_legal_king_moves_allocator
           .total_moves,
-        self.stats
+        self
+          .stats
           .allocator
           .compute_legal_king_moves_allocator
           .total_calls

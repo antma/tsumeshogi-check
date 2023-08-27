@@ -1702,15 +1702,22 @@ impl Position {
       drops.pop()
     }
   }
-  pub fn compute_moves_after_check(&self, allocator: &mut PositionMovesAllocator, checks: &Checks, b: &mut between::Between) -> Vec<Move> {
+  pub fn compute_moves_after_check(
+    &self,
+    allocator: &mut PositionMovesAllocator,
+    checks: &Checks,
+    b: &mut between::Between,
+  ) -> Vec<Move> {
     debug_assert!(self.validate_checks(checks));
     let l = checks.attacking_pieces.len();
     match l {
       1 => {
         let p = checks.attacking_pieces.first().unwrap();
-        let compute_moves_after_check_allocator = 
-          if checks.blocking_cells == 0 { &mut allocator.compute_moves_after_non_blocking_check_allocator }
-          else { &mut allocator.compute_moves_after_sliding_piece_check_allocator };
+        let compute_moves_after_check_allocator = if checks.blocking_cells == 0 {
+          &mut allocator.compute_moves_after_non_blocking_check_allocator
+        } else {
+          &mut allocator.compute_moves_after_sliding_piece_check_allocator
+        };
         let to_bitboard = checks.blocking_cells | (1u128 << p);
         let king = self.side * piece::KING;
         let mut r = compute_moves_after_check_allocator.alloc_vec();

@@ -81,13 +81,12 @@ impl SenteMovesIterator {
         break Some(r);
       }
       self.state += 1;
-      self.k = 0;
       match self.state {
-        1 => self.compute_drops(pos, allocator),
-        _ => {
-          self.moves.clear();
-          break None;
+        1 => {
+          self.k = 0;
+          self.compute_drops(pos, allocator);
         }
+        _ => break None,
       }
     }
   }
@@ -133,7 +132,13 @@ impl SenteMovesIterator {
 }
 
 impl GoteMovesIterator {
-  fn compute_moves(&mut self, pos: &Position, allocator: &mut PositionMovesAllocator, history: &History, b: &mut Between) {
+  fn compute_moves(
+    &mut self,
+    pos: &Position,
+    allocator: &mut PositionMovesAllocator,
+    history: &History,
+    b: &mut Between,
+  ) {
     self.moves = pos.compute_moves_after_check(allocator, &self.checks, b);
     /*
     let t = pos.compute_moves(&self.checks);
@@ -200,14 +205,16 @@ impl GoteMovesIterator {
         break Some(r);
       }
       self.state += 1;
-      self.k = 0;
       match self.state {
-        1 => self.compute_moves(pos, allocator, history, b),
-        2 => self.compute_drops(pos, allocator, history),
-        _ => {
-          self.moves.clear();
-          break None;
+        1 => {
+          self.k = 0;
+          self.compute_moves(pos, allocator, history, b);
         }
+        2 => {
+          self.k = 0;
+          self.compute_drops(pos, allocator, history);
+        }
+        _ => break None,
       }
     }
   }
