@@ -20,8 +20,10 @@ struct Stats {
   sente_take_cuts: u64,
   sente_drop_cuts: u64,
   sente_promotion_cuts: u64,
+  sente_cache_cuts: u64,
   mates_by_pawn_drop: u64,
   skipped_gote_searches_after_pawn_drop: u64,
+  gote_cache_cuts: u64,
   cache_size: usize,
   sente_skipped_moves: u64,
   sente_skipped_moves_percent: f64,
@@ -234,6 +236,7 @@ impl Search {
     if let Some((q, m)) = self.gote_hash.get(pos.hash) {
       if q.best_move.is_some() || q.depth >= depth {
         self.hash_nodes += q.nodes;
+        stats::incr!(self.stats.gote_cache_cuts, 1);
         return q;
       }
       hash_best_move = m;
@@ -315,6 +318,7 @@ impl Search {
     let none_depth = if let Some(q) = self.sente_hash.get(pos.hash) {
       if q.best_move.is_some() || q.depth >= depth {
         self.hash_nodes += q.nodes;
+        stats::incr!(self.stats.sente_cache_cuts, 1);
         return q;
       }
       q.depth + 2
