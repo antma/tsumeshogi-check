@@ -14,8 +14,8 @@ pub(super) struct SenteStats {
 #[derive(Default)]
 pub(super) struct GoteStats {
   //pub skipped_moves: u32,
-//pub is_futile_drop_true: u32,
-//pub is_futile_drop_false: u32,
+  pub is_futile_drop_true: u32,
+  pub is_futile_drop_false: u32,
 }
 
 #[cfg(not(feature = "stats"))]
@@ -156,6 +156,15 @@ impl GoteMovesIterator {
     history: &History,
   ) {
     self.moves = pos.compute_drops(allocator, &self.checks);
+    if self.legal_moves == 0 && self.best_move.is_none() {
+      if pos.is_futile_drops(&self.checks, &self.moves) {
+        self.moves.clear();
+        stats::incr!(self.stats.is_futile_drop_true);
+        return;
+      } else {
+        stats::incr!(self.stats.is_futile_drop_false);
+      }
+    }
     history.sort(&mut self.moves);
     //log::debug!("compute drops: pos = {}, drops = {:?}", pos, pos.to_psn_moves(&self.moves));
   }

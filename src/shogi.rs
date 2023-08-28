@@ -2021,7 +2021,7 @@ impl Position {
     self.undo_move(&take, &u);
     r
   }
-  fn is_futile_drops(&mut self, checks: &Checks, drops: &[Move]) -> bool {
+  pub fn is_futile_drops(&mut self, checks: &Checks, drops: &[Move]) -> bool {
     let king_pos = *checks.king_pos.as_ref().unwrap();
     let (king_row, king_col) = cell::unpack(king_pos);
     let attacking_piece_pos = checks.attacking_pieces.first().unwrap();

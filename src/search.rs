@@ -13,6 +13,7 @@ use std::cmp::Ordering;
 #[cfg(feature = "stats")]
 #[derive(Default, Debug)]
 struct Stats {
+  allocator: PositionMovesAllocator,
   sente_take_mates: u64,
   sente_drop_mates: u64,
   sente_promotion_mates: u64,
@@ -30,7 +31,9 @@ struct Stats {
   //gote_skipped_moves: u64,
   //gote_skipped_moves_percent: f64,
   gote_legal_moves: u64,
-  allocator: PositionMovesAllocator,
+  gote_is_futile_drop_true: u64,
+  gote_is_futile_drop_false: u64,
+  gote_is_futile_drop_true_percent: f64,
   //sente
   compute_check_candidates_average: f64,
   compute_drops_with_checks_average: f64,
@@ -96,6 +99,11 @@ impl Search {
         self.stats.sente_illegal_moves_percent,
         self.stats.sente_illegal_moves,
         self.stats.sente_skipped_moves + self.stats.sente_legal_moves
+      );
+      stats::percent!(
+        self.stats.gote_is_futile_drop_true_percent,
+        self.stats.gote_is_futile_drop_true,
+        self.stats.gote_is_futile_drop_true + self.stats.gote_is_futile_drop_false
       );
       stats::average!(
         self.stats.compute_check_candidates_average,
@@ -279,6 +287,14 @@ impl Search {
       if it.legal_moves == 0 {
         res.depth = 0;
         res.best_move = BestMove::One(0);
+        stats::incr!(
+          self.stats.gote_is_futile_drop_true,
+          it.stats.is_futile_drop_true as u64
+        );
+        stats::incr!(
+          self.stats.gote_is_futile_drop_false,
+          it.stats.is_futile_drop_false as u64
+        );
       }
       stats::incr!(self.stats.gote_legal_moves, it.legal_moves as u64);
     }
