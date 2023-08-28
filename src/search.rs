@@ -1,4 +1,4 @@
-mod cache;
+mod hash;
 mod history;
 mod it;
 mod result;
@@ -24,7 +24,8 @@ struct Stats {
   mates_by_pawn_drop: u64,
   skipped_gote_searches_after_pawn_drop: u64,
   gote_cache_cuts: u64,
-  cache_size: usize,
+  max_sente_hash_len: usize,
+  max_gote_hash_len: usize,
   sente_skipped_moves: u64,
   sente_skipped_moves_percent: f64,
   sente_illegal_moves: u64,
@@ -52,8 +53,8 @@ struct Stats {
 struct Stats {}
 
 pub struct Search {
-  sente_hash: cache::SenteCache,
-  gote_hash: cache::GoteCache,
+  sente_hash: hash::SenteHashTable,
+  gote_hash: hash::GoteHashTable,
   gote_history: Vec<history::History>,
   allocator: PositionMovesAllocator,
   b: Between,
@@ -69,8 +70,8 @@ impl Search {
     //log::debug!("sizeof(SearchResult)={}",std::mem::size_of::<SearchResult>());
     //log::debug!("sizeof(AttackingPieces)={}", std::mem::size_of::<shogi::attacking_pieces::AttackingPieces>());
     Self {
-      sente_hash: cache::SenteCache::new(cache_memory),
-      gote_hash: cache::GoteCache::new(cache_memory),
+      sente_hash: hash::SenteHashTable::new(cache_memory),
+      gote_hash: hash::GoteHashTable::new(cache_memory),
       gote_history: Vec::new(),
       allocator: PositionMovesAllocator::default(),
       b: Between::default(),
@@ -88,10 +89,6 @@ impl Search {
   }
   pub fn log_stats(&mut self, puzzles: u32, t: f64) {
     if cfg!(feature = "stats") {
-      stats::max!(
-        self.stats.cache_size,
-        self.sente_hash.len() + self.gote_hash.len()
-      );
       stats::percent!(
         self.stats.sente_skipped_moves_percent,
         self.stats.sente_skipped_moves,
@@ -220,6 +217,10 @@ impl Search {
     }
   }
   fn on_search_end(&mut self) {
+    stats::max!(self.stats.max_sente_hash_len, self.sente_hash.len());
+    stats::max!(self.stats.max_gote_hash_len, self.gote_hash.len());
+    self.sente_hash.clear();
+    self.gote_hash.clear();
     self.history_merge();
     #[allow(unused)]
     let a = std::mem::take(&mut self.allocator);
@@ -417,30 +418,32 @@ impl Search {
       break;
     }
     r.undo(pos);
-    r.only_moves()
+    let r = r.only_moves();
+    assert_eq!(r.len(), depth);
+    r
   }
   pub fn search(&mut self, pos: &mut Position, max_depth: u8) -> (Option<u8>, Option<Vec<Move>>) {
     log::debug!("search(pos: {}, max_depth: {})", pos, max_depth);
     assert!(pos.side > 0);
     self.increment_generation();
     let hash = pos.hash;
+    let mut res = (None, None);
     for depth in (1..=max_depth).step_by(2) {
       log::debug!("depth = {}", depth);
       self.history_resize(depth);
       let ev = self.sente_search(pos, depth, None);
       assert_eq!(hash, pos.hash);
       if ev.best_move.is_some() {
-        self.on_search_end();
+        res.0 = Some(ev.depth);
         if ev.best_move.is_one() {
           let pv = self.extract_pv_from_hash(pos, depth as usize);
           assert_eq!(hash, pos.hash);
-          return (Some(ev.depth), Some(pv));
-        } else {
-          return (Some(ev.depth), None);
+          res.1 = Some(pv);
         }
+        break;
       }
     }
     self.on_search_end();
-    (None, None)
+    res
   }
 }

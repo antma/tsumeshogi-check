@@ -115,7 +115,7 @@ impl CMDOptions {
     let mut format_target = false;
     let mut level_filter = LevelFilter::Error;
     let mut output_filename = String::new();
-    let mut memory_mib = 128;
+    let mut memory_mib = 1;
     loop {
       if let Some(d) = try_parse_arg_option::<usize, _>(&mut p, "d", "depth") {
         depth = d;
