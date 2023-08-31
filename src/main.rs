@@ -4,9 +4,9 @@ use std::io::{BufReader, BufWriter};
 use std::iter;
 
 use game::Game;
-use shogi::{game, moves, Position};
+use shogi::{game, moves, psn, Position};
 use tsumeshogi_check::cmd_options::CMDOptions;
-use tsumeshogi_check::{io, psn, search, shogi, timer};
+use tsumeshogi_check::{io, search, shogi, timer};
 
 use log::{debug, error, info, warn};
 

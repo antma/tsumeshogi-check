@@ -14,6 +14,7 @@ mod hash;
 pub mod kif;
 pub mod moves;
 pub mod piece;
+pub mod psn;
 
 use alloc::PositionMovesAllocator;
 use moves::Move;

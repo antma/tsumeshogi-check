@@ -3,7 +3,7 @@ use std::io::prelude::*;
 use std::io::BufReader;
 use std::str::FromStr;
 
-use crate::shogi::{
+use super::{
   alloc::PositionMovesAllocator,
   game::{Game, GameResult},
   moves::Move,
