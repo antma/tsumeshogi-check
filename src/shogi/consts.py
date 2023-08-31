@@ -116,6 +116,11 @@ for dy in range(-1, 2):
     k += 1
 p(f, 'SLIDING_MASKS', a, 128)
 p(f, 'MASKS2', [1 << (9 * (i % 9) + (i // 9)) for i in range(81)], 128)
+queen_attack = []
+for i in range(81):
+  r = 0
+  for q in a[8*i:8*(i+1)]: r |= q
+  queen_attack.append(r)
 king_attack = []
 black_gold_attack = []
 white_gold_attack = []
@@ -124,6 +129,7 @@ white_silver_attack = []
 black_knight_attack = []
 white_knight_attack = []
 black_local_check_candidates = []
+potential_queen_positions = []
 for row in range(9):
   for col in range(9):
     n1 = 0
@@ -142,6 +148,7 @@ for row in range(9):
     r3 = 0
     r4 = 0
     r5 = 0
+    r6 = 0
     for y in range(-1, 2):
       j = row + y
       if not legal_coordinate(j): continue
@@ -150,6 +157,7 @@ for row in range(9):
         i = col + x
         if not legal_coordinate(i): continue
         l = 9 * j + i
+        r6 |= queen_attack[l]
         bit = 1 << l
         r |= bit
         if abs(x) == 1:
@@ -169,6 +177,7 @@ for row in range(9):
     white_gold_attack.append(r3)
     black_silver_attack.append(r4)
     white_silver_attack.append(r5)
+    potential_queen_positions.append(r6)
     r = 0
     for y in range(-2, 3):
       j = row + y
@@ -221,6 +230,7 @@ p(f, 'BLACK_LOCAL_CHECK_CANDIDATES', black_local_check_candidates, 128)
 p(f, 'WHITE_LOCAL_CHECK_CANDIDATES', mirrory_array(black_local_check_candidates), 128)
 p(f, 'BLACK_KING_MOVES_CANDIDATES', mirrory_array(king_move_candidates), 128)
 p(f, 'WHITE_KING_MOVES_CANDIDATES', king_move_candidates, 128)
+p(f, 'POTENTIAL_SLIDING_PIECE_POSITIONS', potential_queen_positions, 128)
 h = []
 v = []
 for s in range(9):

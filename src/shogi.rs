@@ -1432,14 +1432,18 @@ impl Position {
   }
   fn legal_king_moves(&self, king_pos: usize, s: i8) -> u128 {
     let mut r = 0;
+    let potential_queen_positions =
+      self.sliding_pieces & consts::POTENTIAL_SLIDING_PIECE_POSITIONS[king_pos];
     let (a, p) = if s > 0 {
       (
-        (consts::BLACK_KING_MOVES_CANDIDATES[king_pos] | self.sliding_pieces) & self.white_pieces,
+        (consts::BLACK_KING_MOVES_CANDIDATES[king_pos] | potential_queen_positions)
+          & self.white_pieces,
         self.black_pieces,
       )
     } else {
       (
-        (consts::WHITE_KING_MOVES_CANDIDATES[king_pos] | self.sliding_pieces) & self.black_pieces,
+        (consts::WHITE_KING_MOVES_CANDIDATES[king_pos] | potential_queen_positions)
+          & self.black_pieces,
         self.white_pieces,
       )
     };
