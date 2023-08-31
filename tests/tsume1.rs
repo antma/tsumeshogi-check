@@ -63,7 +63,7 @@ fn pawn_drop_no_mate() {
 #[test]
 fn not_unique_mate() {
   let mut pos = Position::parse_sfen("k8/9/K8/9/9/9/9/9/9 b G2r2b3g4s4n4l18p 1").unwrap();
-  let mut s = search::Search::new(0x1000);
+  let mut s = search::Search::default();
   let ans = s.search(&mut pos, 1);
   assert_eq!(ans.0, Some(1));
   assert!(ans.1.is_none());

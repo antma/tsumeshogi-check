@@ -52,6 +52,7 @@ struct Stats {
 #[derive(Default, Debug)]
 struct Stats {}
 
+#[derive(Default)]
 pub struct Search {
   sente_hash: hash::SenteHashTable,
   gote_hash: hash::GoteHashTable,
@@ -60,30 +61,10 @@ pub struct Search {
   b: Between,
   pub nodes: u64,
   hash_nodes: u64,
-  generation: u8,
   stats: Stats,
 }
 
 impl Search {
-  pub fn new(memory: usize) -> Self {
-    let cache_memory = memory / 2;
-    //log::debug!("sizeof(SearchResult)={}",std::mem::size_of::<SearchResult>());
-    //log::debug!("sizeof(AttackingPieces)={}", std::mem::size_of::<shogi::attacking_pieces::AttackingPieces>());
-    Self {
-      sente_hash: hash::SenteHashTable::new(cache_memory),
-      gote_hash: hash::GoteHashTable::new(cache_memory),
-      gote_history: Vec::new(),
-      allocator: PositionMovesAllocator::default(),
-      b: Between::default(),
-      nodes: 0,
-      hash_nodes: 0,
-      generation: 0,
-      stats: Stats::default(),
-    }
-  }
-  fn increment_generation(&mut self) {
-    self.generation = self.generation.wrapping_add(1);
-  }
   fn gote_history_len(&self) -> usize {
     self.gote_history.iter().fold(0, |acc, p| acc + p.len())
   }
@@ -219,6 +200,7 @@ impl Search {
   fn on_search_end(&mut self) {
     stats::max!(self.stats.max_sente_hash_len, self.sente_hash.len());
     stats::max!(self.stats.max_gote_hash_len, self.gote_hash.len());
+    //TODO: don't always clear hash during KIF analisys
     self.sente_hash.clear();
     self.gote_hash.clear();
     self.history_merge();
@@ -303,9 +285,7 @@ impl Search {
       stats::incr!(self.stats.gote_legal_moves, it.legal_moves as u64);
     }
     res.nodes = (self.nodes - nodes) + (self.hash_nodes - hash_nodes);
-    self
-      .gote_hash
-      .insert(pos.hash, &res, hash_best_move, self.generation);
+    self.gote_hash.insert(pos.hash, &res, hash_best_move);
     res
   }
   fn sente_search(
@@ -365,13 +345,15 @@ impl Search {
         stats::incr!(self.stats.sente_promotion_mates);
       }
       let mate_in = ev.depth + 1;
-      if res.depth > mate_in {
-        res.depth = mate_in;
-        res.best_move = BestMove::None;
-      } else if res.depth < mate_in {
+      if res.depth < mate_in {
         continue;
       }
-      res.update_best_move(&m, ev);
+      if res.depth > mate_in {
+        res.depth = mate_in;
+        res.store_best_move(&m, ev);
+      } else {
+        res.update_best_move(&m, ev);
+      }
       if res.best_move.is_many() && none_depth >= res.depth {
         if u.is_take() {
           stats::incr!(self.stats.sente_take_cuts);
@@ -398,7 +380,7 @@ impl Search {
     );
     stats::incr!(self.stats.sente_legal_moves, it.legal_moves as u64);
     res.nodes = (self.nodes - nodes) + (self.hash_nodes - hash_nodes);
-    self.sente_hash.insert(pos.hash, &res, self.generation);
+    self.sente_hash.insert(pos.hash, &res);
     res
   }
   fn extract_pv_from_hash(&self, pos: &mut Position, depth: usize) -> Vec<Move> {
@@ -425,7 +407,7 @@ impl Search {
   pub fn search(&mut self, pos: &mut Position, max_depth: u8) -> (Option<u8>, Option<Vec<Move>>) {
     log::debug!("search(pos: {}, max_depth: {})", pos, max_depth);
     assert!(pos.side > 0);
-    self.increment_generation();
+    //self.increment_generation();
     let hash = pos.hash;
     let mut res = (None, None);
     for depth in (1..=max_depth).step_by(2) {

@@ -15,7 +15,7 @@ pub fn tsume_batch_test_ext(v: Vec<&str>, depth: usize, ans: Option<i32>) {
     if pos.side < 0 {
       pos.swap_sides();
     }
-    let mut s = search::Search::new(16 << 20);
+    let mut s = search::Search::default();
     assert_eq!(
       s.search(&mut pos, depth as u8).0,
       ans.map(|i| u8::try_from(i).unwrap()),

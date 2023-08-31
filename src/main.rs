@@ -149,7 +149,7 @@ fn process_file(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
   let id = filename.strip_suffix(".sfen").unwrap();
   let file = File::open(filename)?;
   let reader = BufReader::new(file);
-  let mut s = search::Search::new(opts.memory_mib << 20);
+  let mut s = search::Search::default();
   let mut g = Game::default();
   for (test, line) in reader.lines().enumerate() {
     let line = line?;
@@ -212,7 +212,7 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
   let tt = timer::Timer::new();
   let depth = opts.depth;
   let mut output_stream = OutputStream::new(&opts.output_filename).unwrap();
-  let mut s = search::Search::new(opts.memory_mib << 20);
+  let mut s = search::Search::default();
   let it = shogi::kif::kif_file_iterator(filename)?;
   for (game_no, a) in it.enumerate() {
     //s.hashes_clear();
