@@ -1,6 +1,7 @@
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::{BufReader, BufWriter};
+use std::iter;
 
 use game::Game;
 use shogi::{game, moves, Position};
@@ -169,9 +170,9 @@ fn process_file(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
     }
     assert!(pos.side > 0);
     pos.move_no = 1;
-    //s.hashes_clear();
     let nodes = s.nodes;
     let (res, pv) = s.search(&mut pos, depth as u8);
+    s.hashes_clear();
     if res.is_some() {
       let res = res.unwrap();
       if res < depth as u8 {
@@ -234,48 +235,53 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
           g.to_short_string(),
           g.moves.len()
         );
-        let mut pos = Position::default();
-        for mv in &g.moves {
-          let move_no = pos.move_no;
-          if move_no >= 20 {
-            let swapped = pos.side < 0;
-            let mut pos = pos.clone();
-            let mut cur_move = mv.clone();
-            if swapped {
-              pos.swap_sides();
-              cur_move.swap_side();
-            }
-            assert!(pos.side > 0);
-            pos.move_no = 1;
-            //s.hashes_retain(depth as u8);
-            let nodes = s.nodes;
-            let (res, pv) = s.search(&mut pos, depth as u8);
-            if res.is_some() {
-              let res = res.unwrap();
-              if let Some(p) = pv {
-                if *p.first().unwrap() == cur_move {
+        for current_side in iter::once(1i8).chain(iter::once(-1i8)) {
+          let mut pos = Position::default();
+          for mv in &g.moves {
+            let move_no = pos.move_no;
+            if move_no >= 20 && pos.side == current_side {
+              let swapped = pos.side < 0;
+              let mut pos = pos.clone();
+              let mut cur_move = mv.clone();
+              if swapped {
+                pos.swap_sides();
+                cur_move.swap_side();
+              }
+              assert!(pos.side > 0);
+              pos.move_no = 1;
+              //s.hashes_retain(depth as u8);
+              let nodes = s.nodes;
+              let (res, pv) = s.search(&mut pos, depth as u8);
+              if res.is_some() {
+                let res = res.unwrap();
+                if let Some(p) = pv {
+                  if *p.first().unwrap() == cur_move {
+                    info!(
+                      "Tsume in {} moves was found and played, pos: {}, game: {}, move: {}",
+                      res,
+                      pos,
+                      game_no + 1,
+                      move_no
+                    );
+                  } else {
+                    output_stream.write_puzzle(res, &g, &pos, p, swapped, s.nodes - nodes)?;
+                  }
+                } else {
                   info!(
-                    "Tsume in {} moves was found and played, pos: {}, game: {}, move: {}",
+                    "Tsume in {} moves isn't unique, sfen: {}, game: {}, move: {}",
                     res,
                     pos,
                     game_no + 1,
-                    move_no
+                    move_no,
                   );
-                } else {
-                  output_stream.write_puzzle(res, &g, &pos, p, swapped, s.nodes - nodes)?;
                 }
-              } else {
-                info!(
-                  "Tsume in {} moves isn't unique, sfen: {}, game: {}, move: {}",
-                  res,
-                  pos,
-                  game_no + 1,
-                  move_no,
-                );
               }
             }
+            pos.do_move(mv);
+            if current_side * pos.side < 0 && !pos.is_check() {
+              s.hashes_clear();
+            }
           }
-          pos.do_move(mv);
         }
       }
     }

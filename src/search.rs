@@ -69,6 +69,7 @@ impl Search {
     self.gote_history.iter().fold(0, |acc, p| acc + p.len())
   }
   pub fn log_stats(&mut self, puzzles: u32, t: f64) {
+    self.hashes_clear();
     if cfg!(feature = "stats") {
       stats::percent!(
         self.stats.sente_skipped_moves_percent,
@@ -197,12 +198,13 @@ impl Search {
       p.merge();
     }
   }
-  fn on_search_end(&mut self) {
+  pub fn hashes_clear(&mut self) {
     stats::max!(self.stats.max_sente_hash_len, self.sente_hash.len());
     stats::max!(self.stats.max_gote_hash_len, self.gote_hash.len());
-    //TODO: don't always clear hash during KIF analisys
     self.sente_hash.clear();
     self.gote_hash.clear();
+  }
+  fn on_search_end(&mut self) {
     self.history_merge();
     #[allow(unused)]
     let a = std::mem::take(&mut self.allocator);
