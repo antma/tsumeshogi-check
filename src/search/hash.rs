@@ -161,6 +161,10 @@ impl HashTable {
     });
     old_len - self.0.len()
   }
+  #[cfg(feature = "stats")]
+  pub fn len(&self) -> usize {
+    self.0.len()
+  }
 }
 
 #[derive(Default)]
