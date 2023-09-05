@@ -7,10 +7,12 @@ struct Entry {
   nodes: u64,
   packed_move: u32,
   depth: u8,
+  used: bool,
 }
 
 impl Entry {
-  fn to_sente_result(&self) -> SearchResult {
+  fn to_sente_result(&mut self) -> SearchResult {
+    self.used = true;
     let best_move = if (self.packed_move & 0x8000_0000) != 0 {
       BestMove::One(self.packed_move & 0x7fff_ffff)
     } else if self.packed_move == 0 {
@@ -39,9 +41,11 @@ impl Entry {
       nodes: res.nodes,
       packed_move,
       depth: res.depth,
+      used: true,
     }
   }
-  fn to_gote_result(&self) -> (SearchResult, Option<Move>) {
+  fn to_gote_result(&mut self) -> (SearchResult, Option<Move>) {
+    self.used = true;
     let (best_move, hash_move) = if self.packed_move == 0 {
       (BestMove::Many, None)
     } else if (self.packed_move & 0x8000_0000) != 0 {
@@ -74,6 +78,7 @@ impl Entry {
       nodes: res.nodes,
       packed_move,
       depth: res.depth,
+      used: true,
     }
   }
 }
@@ -97,7 +102,7 @@ fn test_hash_entry() {
       depth: 1,
     },
   ] {
-    let h = Entry::new_sente(&sr);
+    let mut h = Entry::new_sente(&sr);
     assert_eq!(h.to_sente_result(), sr);
   }
   let king = crate::shogi::piece::KING;
@@ -133,12 +138,30 @@ fn test_hash_entry() {
       Some(m),
     ),
   ] {
-    let h = Entry::new_gote(&sr, cm.clone());
+    let mut h = Entry::new_gote(&sr, cm.clone());
     assert_eq!(h.to_gote_result(), (sr, cm));
   }
 }
 
-type HashTable = HashMap<u64, Entry>;
+#[derive(Default)]
+struct HashTable(HashMap<u64, Entry>);
+impl HashTable {
+  fn clear(&mut self) {
+    self.0.clear();
+  }
+  fn remove_unused(&mut self) -> usize {
+    let old_len = self.0.len();
+    self.0.retain(|_, e| {
+      if e.used {
+        e.used = false;
+        true
+      } else {
+        false
+      }
+    });
+    old_len - self.0.len()
+  }
+}
 
 #[derive(Default)]
 pub struct SenteHashTable(HashTable);
@@ -148,11 +171,14 @@ impl SenteHashTable {
   pub fn clear(&mut self) {
     self.0.clear();
   }
-  pub fn get(&self, x: u64) -> Option<SearchResult> {
-    self.0.get(&x).map(|p| p.to_sente_result())
+  pub fn remove_unused(&mut self) -> usize {
+    self.0.remove_unused()
+  }
+  pub fn get(&mut self, x: u64) -> Option<SearchResult> {
+    self.0 .0.get_mut(&x).map(|p| p.to_sente_result())
   }
   pub fn insert(&mut self, hash: u64, res: &SearchResult) {
-    self.0.insert(hash, Entry::new_sente(res));
+    self.0 .0.insert(hash, Entry::new_sente(res));
   }
   #[cfg(feature = "stats")]
   pub fn len(&self) -> usize {
@@ -164,66 +190,17 @@ impl GoteHashTable {
   pub fn clear(&mut self) {
     self.0.clear();
   }
-  pub fn get(&self, x: u64) -> Option<(SearchResult, Option<Move>)> {
-    self.0.get(&x).map(|p| p.to_gote_result())
+  pub fn remove_unused(&mut self) -> usize {
+    self.0.remove_unused()
+  }
+  pub fn get(&mut self, x: u64) -> Option<(SearchResult, Option<Move>)> {
+    self.0 .0.get_mut(&x).map(|p| p.to_gote_result())
   }
   pub fn insert(&mut self, hash: u64, res: &SearchResult, cut_move: Option<Move>) {
-    self.0.insert(hash, Entry::new_gote(res, cut_move));
+    self.0 .0.insert(hash, Entry::new_gote(res, cut_move));
   }
   #[cfg(feature = "stats")]
   pub fn len(&self) -> usize {
     self.0.len()
   }
 }
-
-/*
-pub struct SearchHash(HashMap<u64, SearchHashValue>);
-
-impl Default for SearchHash {
-  fn default() -> Self {
-    Self(HashMap::new())
-  }
-}
-
-impl SearchHash {
-  pub fn get_sente(&self, x: u64) -> Option<SearchResult> {
-    self.0.get(&x).map(|p| p.to_sente_result())
-  }
-  pub fn get_gote(&self, x: u64) -> Option<(SearchResult, Option<Move>)> {
-    self.0.get(&x).map(|p| p.to_gote_result())
-  }
-  pub fn insert_sente(&mut self, hash: u64, res: &SearchResult, generation: u8) {
-    self
-      .0
-      .insert(hash, SearchHashValue::new_sente(res, generation));
-  }
-  pub fn insert_gote(
-    &mut self,
-    hash: u64,
-    res: &SearchResult,
-    cut_move: Option<Move>,
-    generation: u8,
-  ) {
-    self
-      .0
-      .insert(hash, SearchHashValue::new_gote(res, cut_move, generation));
-  }
-  pub fn clear(&mut self) {
-    self.0.clear();
-  }
-  pub fn retain(&mut self, generation: u8, margin: u8) -> usize {
-    let l = self.0.len();
-    self
-      .0
-      .retain(|_, v| generation.wrapping_sub(v.generation) < margin);
-    l - self.0.len()
-  }
-  pub fn capacity(&self) -> usize {
-    self.0.capacity()
-  }
-  #[cfg(feature = "stats")]
-  pub fn len(&self) -> usize {
-    self.0.len()
-  }
-}
-*/

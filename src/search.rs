@@ -204,6 +204,10 @@ impl Search {
     self.sente_hash.clear();
     self.gote_hash.clear();
   }
+  pub fn hashes_remove_unused_entries(&mut self) {
+    self.sente_hash.remove_unused();
+    self.gote_hash.remove_unused();
+  }
   fn on_search_end(&mut self) {
     self.history_merge();
     #[allow(unused)]
@@ -385,7 +389,7 @@ impl Search {
     self.sente_hash.insert(pos.hash, &res);
     res
   }
-  fn extract_pv_from_hash(&self, pos: &mut Position, depth: usize) -> Vec<Move> {
+  fn extract_pv_from_hash(&mut self, pos: &mut Position, depth: usize) -> Vec<Move> {
     let mut r = Moves::with_capacity(depth);
     loop {
       let o = if pos.side > 0 {

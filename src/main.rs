@@ -280,6 +280,8 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
             pos.do_move(mv);
             if current_side * pos.side < 0 && !pos.is_check() {
               s.hashes_clear();
+            } else {
+              s.hashes_remove_unused_entries();
             }
           }
         }
