@@ -155,7 +155,7 @@ fn process_file(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
   for (test, line) in reader.lines().enumerate() {
     let line = line?;
     let test = test + 1;
-    if test <= opts.skip {
+    if test < opts.skip {
       continue;
     }
     log::debug!("Test #{}: fen = {}", test, line);
@@ -216,26 +216,30 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
   let mut s = search::Search::default();
   let it = shogi::kif::kif_file_iterator(filename)?;
   for (game_no, a) in it.enumerate() {
-    //s.hashes_clear();
+    let game_no = game_no + 1;
     if a.is_err() {
-      error!("Game #{}: {:?}", game_no + 1, a);
+      error!("Game #{}: {:?}", game_no, a);
       break;
+    }
+    if game_no < opts.skip {
+      continue;
     }
     let a = a.unwrap();
     let g = output_stream.kb.parse_kif_game(&a);
     match g {
       Err(err) => {
-        error!("Game #{}: {:?}", game_no + 1, err);
+        error!("Game #{}: {:?}", game_no, err);
         break;
       }
       Ok(g) => {
         info!(
           "Game #{}: {}, {} moves",
-          game_no + 1,
+          game_no,
           g.to_short_string(),
           g.moves.len()
         );
         for current_side in iter::once(1i8).chain(iter::once(-1i8)) {
+          s.hashes_clear();
           let mut pos = Position::default();
           for mv in &g.moves {
             let move_no = pos.move_no;
@@ -258,10 +262,7 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
                   if *p.first().unwrap() == cur_move {
                     info!(
                       "Tsume in {} moves was found and played, pos: {}, game: {}, move: {}",
-                      res,
-                      pos,
-                      game_no + 1,
-                      move_no
+                      res, pos, game_no, move_no
                     );
                   } else {
                     output_stream.write_puzzle(res, &g, &pos, p, swapped, s.nodes - nodes)?;
@@ -269,19 +270,18 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
                 } else {
                   info!(
                     "Tsume in {} moves isn't unique, sfen: {}, game: {}, move: {}",
-                    res,
-                    pos,
-                    game_no + 1,
-                    move_no,
+                    res, pos, game_no, move_no,
                   );
                 }
               }
             }
             pos.do_move(mv);
-            if current_side * pos.side < 0 && !pos.is_check() {
-              s.hashes_clear();
-            } else {
-              s.hashes_remove_unused_entries();
+            if current_side * pos.side < 0 {
+              if !pos.is_check() {
+                s.hashes_clear();
+              } else {
+                s.hashes_remove_unused_entries();
+              }
             }
           }
         }
