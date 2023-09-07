@@ -162,8 +162,12 @@ impl HashTable {
     old_len - self.0.len()
   }
   #[cfg(feature = "stats")]
-  pub fn len(&self) -> usize {
+  fn len(&self) -> usize {
     self.0.len()
+  }
+  fn memory(&self) -> u64 {
+    self.0.capacity() as u64 * (std::mem::size_of::<Entry>() + std::mem::size_of::<u64>()) as u64
+      + std::mem::size_of::<Self>() as u64
   }
 }
 
@@ -188,6 +192,9 @@ impl SenteHashTable {
   pub fn len(&self) -> usize {
     self.0.len()
   }
+  pub fn memory(&self) -> u64 {
+    self.0.memory()
+  }
 }
 
 impl GoteHashTable {
@@ -206,5 +213,8 @@ impl GoteHashTable {
   #[cfg(feature = "stats")]
   pub fn len(&self) -> usize {
     self.0.len()
+  }
+  pub fn memory(&self) -> u64 {
+    self.0.memory()
   }
 }

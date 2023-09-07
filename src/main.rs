@@ -243,6 +243,7 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
           let mut pos = Position::default();
           for mv in &g.moves {
             let move_no = pos.move_no;
+            let mut memory_warning = false;
             if move_no >= 20 && pos.side == current_side {
               let swapped = pos.side < 0;
               let mut pos = pos.clone();
@@ -256,6 +257,17 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
               //s.hashes_retain(depth as u8);
               let nodes = s.nodes;
               let (res, pv) = s.search(&mut pos, depth as u8);
+              let m = s.hashes_approximate_used_memory();
+              if m > (1 << 29) {
+                warn!(
+                  "Hashes used about {:.03} Mib, game {}, move {}, fen: {}",
+                  m as f64 / ((1 << 20) as f64),
+                  game_no,
+                  move_no,
+                  pos
+                );
+                memory_warning = true;
+              }
               if res.is_some() {
                 let res = res.unwrap();
                 if let Some(p) = pv {
@@ -280,7 +292,10 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
               if !pos.is_check() {
                 s.hashes_clear();
               } else {
-                s.hashes_remove_unused_entries();
+                let ue = s.hashes_remove_unused_entries();
+                if memory_warning {
+                  info!("Free {} unused enties", ue);
+                }
               }
             }
           }

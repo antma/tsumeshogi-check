@@ -198,15 +198,17 @@ impl Search {
       p.merge();
     }
   }
+  pub fn hashes_approximate_used_memory(&self) -> u64 {
+    self.sente_hash.memory() + self.gote_hash.memory()
+  }
   pub fn hashes_clear(&mut self) {
     stats::max!(self.stats.max_sente_hash_len, self.sente_hash.len());
     stats::max!(self.stats.max_gote_hash_len, self.gote_hash.len());
     self.sente_hash.clear();
     self.gote_hash.clear();
   }
-  pub fn hashes_remove_unused_entries(&mut self) {
-    self.sente_hash.remove_unused();
-    self.gote_hash.remove_unused();
+  pub fn hashes_remove_unused_entries(&mut self) -> usize {
+    self.sente_hash.remove_unused() + self.gote_hash.remove_unused()
   }
   fn on_search_end(&mut self) {
     self.history_merge();
