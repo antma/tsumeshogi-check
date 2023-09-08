@@ -8,12 +8,12 @@ use result::{BestMove, SearchResult};
 use shogi::between::Between;
 use shogi::moves::{Move, Moves};
 use shogi::{alloc::PositionMovesAllocator, Checks, Position};
+use stats::Average;
 use std::cmp::Ordering;
 
 #[cfg(feature = "stats")]
 #[derive(Default, Debug)]
 struct Stats {
-  allocator: PositionMovesAllocator,
   sente_take_mates: u64,
   sente_drop_mates: u64,
   sente_promotion_mates: u64,
@@ -38,14 +38,14 @@ struct Stats {
   gote_is_futile_drop_false: u64,
   gote_is_futile_drop_true_percent: f64,
   //sente
-  compute_check_candidates_average: f64,
-  compute_drops_with_checks_average: f64,
-  compute_drops_no_pawns_with_checks_average: f64,
+  compute_check_candidates_average: Average,
+  compute_drops_with_checks_average: Average,
+  compute_drops_no_pawns_with_checks_average: Average,
   //gote
-  compute_moves_after_non_blocking_check_average: f64,
-  compute_moves_after_sliding_piece_check_average: f64,
-  compute_legal_king_moves_average: f64,
-  compute_drops_after_sliding_piece_check_average: f64,
+  compute_moves_after_non_blocking_check_average: Average,
+  compute_moves_after_sliding_piece_check_average: Average,
+  compute_legal_king_moves_average: Average,
+  compute_drops_after_sliding_piece_check_average: Average,
 }
 
 #[cfg(not(feature = "stats"))]
@@ -86,97 +86,6 @@ impl Search {
         self.stats.gote_is_futile_drop_true,
         self.stats.gote_is_futile_drop_true + self.stats.gote_is_futile_drop_false
       );
-      stats::average!(
-        self.stats.compute_check_candidates_average,
-        self
-          .stats
-          .allocator
-          .compute_check_candidates_allocator
-          .total_moves,
-        self
-          .stats
-          .allocator
-          .compute_check_candidates_allocator
-          .total_calls
-      );
-      stats::average!(
-        self.stats.compute_drops_with_checks_average,
-        self
-          .stats
-          .allocator
-          .compute_drops_with_checks_allocator
-          .total_moves,
-        self
-          .stats
-          .allocator
-          .compute_drops_with_checks_allocator
-          .total_calls
-      );
-      stats::average!(
-        self.stats.compute_drops_no_pawns_with_checks_average,
-        self
-          .stats
-          .allocator
-          .compute_drops_no_pawns_with_checks_allocator
-          .total_moves,
-        self
-          .stats
-          .allocator
-          .compute_drops_no_pawns_with_checks_allocator
-          .total_calls
-      );
-      stats::average!(
-        self.stats.compute_drops_after_sliding_piece_check_average,
-        self
-          .stats
-          .allocator
-          .compute_drops_after_sliding_piece_check_allocator
-          .total_moves,
-        self
-          .stats
-          .allocator
-          .compute_drops_after_sliding_piece_check_allocator
-          .total_calls
-      );
-      stats::average!(
-        self.stats.compute_moves_after_non_blocking_check_average,
-        self
-          .stats
-          .allocator
-          .compute_moves_after_non_blocking_check_allocator
-          .total_moves,
-        self
-          .stats
-          .allocator
-          .compute_moves_after_non_blocking_check_allocator
-          .total_calls
-      );
-      stats::average!(
-        self.stats.compute_moves_after_sliding_piece_check_average,
-        self
-          .stats
-          .allocator
-          .compute_moves_after_sliding_piece_check_allocator
-          .total_moves,
-        self
-          .stats
-          .allocator
-          .compute_moves_after_sliding_piece_check_allocator
-          .total_calls
-      );
-      stats::average!(
-        self.stats.compute_legal_king_moves_average,
-        self
-          .stats
-          .allocator
-          .compute_legal_king_moves_allocator
-          .total_moves,
-        self
-          .stats
-          .allocator
-          .compute_legal_king_moves_allocator
-          .total_calls
-      );
       log::info!("search.stats = {:#?}", self.stats);
     }
     log::info!("{} history tables items", self.gote_history_len());
@@ -214,7 +123,34 @@ impl Search {
     self.history_merge();
     #[allow(unused)]
     let a = std::mem::take(&mut self.allocator);
-    stats::incr!(self.stats.allocator, a);
+    stats::incr!(
+      self.stats.compute_check_candidates_average,
+      &a.compute_check_candidates_allocator
+    );
+    stats::incr!(
+      self.stats.compute_drops_with_checks_average,
+      &a.compute_drops_with_checks_allocator
+    );
+    stats::incr!(
+      self.stats.compute_drops_no_pawns_with_checks_average,
+      &a.compute_drops_no_pawns_with_checks_allocator
+    );
+    stats::incr!(
+      self.stats.compute_moves_after_non_blocking_check_average,
+      &a.compute_moves_after_non_blocking_check_allocator
+    );
+    stats::incr!(
+      self.stats.compute_moves_after_sliding_piece_check_average,
+      &a.compute_moves_after_sliding_piece_check_allocator
+    );
+    stats::incr!(
+      self.stats.compute_legal_king_moves_average,
+      &a.compute_legal_king_moves_allocator
+    );
+    stats::incr!(
+      self.stats.compute_drops_after_sliding_piece_check_average,
+      &a.compute_drops_after_sliding_piece_check_allocator
+    );
   }
   fn nodes_increment(&mut self) -> u64 {
     let r = self.nodes;

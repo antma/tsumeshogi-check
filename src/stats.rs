@@ -1,4 +1,6 @@
+use crate::shogi::alloc::MovesAllocator;
 use std::fmt;
+use std::ops::AddAssign;
 
 #[derive(Default)]
 pub struct Average {
@@ -6,10 +8,17 @@ pub struct Average {
   total: u64,
 }
 
-impl std::ops::AddAssign<u64> for Average {
+impl AddAssign<u64> for Average {
   fn add_assign(&mut self, rhs: u64) {
     self.sum += rhs;
     self.total += 1;
+  }
+}
+
+impl AddAssign<&MovesAllocator> for Average {
+  fn add_assign(&mut self, rhs: &MovesAllocator) {
+    self.sum += rhs.total_moves;
+    self.total += rhs.total_calls;
   }
 }
 
@@ -61,18 +70,6 @@ macro_rules! percent {
   };
 }
 
-#[cfg(feature = "stats")]
-macro_rules! average {
-  ($e: expr, $num: expr, $den: expr) => {
-    let t = $den;
-    $e = if t == 0 {
-      0.0
-    } else {
-      (($num) as f64) / (t as f64)
-    };
-  };
-}
-
 #[cfg(not(feature = "stats"))]
 macro_rules! incr {
   ($e:expr) => {};
@@ -86,9 +83,5 @@ macro_rules! max {
 macro_rules! percent {
   ($e: expr, $num: expr, $den: expr) => {};
 }
-#[cfg(not(feature = "stats"))]
-macro_rules! average {
-  ($e: expr, $num: expr, $den: expr) => {};
-}
 
-pub(crate) use {average, incr, max, percent};
+pub(crate) use {incr, max, percent};
