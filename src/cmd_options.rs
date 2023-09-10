@@ -99,6 +99,7 @@ pub struct CMDOptions {
   pub depth: usize,
   pub depth_extend: usize,
   pub skip: usize,
+  pub cache_memory_bytes: usize,
   pub output_filename: String,
   pub format_target: bool,
   pub level_filter: LevelFilter,
@@ -114,6 +115,7 @@ impl CMDOptions {
     let mut format_target = false;
     let mut level_filter = LevelFilter::Error;
     let mut output_filename = String::new();
+    let mut cache_memory_bytes = 128 << 20;
     loop {
       if let Some(d) = try_parse_arg_option::<usize, _>(&mut p, "d", "depth") {
         depth = d;
@@ -125,6 +127,10 @@ impl CMDOptions {
       }
       if let Some(n) = try_parse_arg_option::<usize, _>(&mut p, "n", "skip") {
         skip = n;
+        continue;
+      }
+      if let Some(n) = try_parse_arg_option::<usize, _>(&mut p, "c", "cache-memory-mib") {
+        cache_memory_bytes = n << 20;
         continue;
       }
       if let Some(o) = try_parse_arg_option::<String, _>(&mut p, "o", "output") {
@@ -157,6 +163,7 @@ impl CMDOptions {
       depth,
       depth_extend,
       skip,
+      cache_memory_bytes,
       output_filename,
       format_target,
       level_filter,

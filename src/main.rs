@@ -150,7 +150,7 @@ fn process_file(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
   let id = filename.strip_suffix(".sfen").unwrap();
   let file = File::open(filename)?;
   let reader = BufReader::new(file);
-  let mut s = search::Search::default();
+  let mut s = search::Search::new(opts.cache_memory_bytes);
   let mut g = Game::default();
   for (test, line) in reader.lines().enumerate() {
     let line = line?;
@@ -213,7 +213,7 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
   let tt = timer::Timer::new();
   let depth = opts.depth;
   let mut output_stream = OutputStream::new(&opts.output_filename).unwrap();
-  let mut s = search::Search::default();
+  let mut s = search::Search::new(opts.cache_memory_bytes);
   let it = shogi::kif::kif_file_iterator(filename)?;
   for (game_no, a) in it.enumerate() {
     let game_no = game_no + 1;
@@ -241,49 +241,55 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
         for current_side in iter::once(1i8).chain(iter::once(-1i8)) {
           s.hashes_clear();
           let mut pos = Position::default();
+          let mut examined_positions_hashes = std::collections::HashSet::new();
           for mv in &g.moves {
             let move_no = pos.move_no;
-            let mut memory_warning = false;
             if move_no >= 20 && pos.side == current_side {
-              let swapped = pos.side < 0;
-              let mut pos = pos.clone();
-              let mut cur_move = mv.clone();
-              if swapped {
-                pos.swap_sides();
-                cur_move.swap_side();
-              }
-              assert!(pos.side > 0);
-              pos.move_no = 1;
-              //s.hashes_retain(depth as u8);
-              let nodes = s.nodes;
-              let (res, pv) = s.search(&mut pos, depth as u8);
-              let m = s.hashes_approximate_used_memory();
-              if m > (1 << 29) {
-                warn!(
-                  "Hashes used about {:.03} Mib, game {}, move {}, fen: {}",
-                  m as f64 / ((1 << 20) as f64),
-                  game_no,
-                  move_no,
-                  pos
+              if !examined_positions_hashes.insert(pos.hash) {
+                info!(
+                  "Position after move {} has been already examined (skipping)",
+                  pos.move_no
                 );
-                memory_warning = true;
-              }
-              if res.is_some() {
-                let res = res.unwrap();
-                if let Some(p) = pv {
-                  if *p.first().unwrap() == cur_move {
-                    info!(
-                      "Tsume in {} moves was found and played, pos: {}, game: {}, move: {}",
-                      res, pos, game_no, move_no
-                    );
-                  } else {
-                    output_stream.write_puzzle(res, &g, &pos, p, swapped, s.nodes - nodes)?;
-                  }
-                } else {
-                  info!(
-                    "Tsume in {} moves isn't unique, sfen: {}, game: {}, move: {}",
-                    res, pos, game_no, move_no,
+              } else {
+                let swapped = pos.side < 0;
+                let mut pos = pos.clone();
+                let mut cur_move = mv.clone();
+                if swapped {
+                  pos.swap_sides();
+                  cur_move.swap_side();
+                }
+                assert!(pos.side > 0);
+                pos.move_no = 1;
+                //s.hashes_retain(depth as u8);
+                let nodes = s.nodes;
+                let (res, pv) = s.search(&mut pos, depth as u8);
+                let m = s.hashes_approximate_used_memory();
+                if m > (1 << 29) {
+                  warn!(
+                    "Hashes used about {:.03} Mib, game {}, move {}, fen: {}",
+                    m as f64 / ((1 << 20) as f64),
+                    game_no,
+                    move_no,
+                    pos
                   );
+                }
+                if res.is_some() {
+                  let res = res.unwrap();
+                  if let Some(p) = pv {
+                    if *p.first().unwrap() == cur_move {
+                      info!(
+                        "Tsume in {} moves was found and played, pos: {}, game: {}, move: {}",
+                        res, pos, game_no, move_no
+                      );
+                    } else {
+                      output_stream.write_puzzle(res, &g, &pos, p, swapped, s.nodes - nodes)?;
+                    }
+                  } else {
+                    info!(
+                      "Tsume in {} moves isn't unique, sfen: {}, game: {}, move: {}",
+                      res, pos, game_no, move_no,
+                    );
+                  }
                 }
               }
             }
@@ -291,11 +297,6 @@ fn process_kif(filename: &str, opts: &CMDOptions) -> std::io::Result<()> {
             if current_side * pos.side < 0 {
               if !pos.is_check() {
                 s.hashes_clear();
-              } else {
-                let ue = s.hashes_remove_unused_entries();
-                if memory_warning {
-                  info!("Free {} unused enties", ue);
-                }
               }
             }
           }

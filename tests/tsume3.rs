@@ -61,7 +61,7 @@ fn unique_mate() {
   let mut pos =
     Position::parse_sfen("+N7l/9/2GSppS2/p5p+Rp/7l1/1PP1k4/P1SP2NP1/2GK2S2/LN1B1G3 b RN3Pbgl5p 1")
       .unwrap();
-  let mut s = search::Search::default();
+  let mut s = search::Search::new(1 << 20);
   let ans = s.search(&mut pos, 3);
   assert_eq!(ans.0, Some(3));
   assert!(ans.1.is_some());

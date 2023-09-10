@@ -6,9 +6,8 @@ mod result;
 use super::{shogi, stats};
 use result::{BestMove, SearchResult};
 use shogi::between::Between;
-use shogi::moves::{Move, Moves};
+use shogi::moves::{moves_to_kif, Move, Moves};
 use shogi::{alloc::PositionMovesAllocator, Checks, Position};
-use stats::Average;
 use std::cmp::Ordering;
 
 #[cfg(feature = "stats")]
@@ -38,21 +37,20 @@ struct Stats {
   gote_is_futile_drop_false: u64,
   gote_is_futile_drop_true_percent: f64,
   //sente
-  compute_check_candidates_average: Average,
-  compute_drops_with_checks_average: Average,
-  compute_drops_no_pawns_with_checks_average: Average,
+  compute_check_candidates_average: stats::Average,
+  compute_drops_with_checks_average: stats::Average,
+  compute_drops_no_pawns_with_checks_average: stats::Average,
   //gote
-  compute_moves_after_non_blocking_check_average: Average,
-  compute_moves_after_sliding_piece_check_average: Average,
-  compute_legal_king_moves_average: Average,
-  compute_drops_after_sliding_piece_check_average: Average,
+  compute_moves_after_non_blocking_check_average: stats::Average,
+  compute_moves_after_sliding_piece_check_average: stats::Average,
+  compute_legal_king_moves_average: stats::Average,
+  compute_drops_after_sliding_piece_check_average: stats::Average,
 }
 
 #[cfg(not(feature = "stats"))]
 #[derive(Default, Debug)]
 struct Stats {}
 
-#[derive(Default)]
 pub struct Search {
   sente_hash: hash::SenteHashTable,
   gote_hash: hash::GoteHashTable,
@@ -65,6 +63,19 @@ pub struct Search {
 }
 
 impl Search {
+  pub fn new(cache_memory: usize) -> Self {
+    let m = cache_memory / 2;
+    Self {
+      sente_hash: hash::SenteHashTable::new(m),
+      gote_hash: hash::GoteHashTable::new(m),
+      gote_history: Vec::new(),
+      allocator: PositionMovesAllocator::default(),
+      b: Between::default(),
+      nodes: 0,
+      hash_nodes: 0,
+      stats: Stats::default(),
+    }
+  }
   fn gote_history_len(&self) -> usize {
     self.gote_history.iter().fold(0, |acc, p| acc + p.len())
   }
@@ -118,6 +129,10 @@ impl Search {
   }
   pub fn hashes_remove_unused_entries(&mut self) -> usize {
     self.sente_hash.remove_unused() + self.gote_hash.remove_unused()
+  }
+  fn next_generation(&mut self) {
+    self.sente_hash.next_generation();
+    self.gote_hash.next_generation();
   }
   fn on_search_end(&mut self) {
     self.history_merge();
@@ -345,13 +360,19 @@ impl Search {
     }
     r.undo(pos);
     let r = r.only_moves();
-    assert_eq!(r.len(), depth);
+    assert_eq!(
+      r.len(),
+      depth,
+      "pos = {}, r = {}",
+      pos,
+      moves_to_kif(&r, pos.side)
+    );
     r
   }
   pub fn search(&mut self, pos: &mut Position, max_depth: u8) -> (Option<u8>, Option<Vec<Move>>) {
     log::debug!("search(pos: {}, max_depth: {})", pos, max_depth);
     assert!(pos.side > 0);
-    //self.increment_generation();
+    self.next_generation();
     let hash = pos.hash;
     let mut res = (None, None);
     for depth in (1..=max_depth).step_by(2) {
@@ -362,7 +383,7 @@ impl Search {
       if ev.best_move.is_some() {
         res.0 = Some(ev.depth);
         if ev.best_move.is_one() {
-          let pv = self.extract_pv_from_hash(pos, depth as usize);
+          let pv = self.extract_pv_from_hash(pos, ev.depth as usize);
           assert_eq!(hash, pos.hash);
           res.1 = Some(pv);
         }

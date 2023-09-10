@@ -34,6 +34,12 @@ impl BestMove {
       _ => true,
     }
   }
+  pub fn with_move(&self) -> bool {
+    match *self {
+      BestMove::One(x) => x != 0,
+      _ => false,
+    }
+  }
   fn store_move(&mut self, m: &Move, bm: BestMove) {
     *self = match bm {
       BestMove::One(_) => BestMove::One(u32::from(m)),
