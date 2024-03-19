@@ -3,12 +3,7 @@ use std::io::prelude::*;
 use std::io::BufReader;
 use std::str::FromStr;
 
-use super::{
-  alloc::PositionMovesAllocator,
-  game::{Game, GameResult},
-  moves::Move,
-  Position,
-};
+use super::{alloc::PositionMovesAllocator, game::Game, moves::Move, Position};
 
 #[test]
 fn test_parse_header() {
@@ -26,7 +21,7 @@ fn last_line<'a>(s: &'a str) -> Option<&'a str> {
   }
 }
 
-fn parse_header(s: &str) -> Option<(String, String)> {
+pub fn parse_header(s: &str) -> Option<(String, String)> {
   let mut key = String::new();
   let mut value = String::new();
   let mut st = 0;
@@ -44,6 +39,8 @@ fn parse_header(s: &str) -> Option<(String, String)> {
           st += 1;
         } else if c.is_ascii_alphabetic() {
           key.push(c.to_ascii_lowercase());
+        } else if c.is_ascii_digit() {
+          key.push(c);
         } else {
           return None;
         }
@@ -195,43 +192,8 @@ pub fn parse_psn_game(a: &Vec<String>) -> std::result::Result<Game, ParsePSNGame
       ));
     }
   }
-  match g.result() {
-    GameResult::BlackWon => {
-      if pos.side < 0 {
-        assert_eq!(g.moves.len() % 2, 1);
-        if !pos.has_legal_move(&mut allocator) {
-          g.set_header(String::from("checkmate"), String::from("true"));
-        } else {
-          g.set_header(String::from("resignation"), String::from("true"));
-        }
-      } else {
-        return Err(ParsePSNGameError::new(
-          String::default(),
-          format!("unexpected black to move in {}", g.to_short_string()),
-        ));
-      }
-    }
-    GameResult::WhiteWon => {
-      if pos.side > 0 {
-        assert_eq!(g.moves.len() % 2, 0);
-        if !pos.has_legal_move(&mut allocator) {
-          g.set_header(String::from("checkmate"), String::from("true"));
-        } else {
-          g.set_header(String::from("resignation"), String::from("true"));
-        }
-      } else {
-        return Err(ParsePSNGameError::new(
-          String::default(),
-          format!("unexpected white to move in {}", g.to_short_string()),
-        ));
-      }
-    }
-    GameResult::Unknown => {
-      return Err(ParsePSNGameError::new(
-        String::default(),
-        format!("unknown game result in {}", g.to_short_string()),
-      ));
-    }
-  }
-  Ok(g)
+  let res = g.adjourn(&mut pos, &mut allocator);
+  res
+    .map(|_| g)
+    .map_err(|s| ParsePSNGameError::new(String::default(), s))
 }

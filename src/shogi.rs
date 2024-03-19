@@ -13,6 +13,7 @@ pub mod game;
 mod hash;
 pub mod kif;
 pub mod moves;
+pub mod pgn;
 pub mod piece;
 pub mod psn;
 
@@ -1979,6 +1980,55 @@ impl Position {
       }
     }
     false
+  }
+  pub fn parse_pgn_move(&self, pgn_move: &str) -> Option<Move> {
+    let a = pgn_move.as_bytes();
+    if a.len() != 4 && a.len() != 5 {
+      return None;
+    }
+    let promoted = if a.len() == 5 {
+      if a[4] != b'+' {
+        return None;
+      }
+      true
+    } else {
+      false
+    };
+    let to = cell::from_pgn_str(a[2], a[3]);
+    if to.is_none() {
+      return None;
+    }
+    let to = to.unwrap();
+    if a[1] == b'@' {
+      let p = piece::from_char(a[0] as char);
+      if p <= 0 {
+        return None;
+      }
+      Some(Move {
+        from: 0x7f,
+        to,
+        from_piece: piece::NONE,
+        to_piece: p * self.side,
+      })
+    } else {
+      let from = cell::from_pgn_str(a[0], a[1]);
+      if from.is_none() {
+        return None;
+      }
+      let from = from.unwrap();
+      let from_piece = self.board[from];
+      let to_piece = if promoted {
+        piece::promote(from_piece)
+      } else {
+        from_piece
+      };
+      Some(Move {
+        from,
+        to,
+        from_piece,
+        to_piece,
+      })
+    }
   }
   pub fn parse_kif_move(
     &mut self,

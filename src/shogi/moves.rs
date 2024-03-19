@@ -145,6 +145,28 @@ impl Move {
       s
     }
   }
+  pub fn to_pgn(&self) -> String {
+    if self.is_drop() {
+      let mut s = piece::to_string(self.to_piece, true);
+      s.push('@');
+      cell::push_cell_as_stockfish_str(&mut s, self.to);
+      s
+    } else {
+      let mut s = String::new();
+      cell::push_cell_as_stockfish_str(&mut s, self.from);
+      cell::push_cell_as_stockfish_str(&mut s, self.to);
+      //piece::to_string(self.from_piece, true);
+      if !piece::is_promoted(self.from_piece)
+        && piece::is_promoted(self.to_piece)
+        && piece::could_promoted(self.from_piece)
+        && (cell::promotion_zone(self.from, self.to_piece)
+          || cell::promotion_zone(self.to, self.to_piece))
+      {
+        s.push('+');
+      }
+      s
+    }
+  }
   pub fn packed_take_move(&self, taken_piece: i8) -> u32 {
     u32::from(self) + ((taken_piece.abs() as u32) << 26)
   }

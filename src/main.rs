@@ -4,7 +4,7 @@ use std::io::{BufReader, BufWriter};
 use std::iter;
 
 use game::Game;
-use shogi::{game, moves, psn, Position};
+use shogi::{game, moves, pgn, psn, Position};
 use tsumeshogi_check::cmd_options::CMDOptions;
 use tsumeshogi_check::{io, search, shogi, timer};
 
@@ -39,6 +39,33 @@ fn process_psn(filename: &str) -> std::io::Result<()> {
       }
       Ok(g) => {
         let s = kb.game_to_kif(&g, None);
+        write!(f, "{}", s)?;
+        f.flush()?;
+      }
+    }
+  }
+  Ok(())
+}
+
+fn process_pgn(filename: &str) -> std::io::Result<()> {
+  let it = pgn::PGNFileIterator::new(filename)?;
+  let kb = shogi::kif::KIFBuilder::default();
+  for (game_no, a) in it.enumerate() {
+    if a.is_err() {
+      error!("Game #{}: {:?}", game_no + 1, a);
+      break;
+    }
+    let a = a.unwrap();
+    let g = pgn::parse_pgn_game(&a);
+    match g {
+      Err(err) => {
+        error!("Game #{}: {:?}", game_no + 1, err);
+        break;
+      }
+      Ok(g) => {
+        let s = kb.game_to_kif(&g, None);
+        let dst = format!("{}.kif", game_no + 1);
+        let mut f = open_destination_writer(&dst)?;
         write!(f, "{}", s)?;
         f.flush()?;
       }
@@ -322,6 +349,8 @@ fn main() -> std::io::Result<()> {
       process_file(&filename, &opts)?;
     } else if filename.ends_with(".kif") {
       process_kif(&filename, &opts)?;
+    } else if filename.ends_with(".pgn") {
+      process_pgn(&filename)?;
     }
   }
   Ok(())

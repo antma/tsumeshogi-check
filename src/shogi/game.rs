@@ -1,4 +1,4 @@
-use super::Move;
+use super::{alloc::PositionMovesAllocator, Move, Position};
 
 pub enum GameResult {
   Unknown,
@@ -77,5 +77,47 @@ impl Game {
     } else {
       GameResult::Unknown
     }
+  }
+  pub fn adjourn(
+    &mut self,
+    pos: &mut Position,
+    allocator: &mut PositionMovesAllocator,
+  ) -> std::result::Result<(), String> {
+    match self.result() {
+      GameResult::BlackWon => {
+        if pos.side < 0 {
+          assert_eq!(self.moves.len() % 2, 1);
+          if !pos.has_legal_move(allocator) {
+            self.set_header(String::from("checkmate"), String::from("true"));
+          } else {
+            self.set_header(String::from("resignation"), String::from("true"));
+          }
+        } else {
+          return Err(format!(
+            "unexpected black to move in {}",
+            self.to_short_string()
+          ));
+        }
+      }
+      GameResult::WhiteWon => {
+        if pos.side > 0 {
+          assert_eq!(self.moves.len() % 2, 0);
+          if !pos.has_legal_move(allocator) {
+            self.set_header(String::from("checkmate"), String::from("true"));
+          } else {
+            self.set_header(String::from("resignation"), String::from("true"));
+          }
+        } else {
+          return Err(format!(
+            "unexpected white to move in {}",
+            self.to_short_string()
+          ));
+        }
+      }
+      GameResult::Unknown => {
+        return Err(format!("unknown game result in {}", self.to_short_string()));
+      }
+    }
+    Ok(())
   }
 }
