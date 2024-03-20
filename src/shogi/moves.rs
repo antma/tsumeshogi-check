@@ -149,12 +149,12 @@ impl Move {
     if self.is_drop() {
       let mut s = piece::to_string(self.to_piece, true);
       s.push('@');
-      cell::push_cell_as_stockfish_str(&mut s, self.to);
+      cell::push_cell_as_pgn_str(&mut s, self.to);
       s
     } else {
       let mut s = String::new();
-      cell::push_cell_as_stockfish_str(&mut s, self.from);
-      cell::push_cell_as_stockfish_str(&mut s, self.to);
+      cell::push_cell_as_pgn_str(&mut s, self.from);
+      cell::push_cell_as_pgn_str(&mut s, self.to);
       //piece::to_string(self.from_piece, true);
       if !piece::is_promoted(self.from_piece)
         && piece::is_promoted(self.to_piece)

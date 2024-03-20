@@ -79,6 +79,7 @@ pub fn parse_pgn_game(a: &Vec<String>) -> std::result::Result<Game, ParsePGNGame
       if s.is_empty() {
         game_result = g.result().to_string();
         st += 1;
+        log::debug!("Game headers: {:?}", g.header);
       } else {
         match super::psn::parse_header(s) {
           Some((key, value)) => {
@@ -88,10 +89,14 @@ pub fn parse_pgn_game(a: &Vec<String>) -> std::result::Result<Game, ParsePGNGame
               } else if value == "0-1" {
                 g.set_header(key, "3".to_owned());
               }
-            } else if key == "P1" {
+            } else if key == "p1" {
               g.set_header("sente".to_owned(), value);
-            } else if key == "P2" {
+            } else if key == "p2" {
               g.set_header("gote".to_owned(), value);
+            } else if key == "p1elo" {
+              g.set_header("senteelo".to_owned(), value);
+            } else if key == "p2elo" {
+              g.set_header("goteelo".to_owned(), value);
             } else {
               g.set_header(key, value);
             }

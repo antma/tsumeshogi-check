@@ -17,10 +17,10 @@ pub fn push_cell_as_en_str(s: &mut String, cell: usize, numeric: bool) {
   s.push(((if numeric { 49 } else { 97 }) + row as u8) as char);
 }
 
-pub fn push_cell_as_stockfish_str(s: &mut String, cell: usize) {
+pub fn push_cell_as_pgn_str(s: &mut String, cell: usize) {
   let (row, col) = super::cell::unpack(cell);
-  s.push((97 + col as u8) as char);
-  s.push((49 + row as u8) as char);
+  s.push((97 + (8 - col) as u8) as char);
+  s.push((49 + (8 - row) as u8) as char);
 }
 
 pub fn to_string(cell: usize) -> String {
