@@ -23,7 +23,7 @@ impl Default for KIFBuilder {
     for (s_jp, s_en) in vec![
       ("開始日時", "date"),
       ("棋戦", "event"),
-      ("場所", "location"),
+      ("場所", "site"),
       ("先手", "sente"),
       ("後手", "gote"),
       ("持ち時間", "control"),
@@ -126,7 +126,7 @@ impl KIFBuilder {
     let mut s = KIF_HEADER_LINE.to_owned();
     s.push('\n');
     for en in vec![
-      "date", "event", "location", "sfen", "control", "handicap", "sente", "gote",
+      "date", "event", "site", "sfen", "control", "handicap", "sente", "gote",
     ] {
       if en == "sfen" {
         if let Some(pos) = start_pos {
@@ -135,7 +135,24 @@ impl KIFBuilder {
       } else {
         if let Some(t) = game.header.get(en) {
           if let Some(jp) = self.en_to_jp(en) {
-            s.push_str(&format!("{}：{}\n", jp, t));
+            s.push_str(jp);
+            s.push_str(": ");
+            if en == "sente" {
+              if let Some(elo) = game.header.get("senteelo") {
+                s.push_str(&format!("{} ({})", t, elo));
+              } else {
+                s.push_str(t);
+              }
+            } else if en == "gote" {
+              if let Some(elo) = game.header.get("goteelo") {
+                s.push_str(&format!("{} ({})", t, elo));
+              } else {
+                s.push_str(t);
+              }
+            } else {
+              s.push_str(t);
+            };
+            s.push('\n');
           }
         }
       }
