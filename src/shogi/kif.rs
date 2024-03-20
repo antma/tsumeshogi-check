@@ -226,6 +226,15 @@ impl KIFBuilder {
         if let Some(kif) = parse_move(s, pos.move_no) {
           if kif == "投了" {
             g.resign(pos.move_no);
+            let mut allocator = PositionMovesAllocator::default();
+            let _ = g.adjourn(&mut pos, &mut allocator);
+            break;
+          }
+          if kif == "詰み" {
+            //checkmate
+            g.loss(pos.move_no);
+            let mut allocator = PositionMovesAllocator::default();
+            let _ = g.adjourn(&mut pos, &mut allocator);
             break;
           }
           if let Some(m) = pos.parse_kif_move(&mut self.allocator, kif, last_move) {

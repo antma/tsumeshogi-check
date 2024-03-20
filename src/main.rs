@@ -110,6 +110,7 @@ impl<'a> OutputStream<'a> {
     nodes: u64,
   ) -> std::io::Result<()> {
     self.puzzles += 1;
+    log::info!("Output #{} puzzle (tsume in {} moves)", self.puzzles, res);
     match self.output_format {
       Format::Kif => {
         let mut game = Game::default();
