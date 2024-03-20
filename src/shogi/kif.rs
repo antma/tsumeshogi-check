@@ -123,7 +123,8 @@ pub fn position_to_kif(s: &mut String, pos: &Position) {
 
 impl KIFBuilder {
   pub fn game_to_kif(&self, game: &Game, start_pos: Option<&Position>) -> String {
-    let mut s = String::new();
+    let mut s = KIF_HEADER_LINE.to_owned();
+    s.push('\n');
     for en in vec![
       "date", "event", "location", "sfen", "control", "handicap", "sente", "gote",
     ] {
@@ -155,8 +156,10 @@ impl KIFBuilder {
   }
 }
 
+const KIF_HEADER_LINE: &str = "#KIF version=2.0 encoding=UTF-8";
+
 pub fn kif_file_iterator(filename: &str) -> std::io::Result<FileIterator> {
-  FileIterator::new(filename, "#KIF version=2.0 encoding=UTF-8")
+  FileIterator::new(filename, KIF_HEADER_LINE)
 }
 
 fn parse_header<'a>(s: &'a str) -> Option<(&'a str, &'a str)> {
